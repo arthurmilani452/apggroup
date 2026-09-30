@@ -1,0 +1,114 @@
+# Globais do Roblox para o selene (versão simples: o API dump do Roblox não pode ser baixado aqui).
+base: luau
+name: roblox_lenient
+globals:
+  game:
+    any: true
+  workspace:
+    any: true
+  script:
+    any: true
+  plugin:
+    any: true
+  shared:
+    any: true
+  Instance:
+    any: true
+  Enum:
+    any: true
+  Vector3:
+    any: true
+  Vector2:
+    any: true
+  Vector3int16:
+    any: true
+  Vector2int16:
+    any: true
+  CFrame:
+    any: true
+  Color3:
+    any: true
+  ColorSequence:
+    any: true
+  ColorSequenceKeypoint:
+    any: true
+  NumberSequence:
+    any: true
+  NumberSequenceKeypoint:
+    any: true
+  NumberRange:
+    any: true
+  UDim:
+    any: true
+  UDim2:
+    any: true
+  Rect:
+    any: true
+  Region3:
+    any: true
+  Ray:
+    any: true
+  RaycastParams:
+    any: true
+  OverlapParams:
+    any: true
+  TweenInfo:
+    any: true
+  BrickColor:
+    any: true
+  PhysicalProperties:
+    any: true
+  Random:
+    any: true
+  DateTime:
+    any: true
+  Font:
+    any: true
+  Faces:
+    any: true
+  Axes:
+    any: true
+  PathWaypoint:
+    any: true
+  SharedTable:
+    any: true
+  task:
+    any: true
+  tick:
+    any: true
+  time:
+    any: true
+  wait:
+    any: true
+  delay:
+    any: true
+  spawn:
+    any: true
+  warn:
+    any: true
+  elapsedTime:
+    any: true
+  settings:
+    any: true
+  UserSettings:
+    any: true
+  typeof:
+    any: true
+  require:
+    any: true
+  debug:
+    any: true
+  Content:
+    any: true
+  Path2DControlPoint:
+    any: true
+  RotationCurveKey:
+    any: true
+  FloatCurveKey:
+    any: true
+  CatalogSearchParams:
+    any: true
+  DockWidgetPluginGuiInfo:
+    any: true
+  Secret:
+    any: true
