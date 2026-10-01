@@ -45,7 +45,7 @@ function RetentionUI.Init(ctx)
 		ZIndex = 31,
 		Parent = stack,
 	}, "", function()
-		if (tonumber(player:GetAttribute("GiftReadyAt")) or math.huge) <= os.time() then
+		if (tonumber(player:GetAttribute("GiftReadyAt")) or math.huge) <= math.floor(workspace:GetServerTimeNow()) then -- v28: relógio do servidor, não o do aparelho
 			ctx.play("Click")
 			ctx.RequestEvent:FireServer("GiftClaim")
 		end
@@ -62,7 +62,7 @@ function RetentionUI.Init(ctx)
 			return
 		end
 		giftButton.Visible = true
-		local left = readyAt - os.time()
+		local left = readyAt - math.floor(workspace:GetServerTimeNow())
 		if left > 0 then
 			if giftReady then
 				giftReady = false
@@ -212,7 +212,7 @@ function RetentionUI.Init(ctx)
 			spinText.Text = "SPIN!"
 			spinButton.BackgroundColor3 = C.Green
 		else
-			local secondsLeft = 86400 - (os.time() % 86400)
+			local secondsLeft = 86400 - (math.floor(workspace:GetServerTimeNow()) % 86400)
 			spinText.Text = "Next spin in " .. Format.Time(secondsLeft)
 			spinButton.BackgroundColor3 = C.Gray
 		end

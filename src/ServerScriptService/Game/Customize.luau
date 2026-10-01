@@ -798,6 +798,8 @@ end
 ---------------------------------------------------------------------
 -- Ações da tela "Style"
 ---------------------------------------------------------------------
+local lastStyleChange: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
+
 function Customize.Handle(player: Player, action: string, argument: any)
 	local data = getData(player)
 	local Remotes = Registry.Remotes
@@ -805,6 +807,17 @@ function Customize.Handle(player: Player, action: string, argument: any)
 		return
 	end
 	local style = data.Style
+	-- v28: trocar tema/decoração/trilha reconstrói coisas em todos os jogadores: no máximo 1 vez por segundo
+	if action == "SetTheme" or action == "PlaceDecor" or action == "SetTrail" then
+		local now = os.clock()
+		if now - (lastStyleChange[player] or 0) < (if action == "PlaceDecor" then 0.4 else 1) then
+			return
+		end
+		lastStyleChange[player] = now
+		if action == "SetTheme" and argument == style.Theme then
+			return -- já é esse tema: nada para refazer
+		end
+	end
 	if action == "StyleSync" then
 		Customize.Sync(player)
 		return

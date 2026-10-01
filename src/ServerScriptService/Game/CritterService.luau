@@ -33,6 +33,7 @@ local carrying: { [Player]: any } = {}
 local nextUid = 0
 
 
+local MAX_CARRY_TIME = 120 -- v28: segundos máximos carregando um bichinho roubado
 local RAINBOW = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 80)),
 	ColorSequenceKeypoint.new(0.2, Color3.fromRGB(255, 190, 60)),
@@ -1095,6 +1096,11 @@ onSell = function(rec, player: Player)
 	if not closeEnough(player, rec.Root.Position, 18) then
 		return
 	end
+	-- v28: recém-roubado não pode ser vendido na hora (a vítima tem a chance de roubar de volta)
+	if rec.StolenLock > os.clock() then
+		Registry.Remotes.Notify(player, ("Just stolen! You can sell it in %ds."):format(math.ceil(rec.StolenLock - os.clock())), "info")
+		return
+	end
 	local plot = rec.Plot
 	if plot.Slots[rec.Slot] == rec then
 		plot.Slots[rec.Slot] = nil
@@ -1348,6 +1354,9 @@ onSteal = function(rec, thief: Player)
 	rec.Thief = thief
 	rec.CarryStart = os.clock()
 	rec.CarryFrom = root.Position
+	rec.LastCarryPos = nil -- v28: zera o anti-teleporte do caminho
+	rec.LastCarryTime = nil
+	rec.CarryStrikes = 0
 	carrying[thief] = rec
 	clearPrompts(rec)
 	updateInfo(rec)
@@ -1965,7 +1974,31 @@ function CritterService.Init()
 					local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 					local weld = rec.CarryWeld
+					-- v28: anti-teleporte durante o caminho. Antes só o tempo total era conferido, então dava para
+					-- esperar parado e depois se teletransportar para a base. Agora cada salto grande demais devolve o bichinho.
+					local now = os.clock()
+					local teleported = false
+					if root and humanoid then
+						local flat = Vector3.new(root.Position.X, 0, root.Position.Z)
+						if rec.LastCarryPos and rec.LastCarryTime then
+							local dt = math.max(now - rec.LastCarryTime, 0.05)
+							local maxStep = (humanoid.WalkSpeed * 2 + 30) * dt + 8
+							if (flat - rec.LastCarryPos).Magnitude > maxStep then
+								rec.CarryStrikes = (rec.CarryStrikes or 0) + 1
+								teleported = rec.CarryStrikes >= 2 -- uma folga para picos de lag
+							else
+								rec.CarryStrikes = 0
+							end
+						end
+						rec.LastCarryPos = flat
+						rec.LastCarryTime = now
+					end
 					if not root or not humanoid or humanoid.Health <= 0 or not weld or weld.Part0 ~= root then
+						returnToOwner(rec, "dropped")
+					elseif teleported then
+						returnToOwner(rec, "invalid")
+					elseif now - (rec.CarryStart or now) > MAX_CARRY_TIME then
+						-- v28: ninguém segura o bichinho de outro jogador como refém para sempre
 						returnToOwner(rec, "dropped")
 					else
 						local home = Registry.Plots.Get(thief)

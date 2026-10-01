@@ -23,7 +23,7 @@ local friendBonus: { [Player]: number } = {}
 local groupMember: { [Player]: boolean } = {}
 local indexCount: { [Player]: number } = {}
 local friendCache: { [string]: boolean } = {}
-local lastRequest: { [Player]: number } = {}
+local lastRequest: { [Player]: { [string]: number } } = {}
 local trainTime: { [Player]: number } = {}
 local lastGroupCheck: { [Player]: number } = {}
 local GROUP_RECHECK_COOLDOWN = 6 -- segundos entre uma conferência do grupo e outra (botão JOIN)
@@ -686,11 +686,17 @@ function Economy.Init()
 		if typeof(action) ~= "string" then
 			return
 		end
+		-- v28: o limite é por ação, para pedidos diferentes em sequência (ex.: abrir o painel social) não se perderem
 		local t = os.clock()
-		if t - (lastRequest[player] or 0) < 0.15 then
+		local perAction = lastRequest[player]
+		if not perAction then
+			perAction = {}
+			lastRequest[player] = perAction
+		end
+		if t - (perAction[action] or 0) < 0.15 then
 			return
 		end
-		lastRequest[player] = t
+		perAction[action] = t
 		-- nada de compras/códigos antes da base e dos dados terminarem de carregar
 		if not player:GetAttribute("Loaded") and not ALLOWED_BEFORE_LOAD[action] then
 			return

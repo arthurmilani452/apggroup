@@ -134,7 +134,15 @@ local function lockedByOther(value: any): boolean
 	return session.JobId ~= game.JobId and os.time() - (tonumber(session.Time) or 0) < SESSION_TIMEOUT
 end
 
+-- v28: saves finais em andamento por UserId. Quem sai e volta no MESMO servidor precisa esperar
+-- o save da saída terminar; senão carregava dados velhos e depois apagava o progresso da sessão anterior.
+local finalSaving: { [number]: boolean } = {}
+
 function Data.Load(player: Player): Profile
+	local waitedFinal = 0
+	while finalSaving[player.UserId] and waitedFinal < 40 and player.Parent do
+		waitedFinal += task.wait(0.25)
+	end
 	local loaded = false
 	local result: any = nil
 	local isNew = false
@@ -221,6 +229,9 @@ function Data.Save(player: Player, isFinal: boolean?): boolean
 		return false
 	end
 	activeSaves += 1
+	if isFinal then
+		finalSaving[player.UserId] = true -- marcado já antes de esperar um autosave em andamento
+	end
 	local waited = 0
 	local limit = if isFinal then 30 else 15
 	while profile.Saving and waited < limit do
@@ -229,6 +240,9 @@ function Data.Save(player: Player, isFinal: boolean?): boolean
 	-- nunca dois saves do mesmo jogador ao mesmo tempo: se o outro ainda não acabou, este desiste
 	-- (o save da saída espera mais e segue; o número SaveSeq impede o save velho de apagar o novo)
 	if profile.Final or not profile.CanSave or (profile.Saving and not isFinal) then
+		if isFinal and not profile.Saving then -- se outro save final ainda roda, ele mesmo limpa no fim
+			finalSaving[player.UserId] = nil
+		end
 		activeSaves -= 1
 		return false
 	end
@@ -292,6 +306,9 @@ function Data.Save(player: Player, isFinal: boolean?): boolean
 	end
 
 	profile.Saving = false
+	if isFinal then
+		finalSaving[player.UserId] = nil
+	end
 	activeSaves -= 1
 	return success
 end

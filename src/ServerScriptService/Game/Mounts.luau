@@ -158,11 +158,19 @@ function Mounts.Dismount(player: Player)
 	end
 end
 
+local lastRide: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any -- v28: chave fraca, some quando o jogador sai
+
 function Mounts.Ride(player: Player, id: any)
 	if id == "off" or id == nil then
 		Mounts.Dismount(player)
 		return
 	end
+	-- v28: montar reconstrói o modelo inteiro (e todos os jogadores recebem); 1 vez a cada 1,5 s basta
+	local now = os.clock()
+	if now - (lastRide[player] or 0) < 1.5 then
+		return
+	end
+	lastRide[player] = now
 	local mount = typeof(id) == "string" and Config.MountById[id]
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?

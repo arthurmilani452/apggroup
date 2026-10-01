@@ -494,7 +494,7 @@ function WorldLife.Init(ctx)
 	end
 	CollectionService:GetInstanceAddedSignal("FunPrize"):Connect(setupPrizeLabel)
 	local function updatePrizes()
-		local now = os.time()
+		local now = math.floor(workspace:GetServerTimeNow())
 		for prize, label in prizeLabels do
 			if not prize.Parent then
 				prizeLabels[prize] = nil
@@ -636,7 +636,7 @@ function WorldLife.Init(ctx)
 		if not plotsFolder then
 			return
 		end
-		local now = os.time()
+		local now = math.floor(workspace:GetServerTimeNow())
 		for _, plot in plotsFolder:GetChildren() do
 			local untilTime = plot:GetAttribute("AlarmUntil")
 			local active = typeof(untilTime) == "number" and untilTime > now

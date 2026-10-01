@@ -1780,6 +1780,11 @@ local function canStealFrom(ownerUserId: any): boolean
 	if typeof(ownerUserId) ~= "number" then
 		return true
 	end
+	-- v28: vingança passa por cima das outras regras (igual ao servidor em Fairness.CanSteal)
+	local revengeUntil = player:GetAttribute("RevengeUntil")
+	if player:GetAttribute("RevengeTarget") == ownerUserId and typeof(revengeUntil) == "number" and revengeUntil > workspace:GetServerTimeNow() then
+		return true
+	end
 	local map = workspace:FindFirstChild("Map")
 	local plots = map and map:FindFirstChild("Plots")
 	if plots then
@@ -2808,7 +2813,7 @@ RunService.Heartbeat:Connect(function(dt)
 	local weeklyName = workspace:GetAttribute("WeeklyName")
 	local weeklyEnds = workspace:GetAttribute("WeeklyEnds")
 	if typeof(weeklyName) == "string" and typeof(weeklyEnds) == "number" then
-		local left = math.max(0, weeklyEnds - os.time())
+		local left = math.max(0, weeklyEnds - math.floor(workspace:GetServerTimeNow()))
 		local days = math.floor(left / 86400)
 		local hours = math.floor((left % 86400) / 3600)
 		local leftText = if days > 0 then ("%dd %dh"):format(days, hours) elseif hours > 0 then ("%dh"):format(hours) else ("%dm"):format(math.max(1, math.floor(left / 60)))
