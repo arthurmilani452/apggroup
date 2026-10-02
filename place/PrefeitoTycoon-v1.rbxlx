@@ -1504,13 +1504,13 @@ local list: { Building } = {
 		Model = { Kind = "house", Height = 15, Color = { 186, 196, 204 }, Roof = { 60, 64, 72 } },
 	},
 	{
-		Id = "predio", Name = "Prédio Residencial", Desc = "Oito andares. 90 moradores.",
-		Category = "residential", Tier = 3, Cost = 6000, W = 2, D = 2, Housing = 90, Power = 6,
+		Id = "predio", Name = "Prédio Residencial", Desc = "Oito andares. 120 moradores.",
+		Category = "residential", Tier = 3, Cost = 7000, W = 2, D = 2, Housing = 120, Power = 6,
 		Model = { Kind = "tower", Height = 34, Color = { 168, 150, 132 }, Window = { 255, 214, 140 } },
 	},
 	{
-		Id = "torre", Name = "Torre Residencial", Desc = "Vidro e concreto. 400 moradores.",
-		Category = "residential", Tier = 4, Cost = 60000, W = 2, D = 2, Housing = 400, Power = 25,
+		Id = "torre", Name = "Torre Residencial", Desc = "Vidro e concreto. 500 moradores.",
+		Category = "residential", Tier = 4, Cost = 70000, W = 2, D = 2, Housing = 500, Power = 25,
 		Model = { Kind = "tower", Height = 70, Color = { 70, 86, 104 }, Window = { 150, 210, 255 }, Glass = true },
 	},
 	{
@@ -1854,7 +1854,7 @@ function CityMath.Compute(state: Grid.State, ctx: any): Stats
 	local income = population * Config.TaxPerResident * (event.Tax or 1)
 		+ commerceIncome * staffing * (event.Commerce or 1)
 		+ industryIncome * staffing * (event.Industry or 1)
-	income *= powerRatio * multiplier
+	income *= (Config.PowerFloor + (1 - Config.PowerFloor) * powerRatio) * multiplier
 
 	return {
 		Housing = housing,
@@ -1933,11 +1933,12 @@ Config.Expansions = {
 }
 
 -- ===== Economia =====
-Config.StartCash = 600
+Config.StartCash = 1500
 Config.SimInterval = 5 -- segundos entre cada passo da simulação da cidade
 Config.TaxPerResident = 0.2 -- $ por morador por segundo
 Config.WorkerShare = 0.6 -- parte da população que trabalha
 Config.SellRefund = 0.5 -- demolir devolve 50% do preço
+Config.PowerFloor = 0.4 -- sem energia nenhuma a cidade ainda rende 40% (nunca trava o jogador sem dinheiro)
 Config.MaxCash = 1e15
 
 -- Cofre da Prefeitura: a renda cai nele e o jogador precisa ir lá coletar (o loop do tycoon).
@@ -2259,6 +2260,9 @@ function Grid.Bounds(level: number): (number, number, number, number)
 end
 
 function Grid.At(state: State, x: number, z: number): number?
+	if x < 1 or x > N or z < 1 or z > N then
+		return nil -- fora da grade (sem isso o índice "dava a volta" para outra fileira)
+	end
 	return state.Cells[Grid.Index(x, z)]
 end
 
@@ -2472,7 +2476,8 @@ function LotLayout.CFrame(index: number): CFrame
 	local angle = (index - 1) * 2 * math.pi / Config.MaxPlayers
 	local dir = Vector3.new(math.sin(angle), 0, math.cos(angle))
 	local pos = dir * Config.LotRadius + Vector3.new(0, Config.LotGroundY, 0)
-	local cf = CFrame.lookAt(pos, pos - dir)
+	-- girar em Y pelo próprio ângulo deixa o -Z local apontando para o hub (igual a lookAt(pos, pos - dir))
+	local cf = CFrame.new(pos) * CFrame.Angles(0, angle, 0)
 	cache[index] = cf
 	return cf
 end
@@ -2801,7 +2806,8 @@ actions.remove = function(city, payload)
 	end
 end
 
-actions.collect = function(city, _payload)
+-- Só pelo ProximityPrompt do cofre (Lots.OnVault): não é uma ação do Request, senão dava para coletar de longe
+local function collectVault(city: CityT)
 	local data = city.Data
 	if data.Vault < 1 then
 		return
@@ -3112,11 +3118,15 @@ function City.Start(player: Player, profile: any): boolean
 	return true
 end
 
+-- Copia a cidade para os dados (o save leva junto) e libera o terreno na hora,
+-- antes do save final (que pode demorar): quem entra logo depois já ganha o terreno.
 function City.Stop(player: Player)
 	local city = cities[player]
 	if not city then
 		return
 	end
+	city.Data.Buildings = Grid.Serialize(city.State)
+	city.Data.Population = math.floor(city.Population)
 	cities[player] = nil
 	Lots.Release(city.Lot)
 end
@@ -3171,7 +3181,7 @@ function City.Init()
 			Remotes.Notify(player, "Esse cofre não é seu!", "erro")
 			return
 		end
-		actions.collect(city, nil)
+		collectVault(city)
 	end
 	Remotes.Request.OnServerEvent:Connect(function(player, action, payload)
 		local ok, err = pcall(City.HandleRequest, player, action, payload)
@@ -3311,7 +3321,7 @@ local finalSaving: { [number]: boolean } = {}
 
 function Data.Load(player: Player): Profile
 	local waitedFinal = 0
-	while finalSaving[player.UserId] and waitedFinal < 40 and player.Parent do
+	while finalSaving[player.UserId] and waitedFinal < 75 and player.Parent do -- o pior caso do save final passa de 40 s
 		waitedFinal += task.wait(0.25)
 	end
 	local loaded = false
@@ -3661,6 +3671,13 @@ local function refresh(board: any)
 end
 
 function Leaderboards.Init()
+	local title = boardLabel("Title", "PREFEITO TYCOON")
+	if title then
+		title.Font = Enum.Font.GothamBlack
+		title.TextYAlignment = Enum.TextYAlignment.Center
+		title.TextColor3 = Color3.fromRGB(255, 196, 70)
+		title.Text = "PREFEITO TYCOON\n\nConstrua a sua cidade.\nCresça, colete o cofre, roube moradores dos vizinhos."
+	end
 	task.spawn(function()
 		task.wait(15)
 		while true do
@@ -4112,7 +4129,7 @@ end
 local function processReceipt(info: any): Enum.ProductPurchaseDecision
 	local player = Players:GetPlayerByUserId(info.PlayerId)
 	local profile = player and Data.Get(player)
-	if not player or not profile or not City.Get(player) then
+	if not player or not profile or profile.Final or not City.Get(player) then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	if Data.HasReceipt(profile, info.PurchaseId) then
@@ -4128,9 +4145,11 @@ local function processReceipt(info: any): Enum.ProductPurchaseDecision
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	Data.AddReceipt(profile, info.PurchaseId)
-	-- só confirma depois de salvar o recibo junto com o dinheiro
+	-- só confirma depois de salvar o recibo junto com o dinheiro. Se não salvou, o Roblox tenta de novo;
+	-- no mesmo servidor o recibo já está na memória (não entrega duas vezes)
 	if not Data.Save(player) then
 		warn("[Products] não salvou o recibo agora; o Roblox vai tentar de novo")
+		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	Remotes.Notify(player, "Obrigado! +" .. Format.Money(amount), "ok")
 	return Enum.ProductPurchaseDecision.PurchaseGranted
@@ -4270,6 +4289,8 @@ local function onPlayerAdded(player: Player)
 	end)
 	local profile = Data.Load(player)
 	if not player.Parent then
+		-- saiu enquanto carregava: o Load já gravou a trava de sessão, então salva para soltar a trava
+		Data.Save(player, true)
 		Data.Remove(player)
 		return
 	end
@@ -4283,8 +4304,8 @@ local function onPlayerAdded(player: Player)
 end
 
 local function onPlayerRemoving(player: Player)
+	City.Stop(player) -- copia a cidade para os dados e libera o terreno antes do save (que pode demorar)
 	Data.Save(player, true)
-	City.Stop(player)
 	Data.Remove(player)
 end
 
@@ -4633,6 +4654,9 @@ local function showDrag(lot: number)
 	local state = State.Grid(lot)
 	local stats = State.Stats
 	local budget = if stats and selected then math.floor(stats.Cash / selected.Cost) else 0
+	if selected and select(2, canAfford(selected)) ~= nil and select(2, canAfford(selected)) ~= "Falta dinheiro" then
+		budget = 0 -- prédio ainda travado pelo nível da cidade
+	end
 	local placedCount = 0
 	for i, cell in cells do
 		local p = dragPool[i]
@@ -5066,6 +5090,13 @@ function BuildMode.Init()
 			drawGridLines()
 			refreshCards()
 			ghostOk = nil -- dinheiro mudou: refaz o fantasma com a cor certa
+			if target and not dragStart then
+				if removing then
+					updateRemoveHighlight()
+				else
+					updateGhost()
+				end
+			end
 		end
 	end)
 
@@ -5678,7 +5709,7 @@ function HUD.Init()
 	gui = UI.Screen("HUD", 2)
 
 	-- ===== Cidade (canto superior esquerdo) =====
-	local cityCard = UI.Panel(gui, { Position = UDim2.fromOffset(14, 14), Size = UDim2.fromOffset(290, 98) })
+	local cityCard = UI.Panel(gui, { Position = UDim2.fromOffset(14, 14), Size = UDim2.fromOffset(290, 106) })
 	UI.Padding(cityCard, 12)
 	local cityName = UI.Label(cityCard, "Carregando...", 20, { Font = UI.FontBlack, Size = UDim2.new(1, 0, 0, 24), TextTruncate = Enum.TextTruncate.AtEnd })
 	local tierLabel = UI.Label(cityCard, "", 14, { TextColor3 = T.Muted, Position = UDim2.fromOffset(0, 28) })
@@ -5755,7 +5786,8 @@ function HUD.Init()
 	buttonBar = UI.new("Frame", {
 		BackgroundTransparency = 1,
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -14, 1, -14),
+		-- no celular o botão de pular fica no canto de baixo à direita: sobe a coluna
+		Position = if UI.IsMobile() then UDim2.new(1, -14, 1, -170) else UDim2.new(1, -14, 1, -14),
 		Size = UDim2.fromOffset(150, 230),
 		Parent = gui,
 	})
@@ -6150,7 +6182,7 @@ local STEPS = {
 		end,
 	},
 	{
-		Text = "Casa sem luz fica vazia. Construa um <b>Gerador a Diesel</b> (aba Energia), longe das casas: ele polui.",
+		Text = "Casa sem luz fica vazia. Construa um <b>Gerador a Diesel</b> (aba Energia) encostado numa rua e longe das casas: ele polui.",
 		Done = function()
 			return count("gerador") >= 1
 		end,
@@ -6164,7 +6196,7 @@ local STEPS = {
 	{
 		Text = "A renda cai no <b>Cofre da Prefeitura</b> (na frente do seu terreno). Vá até ele e aperte <b>Coletar</b>.",
 		Done = function()
-			return collected
+			return collected or (State.Stats ~= nil and State.Stats.AutoCollect == true)
 		end,
 	},
 }
@@ -6414,6 +6446,8 @@ function UI.Sound(name: string)
 	(sound :: Sound):Play()
 end
 
+local buttonBase: { [Instance]: Color3 } = setmetatable({}, { __mode = "k" }) :: any
+
 function UI.Button(parent: Instance, text: string, props: { [string]: any }?, onClick: (() -> ())?): TextButton
 	local base = (props and props.BackgroundColor3) or UI.Theme.Card
 	local button = UI.new("TextButton", {
@@ -6433,11 +6467,13 @@ function UI.Button(parent: Instance, text: string, props: { [string]: any }?, on
 		end
 	end
 	UI.Corner(button, 8)
+	buttonBase[button] = base
 	button.MouseEnter:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.12), { BackgroundColor3 = base:Lerp(Color3.new(1, 1, 1), 0.12) }):Play()
+		local color = buttonBase[button] or base
+		TweenService:Create(button, TweenInfo.new(0.12), { BackgroundColor3 = color:Lerp(Color3.new(1, 1, 1), 0.12) }):Play()
 	end)
 	button.MouseLeave:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.12), { BackgroundColor3 = base }):Play()
+		TweenService:Create(button, TweenInfo.new(0.12), { BackgroundColor3 = buttonBase[button] or base }):Play()
 	end)
 	if onClick then
 		button.Activated:Connect(function()
@@ -6450,6 +6486,7 @@ end
 
 -- Troca a cor de base de um botão criado por UI.Button (o hover passa a usar a nova)
 function UI.SetButtonColor(button: TextButton, color: Color3)
+	buttonBase[button] = color
 	button.BackgroundColor3 = color
 end
 
@@ -6562,7 +6599,7 @@ function UI.Toast(text: string, kind: string?)
 		toastHolder = UI.new("Frame", {
 			BackgroundTransparency = 1,
 			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.new(0.5, 0, 0, 92),
+			Position = UDim2.new(0.5, 0, 0, 190),
 			Size = UDim2.fromOffset(520, 400),
 			Parent = toastGui,
 		})

@@ -186,6 +186,8 @@ function UI.Sound(name: string)
 	(sound :: Sound):Play()
 end
 
+local buttonBase: { [Instance]: Color3 } = setmetatable({}, { __mode = "k" }) :: any
+
 function UI.Button(parent: Instance, text: string, props: { [string]: any }?, onClick: (() -> ())?): TextButton
 	local base = (props and props.BackgroundColor3) or UI.Theme.Card
 	local button = UI.new("TextButton", {
@@ -205,11 +207,13 @@ function UI.Button(parent: Instance, text: string, props: { [string]: any }?, on
 		end
 	end
 	UI.Corner(button, 8)
+	buttonBase[button] = base
 	button.MouseEnter:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.12), { BackgroundColor3 = base:Lerp(Color3.new(1, 1, 1), 0.12) }):Play()
+		local color = buttonBase[button] or base
+		TweenService:Create(button, TweenInfo.new(0.12), { BackgroundColor3 = color:Lerp(Color3.new(1, 1, 1), 0.12) }):Play()
 	end)
 	button.MouseLeave:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.12), { BackgroundColor3 = base }):Play()
+		TweenService:Create(button, TweenInfo.new(0.12), { BackgroundColor3 = buttonBase[button] or base }):Play()
 	end)
 	if onClick then
 		button.Activated:Connect(function()
@@ -222,6 +226,7 @@ end
 
 -- Troca a cor de base de um botão criado por UI.Button (o hover passa a usar a nova)
 function UI.SetButtonColor(button: TextButton, color: Color3)
+	buttonBase[button] = color
 	button.BackgroundColor3 = color
 end
 

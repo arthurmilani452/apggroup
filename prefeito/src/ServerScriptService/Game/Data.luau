@@ -106,7 +106,7 @@ local finalSaving: { [number]: boolean } = {}
 
 function Data.Load(player: Player): Profile
 	local waitedFinal = 0
-	while finalSaving[player.UserId] and waitedFinal < 40 and player.Parent do
+	while finalSaving[player.UserId] and waitedFinal < 75 and player.Parent do -- o pior caso do save final passa de 40 s
 		waitedFinal += task.wait(0.25)
 	end
 	local loaded = false

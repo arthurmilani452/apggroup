@@ -46,6 +46,8 @@ local function onPlayerAdded(player: Player)
 	end)
 	local profile = Data.Load(player)
 	if not player.Parent then
+		-- saiu enquanto carregava: o Load já gravou a trava de sessão, então salva para soltar a trava
+		Data.Save(player, true)
 		Data.Remove(player)
 		return
 	end
@@ -59,8 +61,8 @@ local function onPlayerAdded(player: Player)
 end
 
 local function onPlayerRemoving(player: Player)
+	City.Stop(player) -- copia a cidade para os dados e libera o terreno antes do save (que pode demorar)
 	Data.Save(player, true)
-	City.Stop(player)
 	Data.Remove(player)
 end
 

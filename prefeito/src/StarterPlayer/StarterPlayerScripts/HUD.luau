@@ -87,7 +87,7 @@ function HUD.Init()
 	gui = UI.Screen("HUD", 2)
 
 	-- ===== Cidade (canto superior esquerdo) =====
-	local cityCard = UI.Panel(gui, { Position = UDim2.fromOffset(14, 14), Size = UDim2.fromOffset(290, 98) })
+	local cityCard = UI.Panel(gui, { Position = UDim2.fromOffset(14, 14), Size = UDim2.fromOffset(290, 106) })
 	UI.Padding(cityCard, 12)
 	local cityName = UI.Label(cityCard, "Carregando...", 20, { Font = UI.FontBlack, Size = UDim2.new(1, 0, 0, 24), TextTruncate = Enum.TextTruncate.AtEnd })
 	local tierLabel = UI.Label(cityCard, "", 14, { TextColor3 = T.Muted, Position = UDim2.fromOffset(0, 28) })
@@ -164,7 +164,8 @@ function HUD.Init()
 	buttonBar = UI.new("Frame", {
 		BackgroundTransparency = 1,
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -14, 1, -14),
+		-- no celular o botão de pular fica no canto de baixo à direita: sobe a coluna
+		Position = if UI.IsMobile() then UDim2.new(1, -14, 1, -170) else UDim2.new(1, -14, 1, -14),
 		Size = UDim2.fromOffset(150, 230),
 		Parent = gui,
 	})

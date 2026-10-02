@@ -219,6 +219,9 @@ local function showDrag(lot: number)
 	local state = State.Grid(lot)
 	local stats = State.Stats
 	local budget = if stats and selected then math.floor(stats.Cash / selected.Cost) else 0
+	if selected and select(2, canAfford(selected)) ~= nil and select(2, canAfford(selected)) ~= "Falta dinheiro" then
+		budget = 0 -- prédio ainda travado pelo nível da cidade
+	end
 	local placedCount = 0
 	for i, cell in cells do
 		local p = dragPool[i]
@@ -652,6 +655,13 @@ function BuildMode.Init()
 			drawGridLines()
 			refreshCards()
 			ghostOk = nil -- dinheiro mudou: refaz o fantasma com a cor certa
+			if target and not dragStart then
+				if removing then
+					updateRemoveHighlight()
+				else
+					updateGhost()
+				end
+			end
 		end
 	end)
 

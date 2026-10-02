@@ -51,6 +51,9 @@ function Grid.Bounds(level: number): (number, number, number, number)
 end
 
 function Grid.At(state: State, x: number, z: number): number?
+	if x < 1 or x > N or z < 1 or z > N then
+		return nil -- fora da grade (sem isso o índice "dava a volta" para outra fileira)
+	end
 	return state.Cells[Grid.Index(x, z)]
 end
 

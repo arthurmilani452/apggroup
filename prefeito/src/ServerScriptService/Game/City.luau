@@ -278,7 +278,8 @@ actions.remove = function(city, payload)
 	end
 end
 
-actions.collect = function(city, _payload)
+-- Só pelo ProximityPrompt do cofre (Lots.OnVault): não é uma ação do Request, senão dava para coletar de longe
+local function collectVault(city: CityT)
 	local data = city.Data
 	if data.Vault < 1 then
 		return
@@ -589,11 +590,15 @@ function City.Start(player: Player, profile: any): boolean
 	return true
 end
 
+-- Copia a cidade para os dados (o save leva junto) e libera o terreno na hora,
+-- antes do save final (que pode demorar): quem entra logo depois já ganha o terreno.
 function City.Stop(player: Player)
 	local city = cities[player]
 	if not city then
 		return
 	end
+	city.Data.Buildings = Grid.Serialize(city.State)
+	city.Data.Population = math.floor(city.Population)
 	cities[player] = nil
 	Lots.Release(city.Lot)
 end
@@ -648,7 +653,7 @@ function City.Init()
 			Remotes.Notify(player, "Esse cofre não é seu!", "erro")
 			return
 		end
-		actions.collect(city, nil)
+		collectVault(city)
 	end
 	Remotes.Request.OnServerEvent:Connect(function(player, action, payload)
 		local ok, err = pcall(City.HandleRequest, player, action, payload)

@@ -56,7 +56,7 @@ end
 local function processReceipt(info: any): Enum.ProductPurchaseDecision
 	local player = Players:GetPlayerByUserId(info.PlayerId)
 	local profile = player and Data.Get(player)
-	if not player or not profile or not City.Get(player) then
+	if not player or not profile or profile.Final or not City.Get(player) then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	if Data.HasReceipt(profile, info.PurchaseId) then
@@ -72,9 +72,11 @@ local function processReceipt(info: any): Enum.ProductPurchaseDecision
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	Data.AddReceipt(profile, info.PurchaseId)
-	-- só confirma depois de salvar o recibo junto com o dinheiro
+	-- só confirma depois de salvar o recibo junto com o dinheiro. Se não salvou, o Roblox tenta de novo;
+	-- no mesmo servidor o recibo já está na memória (não entrega duas vezes)
 	if not Data.Save(player) then
 		warn("[Products] não salvou o recibo agora; o Roblox vai tentar de novo")
+		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	Remotes.Notify(player, "Obrigado! +" .. Format.Money(amount), "ok")
 	return Enum.ProductPurchaseDecision.PurchaseGranted

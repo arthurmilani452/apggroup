@@ -58,7 +58,7 @@ local STEPS = {
 	{
 		Text = "A renda cai no <b>Cofre da Prefeitura</b> (na frente do seu terreno). Vá até ele e aperte <b>Coletar</b>.",
 		Done = function()
-			return collected
+			return collected or (State.Stats ~= nil and State.Stats.AutoCollect == true)
 		end,
 	},
 }
