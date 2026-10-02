@@ -81,7 +81,7 @@ Config.Match = {
 	Countdown = 10, -- contagem final
 	EndDelay = 10, -- segundos mostrando o vencedor antes de voltar ao lobby
 	DropHeight = 140, -- altura do salto de paraquedas
-	ParachuteGravity = 0.12, -- fração da gravidade durante a queda (menor = cai mais devagar)
+	ParachuteFallSpeed = 28, -- velocidade de queda com paraquedas (studs/s)
 	StartWeapon = "Pistol", -- arma que todo mundo ganha ao cair (nil = começa sem nada)
 	StartAmmo = { Light = 24 },
 	MaxWeapons = 4, -- armas na mochila ao mesmo tempo (curas não contam)
@@ -538,7 +538,7 @@ function WeaponBuilder.Weapon(id: string, rarity: string?): (Model, BasePart, At
 	local model = Instance.new("Model")
 	model.Name = id
 
-	local handle = part(model, "Handle", Vector3.new(0.35, 0.8, 0.45), CFrame.new(0, -0.15, 0) * CFrame.Angles(math.rad(-15), 0, 0), DARK, Enum.Material.SmoothPlastic)
+	local handle = part(model, "Handle", Vector3.new(0.35, 0.8, 0.45), CFrame.new(0, -0.15, 0), DARK, Enum.Material.SmoothPlastic)
 	local bodyLen = math.max(L * 0.45, 0.9)
 	local bodyCenter = CFrame.new(0, 0.32, -bodyLen * 0.35)
 	local body = part(model, "Body", Vector3.new(0.4, 0.42, bodyLen), bodyCenter, def.Color, Enum.Material.Metal)
@@ -757,6 +757,8 @@ local function buildBody(name: string): Model
 	end
 	local humanoid = Instance.new("Humanoid")
 	humanoid.HipHeight = 0
+	humanoid.RigType = Enum.HumanoidRigType.R6
+	humanoid.RequiresNeck = false
 	humanoid.Parent = rig
 	rig.PrimaryPart = root
 	return rig
@@ -1093,8 +1095,9 @@ local Registry = require(script.Parent.Registry)
 
 local Combat = {}
 
-local lastShot: { [any]: number } = {}
-local reloading: { [Player]: boolean } = {}
+local shotCredit: { [Player]: { Next: number } } = {} -- cadência com folga para o lag
+local reloading: { [Tool]: boolean } = setmetatable({}, { __mode = "k" }) :: any -- recarga é de cada arma
+local aimingSince: { [Player]: number } = {} -- mira guardada no servidor (o cliente avisa quando liga/desliga)
 local lastAttacker: { [Humanoid]: { Entry: any, Time: number } } = {}
 
 local rng = Random.new()
@@ -1224,7 +1227,6 @@ function Combat.ResetPlayer(player: Player)
 	for ammoType in Config.AmmoTypes do
 		player:SetAttribute("Ammo_" .. ammoType, 0)
 	end
-	reloading[player] = nil
 	player:SetAttribute("Using", nil)
 end
 
@@ -1319,10 +1321,10 @@ function Combat.Shoot(shooter: any, origin: Vector3, aimPoint: Vector3, weaponId
 		Combat.Damage(victim, acc.Amount, shooter)
 		local killed = before > 0 and victim.Humanoid.Health <= 0
 		if shooter.Player then
-			Registry.Remotes.Effect:FireClient(shooter.Player, "Hit", { Head = acc.Head, Kill = killed, Damage = math.floor(acc.Amount + 0.5) })
+			Registry.Remotes.Event:FireClient(shooter.Player, "Hit", { Head = acc.Head, Kill = killed, Damage = math.floor(acc.Amount + 0.5) })
 		end
 		if victim.Player then
-			Registry.Remotes.Effect:FireClient(victim.Player, "Damaged", { From = origin })
+			Registry.Remotes.Event:FireClient(victim.Player, "Damaged", { From = origin })
 		end
 	end
 end
@@ -1331,9 +1333,6 @@ end
 -- Recarregar
 ---------------------------------------------------------------------
 function Combat.Reload(player: Player)
-	if reloading[player] then
-		return
-	end
 	local character = player.Character
 	local tool = character and character:FindFirstChildOfClass("Tool")
 	local id = tool and tool:GetAttribute("WeaponId")
@@ -1343,13 +1342,13 @@ function Combat.Reload(player: Player)
 	end
 	local mag = tool:GetAttribute("Mag") or 0
 	local key = "Ammo_" .. def.Ammo
-	if mag >= def.Mag or (player:GetAttribute(key) or 0) <= 0 then
+	if reloading[tool] or mag >= def.Mag or (player:GetAttribute(key) or 0) <= 0 then
 		return
 	end
-	reloading[player] = true
+	reloading[tool] = true
 	tool:SetAttribute("Reloading", true)
 	task.delay(def.Reload, function()
-		reloading[player] = nil
+		reloading[tool] = nil
 		if tool.Parent then
 			tool:SetAttribute("Reloading", nil)
 		end
@@ -1436,30 +1435,47 @@ function Combat.Init()
 		local id = tool and tool:GetAttribute("WeaponId")
 		local def = id and Config.Weapons[id]
 		local head = character and character:FindFirstChild("Head") :: BasePart?
-		if not entry or not entry.Alive or not def or not head or reloading[player] or player:GetAttribute("Using") then
+		if not entry or not entry.Alive or not def or not head or reloading[tool] or player:GetAttribute("Using") then
 			return
 		end
+		-- cadência: cada tiro "agenda" o próximo; aceita chegar até 2 tiros adiantado (pacotes que chegam juntos pelo lag)
 		local now = os.clock()
-		if now - (lastShot[player] or 0) < 60 / def.Rpm * 0.85 then
+		local interval = 60 / def.Rpm
+		local credit = shotCredit[player]
+		if not credit then
+			credit = { Next = 0 }
+			shotCredit[player] = credit
+		end
+		if now < credit.Next - interval * 2 then
 			return -- mais rápido que a arma permite
 		end
 		local mag = tool:GetAttribute("Mag") or 0
 		if mag <= 0 then
 			return
 		end
-		lastShot[player] = now
+		credit.Next = math.max(credit.Next, now - interval * 2) + interval
 		tool:SetAttribute("Mag", mag - 1)
 		local handle = tool:FindFirstChild("Handle") :: BasePart?
 		local muzzleAtt = handle and handle:FindFirstChild("Muzzle") :: Attachment?
 		local muzzle = if muzzleAtt then muzzleAtt.WorldPosition else head.Position
-		Combat.Shoot(entry, head.Position, aimPoint, id, tool:GetAttribute("Rarity"), aiming == true, muzzle)
+		-- mira só vale se o servidor sabe que a pessoa está mirando há pelo menos 0,15 s
+		local since = aimingSince[player]
+		local isAiming = aiming == true and since ~= nil and now - since >= 0.15
+		Combat.Shoot(entry, head.Position, aimPoint, id, tool:GetAttribute("Rarity"), isAiming, muzzle)
 	end)
 	Remotes.Reload.OnServerEvent:Connect(function(player: Player)
 		Combat.Reload(player)
 	end)
+	Remotes.Aim.OnServerEvent:Connect(function(player: Player, on: any)
+		if on == true then
+			aimingSince[player] = aimingSince[player] or os.clock()
+		else
+			aimingSince[player] = nil
+		end
+	end)
 	Players.PlayerRemoving:Connect(function(player)
-		lastShot[player] = nil
-		reloading[player] = nil
+		shotCredit[player] = nil
+		aimingSince[player] = nil
 	end)
 	-- limpa o "último atacante" de quem já não existe
 	task.spawn(function()
@@ -1835,8 +1851,10 @@ function Loot.Take(player: Player, model: Model)
 		if humanoid and not character:FindFirstChildOfClass("Tool") then
 			humanoid:EquipTool(tool)
 		end
-		-- vem com um pouco de munição de brinde
-		Combat.AddAmmo(player, def.Ammo, math.floor(def.Mag / 2))
+		-- arma nova (nunca usada) vem com um pouco de munição de brinde; arma largada por alguém não
+		if model:GetAttribute("Mag") == nil then
+			Combat.AddAmmo(player, def.Ammo, math.floor(def.Mag / 2))
+		end
 	elseif kind == "Ammo" then
 		local amount = model:GetAttribute("Amount") or 0
 		local added = Combat.AddAmmo(player, id, amount)
@@ -1853,7 +1871,7 @@ function Loot.Take(player: Player, model: Model)
 	else
 		return
 	end
-	Registry.Remotes.Effect:FireClient(player, "Pickup", { Label = model:GetAttribute("Label") })
+	Registry.Remotes.Event:FireClient(player, "Pickup", { Label = model:GetAttribute("Label") })
 	model:Destroy()
 end
 
@@ -2205,12 +2223,15 @@ local function giveParachute(character: Model)
 	local attachment = Instance.new("Attachment")
 	attachment.Name = "ParachuteAttachment"
 	attachment.Parent = root
-	local force = Instance.new("VectorForce")
+	-- velocidade de queda fixa (só no eixo Y): dá para andar para os lados enquanto desce
+	local force = Instance.new("LinearVelocity")
 	force.Name = "Parachute"
 	force.Attachment0 = attachment
 	force.RelativeTo = Enum.ActuatorRelativeTo.World
-	force.ApplyAtCenterOfMass = true
-	force.Force = Vector3.new(0, root.AssemblyMass * workspace.Gravity * (1 - Config.Match.ParachuteGravity), 0)
+	force.VelocityConstraintMode = Enum.VelocityConstraintMode.Line
+	force.LineDirection = Vector3.new(0, 1, 0)
+	force.LineVelocity = -Config.Match.ParachuteFallSpeed
+	force.MaxForce = root.AssemblyMass * workspace.Gravity * 3
 	force.Parent = root
 	-- velame colorido em cima da cabeça
 	local canopy = Instance.new("Part")
@@ -2231,8 +2252,12 @@ local function giveParachute(character: Model)
 	task.spawn(function()
 		local started = os.clock()
 		task.wait(1)
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { character }
 		while character.Parent and humanoid.Health > 0 and os.clock() - started < 40 do
-			if humanoid.FloorMaterial ~= Enum.Material.Air then
+			-- pousou: tem chão logo embaixo (raio do servidor, não depende do cliente)
+			if workspace:Raycast(root.Position, Vector3.new(0, -6, 0), params) then
 				break
 			end
 			task.wait(0.1)
@@ -2276,6 +2301,29 @@ local function start()
 	end
 	total = #entries
 
+	-- bots primeiro e todos ao mesmo tempo (criar o avatar demora um pouco)
+	local pendingBots = 0
+	for _, entry in entries do
+		if not entry.Player then
+			pendingBots += 1
+			task.spawn(function()
+				local ok, err = pcall(function()
+					Registry.Bots.Spawn(entry, Registry.Bots.GroundPoint(center))
+					Match.BindModel(entry, entry.Model)
+				end)
+				if not ok then
+					warn("[Match] bot não nasceu:", err)
+					entry.Alive = false
+				end
+				pendingBots -= 1
+			end)
+		end
+	end
+	local waitStart = os.clock()
+	while pendingBots > 0 and os.clock() - waitStart < 15 do
+		task.wait(0.1)
+	end
+
 	for _, entry in entries do
 		if entry.Player then
 			local player = entry.Player
@@ -2298,9 +2346,6 @@ local function start()
 			end
 			character:PivotTo(CFrame.new(randomDropPoint(center)))
 			giveParachute(character)
-		else
-			Registry.Bots.Spawn(entry, Registry.Bots.GroundPoint(center))
-			Match.BindModel(entry, entry.Model)
 		end
 	end
 	Registry.Remotes.NotifyAll("MATCH_DROP", nil, "big")
@@ -2449,7 +2494,9 @@ end
 Remotes.Fire = event("Fire") -- jogador -> servidor: (aimPoint: Vector3, aiming: boolean)
 Remotes.Reload = event("Reload") -- jogador -> servidor: ()
 Remotes.Spectate = event("Spectate") -- jogador -> servidor: () pede o próximo para assistir
-Remotes.Effect = event("Effect", true) -- servidor -> jogadores: efeitos visuais (tracer, acerto...)
+Remotes.Effect = event("Effect", true) -- servidor -> jogadores: rastro dos tiros (pode perder um, tanto faz)
+Remotes.Event = event("Event") -- servidor -> jogador: acerto, dano levado, item pego (não pode se perder)
+Remotes.Aim = event("Aim") -- jogador -> servidor: (mirando: boolean)
 Remotes.Notify = event("Notify") -- servidor -> jogador(es): (chave do texto, args, tipo)
 Remotes.Killfeed = event("Killfeed") -- servidor -> todos: (chave, args)
 Remotes.Result = event("Result") -- servidor -> jogador: fim de partida { Place, Total, Kills, XP, Won, Winner }
@@ -2560,7 +2607,10 @@ function Zone.Init()
 				end
 				for _, entry in Registry.Match.AliveEntries() do
 					local root = entry.Model and entry.Model:FindFirstChild("HumanoidRootPart") :: BasePart?
-					if root and not ZoneMath.IsInside(root.Position) then
+					-- sem corpo inteiro (trapaça apagando a HumanoidRootPart, ou caiu do mapa): está fora da partida
+					if not root or not entry.Humanoid or not entry.Humanoid:IsDescendantOf(workspace) then
+						Registry.Match.Eliminate(entry, "invalid")
+					elseif not ZoneMath.IsInside(root.Position) then
 						entry.LastZoneDamage = os.clock()
 						Registry.Combat.Damage(entry, damagePerSecond, nil, true)
 					end
@@ -2758,6 +2808,8 @@ local Remotes = {
 	Reload = RemotesFolder:WaitForChild("Reload"),
 	Spectate = RemotesFolder:WaitForChild("Spectate"),
 	Effect = RemotesFolder:WaitForChild("Effect"),
+	Event = RemotesFolder:WaitForChild("Event"),
+	Aim = RemotesFolder:WaitForChild("Aim"),
 	Notify = RemotesFolder:WaitForChild("Notify"),
 	Killfeed = RemotesFolder:WaitForChild("Killfeed"),
 	Result = RemotesFolder:WaitForChild("Result"),
@@ -2883,7 +2935,7 @@ local scope = frame(gui, { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency 
 do
 	local ring = frame(scope, { Size = UDim2.new(0.6, 0, 0.6, 0), SizeConstraint = Enum.SizeConstraint.RelativeYY, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundTransparency = 1 })
 	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 600
+	stroke.Thickness = 2000
 	stroke.Color = Color3.new(0, 0, 0)
 	stroke.Parent = ring
 	corner(ring, 2000)
@@ -3146,6 +3198,7 @@ end
 -- Armas
 ---------------------------------------------------------------------
 local equipped: Tool? = nil
+local weLocked = false -- este script travou o mouse no centro (para não brigar com a câmera do Roblox)
 local firing = false
 local aiming = false
 local lastFire = 0
@@ -3237,8 +3290,17 @@ local function aimPoint(): Vector3
 		table.insert(exclude, loot)
 	end
 	params.FilterDescendantsInstances = exclude
-	local result = workspace:Raycast(ray.Origin, ray.Direction * 2000, params)
-	return if result then result.Position else ray.Origin + ray.Direction * 2000
+	-- começa no ponto do raio mais perto da cabeça: o que está entre a câmera e o personagem não conta
+	local origin = ray.Origin
+	local head = player.Character and player.Character:FindFirstChild("Head") :: BasePart?
+	if head then
+		local along = (head.Position - ray.Origin):Dot(ray.Direction)
+		if along > 0 then
+			origin = ray.Origin + ray.Direction * along
+		end
+	end
+	local result = workspace:Raycast(origin, ray.Direction * 2000, params)
+	return if result then result.Position else origin + ray.Direction * 2000
 end
 
 local function muzzlePosition(): Vector3?
@@ -3326,7 +3388,11 @@ end
 
 local function setAiming(on: boolean)
 	local def = weaponDef()
+	local was = aiming
 	aiming = on and def ~= nil
+	if aiming ~= was then
+		Remotes.Aim:FireServer(aiming)
+	end
 	local fov = if aiming then def.Zoom else 70
 	TweenService:Create(camera, TweenInfo.new(0.15), { FieldOfView = fov }):Play()
 	scope.Visible = aiming and def ~= nil and def.Zoom <= 25
@@ -3405,9 +3471,17 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 -- celular
+local fireTouch: InputObject? = nil
 fireButton.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.Touch then
+		fireTouch = input
 		startFiring()
+	end
+end)
+UserInputService.TouchEnded:Connect(function(input)
+	if input == fireTouch then
+		fireTouch = nil
+		stopFiring()
 	end
 end)
 fireButton.InputEnded:Connect(function(input)
@@ -3423,7 +3497,7 @@ reloadButton.Activated:Connect(requestReload)
 ---------------------------------------------------------------------
 -- Efeitos vindos do servidor
 ---------------------------------------------------------------------
-Remotes.Effect.OnClientEvent:Connect(function(kind: string, data: any)
+local function onEffect(kind: string, data: any)
 	if kind == "Shot" then
 		if data.S == player.UserId then
 			return -- o seu tiro já foi desenhado
@@ -3445,7 +3519,9 @@ Remotes.Effect.OnClientEvent:Connect(function(kind: string, data: any)
 		showToast("+ " .. T(data.Label or ""))
 		playSound(Config.Sounds.Pickup, camera)
 	end
-end)
+end
+Remotes.Effect.OnClientEvent:Connect(onEffect)
+Remotes.Event.OnClientEvent:Connect(onEffect)
 
 -- Textos dos itens no chão no seu idioma
 local function localizePrompt(prompt: Instance)
@@ -3494,11 +3570,13 @@ RunService:BindToRenderStep("ZZ_Camera", Enum.RenderPriority.Camera.Value + 1, f
 			end
 			if not isTouch then
 				UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+				weLocked = true
 			end
 		else
 			humanoid.CameraOffset = humanoid.CameraOffset:Lerp(Vector3.zero, math.min(dt * 12, 1))
 			humanoid.AutoRotate = true
-			if not isTouch and UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter then
+			if weLocked then
+				weLocked = false
 				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 			end
 		end

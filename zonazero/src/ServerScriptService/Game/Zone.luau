@@ -86,7 +86,10 @@ function Zone.Init()
 				end
 				for _, entry in Registry.Match.AliveEntries() do
 					local root = entry.Model and entry.Model:FindFirstChild("HumanoidRootPart") :: BasePart?
-					if root and not ZoneMath.IsInside(root.Position) then
+					-- sem corpo inteiro (trapaça apagando a HumanoidRootPart, ou caiu do mapa): está fora da partida
+					if not root or not entry.Humanoid or not entry.Humanoid:IsDescendantOf(workspace) then
+						Registry.Match.Eliminate(entry, "invalid")
+					elseif not ZoneMath.IsInside(root.Position) then
 						entry.LastZoneDamage = os.clock()
 						Registry.Combat.Damage(entry, damagePerSecond, nil, true)
 					end

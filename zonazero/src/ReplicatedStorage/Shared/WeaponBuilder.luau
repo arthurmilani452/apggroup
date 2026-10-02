@@ -118,7 +118,7 @@ function WeaponBuilder.Weapon(id: string, rarity: string?): (Model, BasePart, At
 	local model = Instance.new("Model")
 	model.Name = id
 
-	local handle = part(model, "Handle", Vector3.new(0.35, 0.8, 0.45), CFrame.new(0, -0.15, 0) * CFrame.Angles(math.rad(-15), 0, 0), DARK, Enum.Material.SmoothPlastic)
+	local handle = part(model, "Handle", Vector3.new(0.35, 0.8, 0.45), CFrame.new(0, -0.15, 0), DARK, Enum.Material.SmoothPlastic)
 	local bodyLen = math.max(L * 0.45, 0.9)
 	local bodyCenter = CFrame.new(0, 0.32, -bodyLen * 0.35)
 	local body = part(model, "Body", Vector3.new(0.4, 0.42, bodyLen), bodyCenter, def.Color, Enum.Material.Metal)

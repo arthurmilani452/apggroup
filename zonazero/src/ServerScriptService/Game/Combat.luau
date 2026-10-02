@@ -13,8 +13,9 @@ local Registry = require(script.Parent.Registry)
 
 local Combat = {}
 
-local lastShot: { [any]: number } = {}
-local reloading: { [Player]: boolean } = {}
+local shotCredit: { [Player]: { Next: number } } = {} -- cadência com folga para o lag
+local reloading: { [Tool]: boolean } = setmetatable({}, { __mode = "k" }) :: any -- recarga é de cada arma
+local aimingSince: { [Player]: number } = {} -- mira guardada no servidor (o cliente avisa quando liga/desliga)
 local lastAttacker: { [Humanoid]: { Entry: any, Time: number } } = {}
 
 local rng = Random.new()
@@ -144,7 +145,6 @@ function Combat.ResetPlayer(player: Player)
 	for ammoType in Config.AmmoTypes do
 		player:SetAttribute("Ammo_" .. ammoType, 0)
 	end
-	reloading[player] = nil
 	player:SetAttribute("Using", nil)
 end
 
@@ -239,10 +239,10 @@ function Combat.Shoot(shooter: any, origin: Vector3, aimPoint: Vector3, weaponId
 		Combat.Damage(victim, acc.Amount, shooter)
 		local killed = before > 0 and victim.Humanoid.Health <= 0
 		if shooter.Player then
-			Registry.Remotes.Effect:FireClient(shooter.Player, "Hit", { Head = acc.Head, Kill = killed, Damage = math.floor(acc.Amount + 0.5) })
+			Registry.Remotes.Event:FireClient(shooter.Player, "Hit", { Head = acc.Head, Kill = killed, Damage = math.floor(acc.Amount + 0.5) })
 		end
 		if victim.Player then
-			Registry.Remotes.Effect:FireClient(victim.Player, "Damaged", { From = origin })
+			Registry.Remotes.Event:FireClient(victim.Player, "Damaged", { From = origin })
 		end
 	end
 end
@@ -251,9 +251,6 @@ end
 -- Recarregar
 ---------------------------------------------------------------------
 function Combat.Reload(player: Player)
-	if reloading[player] then
-		return
-	end
 	local character = player.Character
 	local tool = character and character:FindFirstChildOfClass("Tool")
 	local id = tool and tool:GetAttribute("WeaponId")
@@ -263,13 +260,13 @@ function Combat.Reload(player: Player)
 	end
 	local mag = tool:GetAttribute("Mag") or 0
 	local key = "Ammo_" .. def.Ammo
-	if mag >= def.Mag or (player:GetAttribute(key) or 0) <= 0 then
+	if reloading[tool] or mag >= def.Mag or (player:GetAttribute(key) or 0) <= 0 then
 		return
 	end
-	reloading[player] = true
+	reloading[tool] = true
 	tool:SetAttribute("Reloading", true)
 	task.delay(def.Reload, function()
-		reloading[player] = nil
+		reloading[tool] = nil
 		if tool.Parent then
 			tool:SetAttribute("Reloading", nil)
 		end
@@ -356,30 +353,47 @@ function Combat.Init()
 		local id = tool and tool:GetAttribute("WeaponId")
 		local def = id and Config.Weapons[id]
 		local head = character and character:FindFirstChild("Head") :: BasePart?
-		if not entry or not entry.Alive or not def or not head or reloading[player] or player:GetAttribute("Using") then
+		if not entry or not entry.Alive or not def or not head or reloading[tool] or player:GetAttribute("Using") then
 			return
 		end
+		-- cadência: cada tiro "agenda" o próximo; aceita chegar até 2 tiros adiantado (pacotes que chegam juntos pelo lag)
 		local now = os.clock()
-		if now - (lastShot[player] or 0) < 60 / def.Rpm * 0.85 then
+		local interval = 60 / def.Rpm
+		local credit = shotCredit[player]
+		if not credit then
+			credit = { Next = 0 }
+			shotCredit[player] = credit
+		end
+		if now < credit.Next - interval * 2 then
 			return -- mais rápido que a arma permite
 		end
 		local mag = tool:GetAttribute("Mag") or 0
 		if mag <= 0 then
 			return
 		end
-		lastShot[player] = now
+		credit.Next = math.max(credit.Next, now - interval * 2) + interval
 		tool:SetAttribute("Mag", mag - 1)
 		local handle = tool:FindFirstChild("Handle") :: BasePart?
 		local muzzleAtt = handle and handle:FindFirstChild("Muzzle") :: Attachment?
 		local muzzle = if muzzleAtt then muzzleAtt.WorldPosition else head.Position
-		Combat.Shoot(entry, head.Position, aimPoint, id, tool:GetAttribute("Rarity"), aiming == true, muzzle)
+		-- mira só vale se o servidor sabe que a pessoa está mirando há pelo menos 0,15 s
+		local since = aimingSince[player]
+		local isAiming = aiming == true and since ~= nil and now - since >= 0.15
+		Combat.Shoot(entry, head.Position, aimPoint, id, tool:GetAttribute("Rarity"), isAiming, muzzle)
 	end)
 	Remotes.Reload.OnServerEvent:Connect(function(player: Player)
 		Combat.Reload(player)
 	end)
+	Remotes.Aim.OnServerEvent:Connect(function(player: Player, on: any)
+		if on == true then
+			aimingSince[player] = aimingSince[player] or os.clock()
+		else
+			aimingSince[player] = nil
+		end
+	end)
 	Players.PlayerRemoving:Connect(function(player)
-		lastShot[player] = nil
-		reloading[player] = nil
+		shotCredit[player] = nil
+		aimingSince[player] = nil
 	end)
 	-- limpa o "último atacante" de quem já não existe
 	task.spawn(function()

@@ -28,6 +28,8 @@ local Remotes = {
 	Reload = RemotesFolder:WaitForChild("Reload"),
 	Spectate = RemotesFolder:WaitForChild("Spectate"),
 	Effect = RemotesFolder:WaitForChild("Effect"),
+	Event = RemotesFolder:WaitForChild("Event"),
+	Aim = RemotesFolder:WaitForChild("Aim"),
 	Notify = RemotesFolder:WaitForChild("Notify"),
 	Killfeed = RemotesFolder:WaitForChild("Killfeed"),
 	Result = RemotesFolder:WaitForChild("Result"),
@@ -153,7 +155,7 @@ local scope = frame(gui, { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency 
 do
 	local ring = frame(scope, { Size = UDim2.new(0.6, 0, 0.6, 0), SizeConstraint = Enum.SizeConstraint.RelativeYY, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundTransparency = 1 })
 	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 600
+	stroke.Thickness = 2000
 	stroke.Color = Color3.new(0, 0, 0)
 	stroke.Parent = ring
 	corner(ring, 2000)
@@ -416,6 +418,7 @@ end
 -- Armas
 ---------------------------------------------------------------------
 local equipped: Tool? = nil
+local weLocked = false -- este script travou o mouse no centro (para não brigar com a câmera do Roblox)
 local firing = false
 local aiming = false
 local lastFire = 0
@@ -507,8 +510,17 @@ local function aimPoint(): Vector3
 		table.insert(exclude, loot)
 	end
 	params.FilterDescendantsInstances = exclude
-	local result = workspace:Raycast(ray.Origin, ray.Direction * 2000, params)
-	return if result then result.Position else ray.Origin + ray.Direction * 2000
+	-- começa no ponto do raio mais perto da cabeça: o que está entre a câmera e o personagem não conta
+	local origin = ray.Origin
+	local head = player.Character and player.Character:FindFirstChild("Head") :: BasePart?
+	if head then
+		local along = (head.Position - ray.Origin):Dot(ray.Direction)
+		if along > 0 then
+			origin = ray.Origin + ray.Direction * along
+		end
+	end
+	local result = workspace:Raycast(origin, ray.Direction * 2000, params)
+	return if result then result.Position else origin + ray.Direction * 2000
 end
 
 local function muzzlePosition(): Vector3?
@@ -596,7 +608,11 @@ end
 
 local function setAiming(on: boolean)
 	local def = weaponDef()
+	local was = aiming
 	aiming = on and def ~= nil
+	if aiming ~= was then
+		Remotes.Aim:FireServer(aiming)
+	end
 	local fov = if aiming then def.Zoom else 70
 	TweenService:Create(camera, TweenInfo.new(0.15), { FieldOfView = fov }):Play()
 	scope.Visible = aiming and def ~= nil and def.Zoom <= 25
@@ -675,9 +691,17 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 -- celular
+local fireTouch: InputObject? = nil
 fireButton.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.Touch then
+		fireTouch = input
 		startFiring()
+	end
+end)
+UserInputService.TouchEnded:Connect(function(input)
+	if input == fireTouch then
+		fireTouch = nil
+		stopFiring()
 	end
 end)
 fireButton.InputEnded:Connect(function(input)
@@ -693,7 +717,7 @@ reloadButton.Activated:Connect(requestReload)
 ---------------------------------------------------------------------
 -- Efeitos vindos do servidor
 ---------------------------------------------------------------------
-Remotes.Effect.OnClientEvent:Connect(function(kind: string, data: any)
+local function onEffect(kind: string, data: any)
 	if kind == "Shot" then
 		if data.S == player.UserId then
 			return -- o seu tiro já foi desenhado
@@ -715,7 +739,9 @@ Remotes.Effect.OnClientEvent:Connect(function(kind: string, data: any)
 		showToast("+ " .. T(data.Label or ""))
 		playSound(Config.Sounds.Pickup, camera)
 	end
-end)
+end
+Remotes.Effect.OnClientEvent:Connect(onEffect)
+Remotes.Event.OnClientEvent:Connect(onEffect)
 
 -- Textos dos itens no chão no seu idioma
 local function localizePrompt(prompt: Instance)
@@ -764,11 +790,13 @@ RunService:BindToRenderStep("ZZ_Camera", Enum.RenderPriority.Camera.Value + 1, f
 			end
 			if not isTouch then
 				UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+				weLocked = true
 			end
 		else
 			humanoid.CameraOffset = humanoid.CameraOffset:Lerp(Vector3.zero, math.min(dt * 12, 1))
 			humanoid.AutoRotate = true
-			if not isTouch and UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter then
+			if weLocked then
+				weLocked = false
 				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 			end
 		end

@@ -16,7 +16,9 @@ end
 Remotes.Fire = event("Fire") -- jogador -> servidor: (aimPoint: Vector3, aiming: boolean)
 Remotes.Reload = event("Reload") -- jogador -> servidor: ()
 Remotes.Spectate = event("Spectate") -- jogador -> servidor: () pede o próximo para assistir
-Remotes.Effect = event("Effect", true) -- servidor -> jogadores: efeitos visuais (tracer, acerto...)
+Remotes.Effect = event("Effect", true) -- servidor -> jogadores: rastro dos tiros (pode perder um, tanto faz)
+Remotes.Event = event("Event") -- servidor -> jogador: acerto, dano levado, item pego (não pode se perder)
+Remotes.Aim = event("Aim") -- jogador -> servidor: (mirando: boolean)
 Remotes.Notify = event("Notify") -- servidor -> jogador(es): (chave do texto, args, tipo)
 Remotes.Killfeed = event("Killfeed") -- servidor -> todos: (chave, args)
 Remotes.Result = event("Result") -- servidor -> jogador: fim de partida { Place, Total, Kills, XP, Won, Winner }

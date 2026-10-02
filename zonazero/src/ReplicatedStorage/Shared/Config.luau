@@ -19,7 +19,7 @@ Config.Match = {
 	Countdown = 10, -- contagem final
 	EndDelay = 10, -- segundos mostrando o vencedor antes de voltar ao lobby
 	DropHeight = 140, -- altura do salto de paraquedas
-	ParachuteGravity = 0.12, -- fração da gravidade durante a queda (menor = cai mais devagar)
+	ParachuteFallSpeed = 28, -- velocidade de queda com paraquedas (studs/s)
 	StartWeapon = "Pistol", -- arma que todo mundo ganha ao cair (nil = começa sem nada)
 	StartAmmo = { Light = 24 },
 	MaxWeapons = 4, -- armas na mochila ao mesmo tempo (curas não contam)

@@ -268,12 +268,15 @@ local function giveParachute(character: Model)
 	local attachment = Instance.new("Attachment")
 	attachment.Name = "ParachuteAttachment"
 	attachment.Parent = root
-	local force = Instance.new("VectorForce")
+	-- velocidade de queda fixa (só no eixo Y): dá para andar para os lados enquanto desce
+	local force = Instance.new("LinearVelocity")
 	force.Name = "Parachute"
 	force.Attachment0 = attachment
 	force.RelativeTo = Enum.ActuatorRelativeTo.World
-	force.ApplyAtCenterOfMass = true
-	force.Force = Vector3.new(0, root.AssemblyMass * workspace.Gravity * (1 - Config.Match.ParachuteGravity), 0)
+	force.VelocityConstraintMode = Enum.VelocityConstraintMode.Line
+	force.LineDirection = Vector3.new(0, 1, 0)
+	force.LineVelocity = -Config.Match.ParachuteFallSpeed
+	force.MaxForce = root.AssemblyMass * workspace.Gravity * 3
 	force.Parent = root
 	-- velame colorido em cima da cabeça
 	local canopy = Instance.new("Part")
@@ -294,8 +297,12 @@ local function giveParachute(character: Model)
 	task.spawn(function()
 		local started = os.clock()
 		task.wait(1)
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { character }
 		while character.Parent and humanoid.Health > 0 and os.clock() - started < 40 do
-			if humanoid.FloorMaterial ~= Enum.Material.Air then
+			-- pousou: tem chão logo embaixo (raio do servidor, não depende do cliente)
+			if workspace:Raycast(root.Position, Vector3.new(0, -6, 0), params) then
 				break
 			end
 			task.wait(0.1)
@@ -339,6 +346,29 @@ local function start()
 	end
 	total = #entries
 
+	-- bots primeiro e todos ao mesmo tempo (criar o avatar demora um pouco)
+	local pendingBots = 0
+	for _, entry in entries do
+		if not entry.Player then
+			pendingBots += 1
+			task.spawn(function()
+				local ok, err = pcall(function()
+					Registry.Bots.Spawn(entry, Registry.Bots.GroundPoint(center))
+					Match.BindModel(entry, entry.Model)
+				end)
+				if not ok then
+					warn("[Match] bot não nasceu:", err)
+					entry.Alive = false
+				end
+				pendingBots -= 1
+			end)
+		end
+	end
+	local waitStart = os.clock()
+	while pendingBots > 0 and os.clock() - waitStart < 15 do
+		task.wait(0.1)
+	end
+
 	for _, entry in entries do
 		if entry.Player then
 			local player = entry.Player
@@ -361,9 +391,6 @@ local function start()
 			end
 			character:PivotTo(CFrame.new(randomDropPoint(center)))
 			giveParachute(character)
-		else
-			Registry.Bots.Spawn(entry, Registry.Bots.GroundPoint(center))
-			Match.BindModel(entry, entry.Model)
 		end
 	end
 	Registry.Remotes.NotifyAll("MATCH_DROP", nil, "big")

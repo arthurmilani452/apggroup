@@ -87,6 +87,8 @@ local function buildBody(name: string): Model
 	end
 	local humanoid = Instance.new("Humanoid")
 	humanoid.HipHeight = 0
+	humanoid.RigType = Enum.HumanoidRigType.R6
+	humanoid.RequiresNeck = false
 	humanoid.Parent = rig
 	rig.PrimaryPart = root
 	return rig

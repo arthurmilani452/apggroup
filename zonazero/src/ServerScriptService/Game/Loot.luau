@@ -140,8 +140,10 @@ function Loot.Take(player: Player, model: Model)
 		if humanoid and not character:FindFirstChildOfClass("Tool") then
 			humanoid:EquipTool(tool)
 		end
-		-- vem com um pouco de munição de brinde
-		Combat.AddAmmo(player, def.Ammo, math.floor(def.Mag / 2))
+		-- arma nova (nunca usada) vem com um pouco de munição de brinde; arma largada por alguém não
+		if model:GetAttribute("Mag") == nil then
+			Combat.AddAmmo(player, def.Ammo, math.floor(def.Mag / 2))
+		end
 	elseif kind == "Ammo" then
 		local amount = model:GetAttribute("Amount") or 0
 		local added = Combat.AddAmmo(player, id, amount)
@@ -158,7 +160,7 @@ function Loot.Take(player: Player, model: Model)
 	else
 		return
 	end
-	Registry.Remotes.Effect:FireClient(player, "Pickup", { Label = model:GetAttribute("Label") })
+	Registry.Remotes.Event:FireClient(player, "Pickup", { Label = model:GetAttribute("Label") })
 	model:Destroy()
 end
 
