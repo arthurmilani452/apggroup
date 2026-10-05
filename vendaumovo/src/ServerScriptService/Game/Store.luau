@@ -118,7 +118,8 @@ local function processReceipt(receipt: any): Enum.ProductPurchaseDecision
 	end
 	local purchaseId = tostring(receipt.PurchaseId)
 	if table.find(data.Receipts, purchaseId) then
-		return Enum.ProductPurchaseDecision.PurchaseGranted -- já entregue antes
+		-- já entregue nesta sessão: só confirma ao Roblox depois que estiver salvo
+		return if Registry.Data.Save(player) then Enum.ProductPurchaseDecision.PurchaseGranted else Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	deliverProduct(player, data, product)
 	table.insert(data.Receipts, purchaseId)

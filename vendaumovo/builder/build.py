@@ -30,7 +30,7 @@ M = {
 }
 BALL, BLOCK, CYL = 0, 1, 2
 FRONT, BACK = 5, 2  # Enum.NormalId
-FONT_FREDOKA = 42  # Enum.Font.FredokaOne
+FONT_FREDOKA = 26  # Enum.Font.FredokaOne
 SIZING_PPS = 1
 
 part_count = 0

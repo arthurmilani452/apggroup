@@ -87,7 +87,9 @@ local function label(props: { [string]: any }): TextLabel
 		TextColor3 = C.White,
 	}
 	for k, v in props do
-		base[k] = v
+		if k ~= "MaxText" then -- MaxText é nosso, não é propriedade do TextLabel
+			base[k] = v
+		end
 	end
 	local l = new("TextLabel", base)
 	if props.TextColor3 == nil or props.TextColor3 == C.White then
@@ -128,7 +130,9 @@ local function button(props: { [string]: any }, onClick: () -> ()): TextButton
 		BackgroundColor3 = C.Green,
 	}
 	for k, v in props do
-		base[k] = v
+		if k ~= "MaxText" then
+			base[k] = v
+		end
 	end
 	local b = new("TextButton", base, { corner(0.3), stroke(C.DarkBrown, 3), textStroke() })
 	new("UITextSizeConstraint", { MaxTextSize = props.MaxText or 32, Parent = b })

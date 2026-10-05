@@ -6071,7 +6071,7 @@ return Formulas
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">🥚 OVOS 🥚</string>
                 <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -6370,7 +6370,7 @@ return Formulas
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">OVOS FRESQUINHOS</string>
                 <Color3 name="TextColor3"><R>0.784314</R><G>0.27451</G><B>0.156863</B></Color3>
@@ -6989,7 +6989,7 @@ return Formulas
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">VENDA UM OVO</string>
                 <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -9262,7 +9262,8 @@ local function processReceipt(receipt: any): Enum.ProductPurchaseDecision
 	end
 	local purchaseId = tostring(receipt.PurchaseId)
 	if table.find(data.Receipts, purchaseId) then
-		return Enum.ProductPurchaseDecision.PurchaseGranted -- já entregue antes
+		-- já entregue nesta sessão: só confirma ao Roblox depois que estiver salvo
+		return if Registry.Data.Save(player) then Enum.ProductPurchaseDecision.PurchaseGranted else Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	deliverProduct(player, data, product)
 	table.insert(data.Receipts, purchaseId)
@@ -9555,7 +9556,9 @@ local function label(props: { [string]: any }): TextLabel
 		TextColor3 = C.White,
 	}
 	for k, v in props do
-		base[k] = v
+		if k ~= "MaxText" then -- MaxText é nosso, não é propriedade do TextLabel
+			base[k] = v
+		end
 	end
 	local l = new("TextLabel", base)
 	if props.TextColor3 == nil or props.TextColor3 == C.White then
@@ -9596,7 +9599,9 @@ local function button(props: { [string]: any }, onClick: () -> ()): TextButton
 		BackgroundColor3 = C.Green,
 	}
 	for k, v in props do
-		base[k] = v
+		if k ~= "MaxText" then
+			base[k] = v
+		end
 	end
 	local b = new("TextButton", base, { corner(0.3), stroke(C.DarkBrown, 3), textStroke() })
 	new("UITextSizeConstraint", { MaxTextSize = props.MaxText or 32, Parent = b })
@@ -37661,7 +37666,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">FAZENDA</string>
                 <Color3 name="TextColor3"><R>0.745098</R><G>0.176471</G><B>0.156863</B></Color3>
@@ -49141,7 +49146,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">VENDA UM OVO</string>
                 <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -49236,7 +49241,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">VENDA UM OVO</string>
                 <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -49381,7 +49386,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">GALINHEIRO DO SEU ZÉ</string>
                 <Color3 name="TextColor3"><R>0.784314</R><G>0.235294</G><B>0.156863</B></Color3>
@@ -49882,7 +49887,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">OFICINA</string>
                 <Color3 name="TextColor3"><R>0.156863</R><G>0.352941</G><B>0.666667</B></Color3>
@@ -50013,7 +50018,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">REBIRTH</string>
                 <Color3 name="TextColor3"><R>1</R><G>0.901961</G><B>0.470588</B></Color3>
@@ -50036,7 +50041,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">REBIRTH</string>
                 <Color3 name="TextColor3"><R>1</R><G>0.901961</G><B>0.470588</B></Color3>
@@ -50116,7 +50121,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">MISSÕES DO DIA</string>
                 <Color3 name="TextColor3"><R>1</R><G>0.901961</G><B>0.470588</B></Color3>
@@ -50191,7 +50196,7 @@ end)
               <Properties>
                 <string name="Name">Title</string>
                 <Color3 name="BackgroundColor3"><R>1</R><G>0.803922</G><B>0.196078</B></Color3>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>0.16</YS><YO>0</YO></UDim2>
                 <string name="Text">🏆 MAIORES VENDEDORES</string>
                 <Color3 name="TextColor3"><R>0.431373</R><G>0.243137</G><B>0.109804</B></Color3>
@@ -55988,7 +55993,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">Granja livre</string>
                 <Color3 name="TextColor3"><R>0.431373</R><G>0.243137</G><B>0.109804</B></Color3>
@@ -56065,7 +56070,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">🥚 OVOS 🥚</string>
                   <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -56364,7 +56369,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">OVOS FRESQUINHOS</string>
                   <Color3 name="TextColor3"><R>0.784314</R><G>0.27451</G><B>0.156863</B></Color3>
@@ -68131,7 +68136,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">Granja livre</string>
                 <Color3 name="TextColor3"><R>0.431373</R><G>0.243137</G><B>0.109804</B></Color3>
@@ -68208,7 +68213,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">🥚 OVOS 🥚</string>
                   <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -68507,7 +68512,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">OVO BOM É AQUI</string>
                   <Color3 name="TextColor3"><R>0.784314</R><G>0.27451</G><B>0.156863</B></Color3>
@@ -80472,7 +80477,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">Granja livre</string>
                 <Color3 name="TextColor3"><R>0.431373</R><G>0.243137</G><B>0.109804</B></Color3>
@@ -80549,7 +80554,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">🥚 OVOS 🥚</string>
                   <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -80848,7 +80853,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">OVOS DA GRANJA</string>
                   <Color3 name="TextColor3"><R>0.784314</R><G>0.27451</G><B>0.156863</B></Color3>
@@ -92860,7 +92865,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">Granja livre</string>
                 <Color3 name="TextColor3"><R>0.431373</R><G>0.243137</G><B>0.109804</B></Color3>
@@ -92937,7 +92942,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">🥚 OVOS 🥚</string>
                   <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -93236,7 +93241,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">OVOS DO DIA</string>
                   <Color3 name="TextColor3"><R>0.784314</R><G>0.27451</G><B>0.156863</B></Color3>
@@ -105201,7 +105206,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">Granja livre</string>
                 <Color3 name="TextColor3"><R>0.431373</R><G>0.243137</G><B>0.109804</B></Color3>
@@ -105278,7 +105283,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">🥚 OVOS 🥚</string>
                   <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -105577,7 +105582,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">OLHA O OVO!</string>
                   <Color3 name="TextColor3"><R>0.784314</R><G>0.27451</G><B>0.156863</B></Color3>
@@ -117542,7 +117547,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">Granja livre</string>
                 <Color3 name="TextColor3"><R>0.431373</R><G>0.243137</G><B>0.109804</B></Color3>
@@ -117619,7 +117624,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">🥚 OVOS 🥚</string>
                   <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -117918,7 +117923,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">OVO CAIPIRA</string>
                   <Color3 name="TextColor3"><R>0.784314</R><G>0.27451</G><B>0.156863</B></Color3>
@@ -129883,7 +129888,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">Granja livre</string>
                 <Color3 name="TextColor3"><R>0.431373</R><G>0.243137</G><B>0.109804</B></Color3>
@@ -129960,7 +129965,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">🥚 OVOS 🥚</string>
                   <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -130259,7 +130264,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">OVOS FRESQUINHOS</string>
                   <Color3 name="TextColor3"><R>0.784314</R><G>0.27451</G><B>0.156863</B></Color3>
@@ -142125,7 +142130,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">Granja livre</string>
                 <Color3 name="TextColor3"><R>0.431373</R><G>0.243137</G><B>0.109804</B></Color3>
@@ -142202,7 +142207,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">🥚 OVOS 🥚</string>
                   <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -142501,7 +142506,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">OVO BOM É AQUI</string>
                   <Color3 name="TextColor3"><R>0.784314</R><G>0.27451</G><B>0.156863</B></Color3>
@@ -154122,7 +154127,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">Granja livre</string>
                 <Color3 name="TextColor3"><R>0.431373</R><G>0.243137</G><B>0.109804</B></Color3>
@@ -154199,7 +154204,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">🥚 OVOS 🥚</string>
                   <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -154498,7 +154503,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">OVOS DA GRANJA</string>
                   <Color3 name="TextColor3"><R>0.784314</R><G>0.27451</G><B>0.156863</B></Color3>
@@ -166265,7 +166270,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">Granja livre</string>
                 <Color3 name="TextColor3"><R>0.431373</R><G>0.243137</G><B>0.109804</B></Color3>
@@ -166342,7 +166347,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">🥚 OVOS 🥚</string>
                   <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -166641,7 +166646,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">OVOS DO DIA</string>
                   <Color3 name="TextColor3"><R>0.784314</R><G>0.27451</G><B>0.156863</B></Color3>
@@ -178507,7 +178512,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">Granja livre</string>
                 <Color3 name="TextColor3"><R>0.431373</R><G>0.243137</G><B>0.109804</B></Color3>
@@ -178584,7 +178589,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">🥚 OVOS 🥚</string>
                   <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -178883,7 +178888,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">OLHA O OVO!</string>
                   <Color3 name="TextColor3"><R>0.784314</R><G>0.27451</G><B>0.156863</B></Color3>
@@ -190650,7 +190655,7 @@ end)
               <Properties>
                 <string name="Name">Text</string>
                 <float name="BackgroundTransparency">1</float>
-                <token name="Font">42</token>
+                <token name="Font">26</token>
                 <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                 <string name="Text">Granja livre</string>
                 <Color3 name="TextColor3"><R>0.431373</R><G>0.243137</G><B>0.109804</B></Color3>
@@ -190727,7 +190732,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">🥚 OVOS 🥚</string>
                   <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -191026,7 +191031,7 @@ end)
                 <Properties>
                   <string name="Name">Text</string>
                   <float name="BackgroundTransparency">1</float>
-                  <token name="Font">42</token>
+                  <token name="Font">26</token>
                   <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <string name="Text">OVO CAIPIRA</string>
                   <Color3 name="TextColor3"><R>0.784314</R><G>0.27451</G><B>0.156863</B></Color3>
