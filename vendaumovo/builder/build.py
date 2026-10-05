@@ -3,8 +3,9 @@
 Monta o arquivo do jogo VENDA UM OVO (vendaumovo/place/VendaUmOvo.rbxlx) sem abrir o Studio:
   - ReplicatedStorage/Assets: um Model por objeto (ovos, aves, ninho, banca...), feitos de peças,
     seguindo as cores das referências em vendaumovo/arte/. Troque pelo 3D de verdade mantendo o nome.
-  - O mapa: rua comprida com calçada (estilo barraquinha de limonada), 12 granjas, praça com as lojas,
-    moinhos, árvores, fardos de feno, postes e flores, tudo um pouco "torto" de propósito.
+  - O mapa: uma ilha flutuante. No centro o celeiro, o silo e o ovo dourado; em volta, dois anéis de
+    estrada com as lojas no meio; 12 granjas em círculo (cada banca virada para a estrada, estilo
+    barraquinha de limonada); na borda lagos com ponte, moinho no morro, rotatória e pinheiros.
   - Iluminação e todos os scripts de vendaumovo/src.
 
     python3 vendaumovo/builder/build.py
@@ -512,10 +513,7 @@ def rot_point(ox, oz, x, z, yaw):
     return ox + x * math.cos(a) + z * math.sin(a), oz - x * math.sin(a) + z * math.cos(a)
 
 
-ROAD_HALF = 14
-SIDEWALK = 8
 PLOT_W, PLOT_D = 110, 100
-PLOT_XS = [-420, -290, -160, 160, 290, 420]
 AWNINGS = [
     ((235, 60, 55), (255, 255, 255)), ((60, 140, 230), (255, 255, 255)), ((60, 170, 80), (255, 250, 230)),
     ((255, 140, 40), (255, 255, 255)), ((170, 90, 220), (255, 240, 255)), ((240, 90, 150), (255, 255, 255)),
@@ -676,194 +674,410 @@ def bench(parent, x, z, yaw):
         b.add(f"Leg{i}", (0.3, 1.6, 1.6), (xx, 0.8, 0), (50, 55, 60), material="Metal")
 
 
-def build_plaza():
-    plaza = Inst("Model", "Plaza")
-    # chão de pedrinhas
-    box(plaza, "Paving", 0, 0.2, 0, 190, 0.4, 150, (225, 200, 160), "Pebble")
-    box(plaza, "Ring", 0, 0.3, 0, 60, 0.3, 60, (205, 175, 135), "Cobblestone")
-    # fonte no meio (no lugar da rua, que dá a volta)
-    fb = Builder(plaza, Xf(0, 0.3, 0))
-    fb.cyl("Basin", 2.4, 26, (0, 1.2, 0), (200, 195, 190), material="Concrete")
-    fb.cyl("Water", 0.4, 24, (0, 2.3, 0), (90, 180, 240), material="Glass", transparency=0.25, collide=False)
-    fb.cyl("Column", 6, 3, (0, 4, 0), (210, 205, 200), material="Concrete")
-    fb.egg("BigEgg", 5, 6.6, (0, 10.2, 0), (255, 215, 70), material="Metal", reflect=0.25)
-    fb.cyl("Spout", 0.6, 4, (0, 7.3, 0), (90, 180, 240), material="Glass", transparency=0.3, collide=False)
-
-    # placa grande "VENDA UM OVO" na entrada da praça
-    scenery(plaza, "Placa", 0, 0.4, -60, 180, scale=1.6, name="BigSign", height=None)
-    scenery(plaza, "Placa", 0, 0.4, 60, 0, scale=1.6, name="BigSign2")
-
-    # LOJA DE GALINHAS (Galinheiro do Seu Zé) - lado norte
-    shop = Inst("Model", "HenShop")
-    plaza.add(shop)
-    b = Builder(shop, Xf(-45, 0.4, 38, 0))
-    b.add("Body", (26, 12, 14), (0, 6, 0), (205, 60, 50), material="WoodPlanks", Tex="Madeira")
-    for side in (-1, 1):
-        b.add(f"Roof{side}", (28, 0.8, 9.5), (0, 14.2, side * 4), (120, 35, 30), material="Slate", rot=(side * -30, 0, 0), Tex="Telha")
-    b.add("Window", (14, 5, 0.4), (0, 6.5, -7.05), (60, 35, 20))
-    b.add("Counter", (16, 3.6, 3), (0, 1.8, -8.6), (255, 235, 190), material="WoodPlanks")
-    b.add("Trim", (27, 0.6, 15), (0, 12, 0), (250, 245, 235))
-    sign = b.add("Sign", (18, 3.4, 0.6), (0, 17.6, -2.5), (255, 248, 230), material="WoodPlanks")
-    surface_text(sign, "GALINHEIRO DO SEU ZÉ", color=(200, 60, 40), pps=22)
-    hx, hz = rot_point(-45, 38, 0, -10, 0)
-    marker(shop, "HenShopPoint", hx, 3, hz, (6, 2, 2))
-    for i, (lx, lz) in enumerate([(-15, 2), (-15.5, -3), (15, 4), (15.5, -1.5)]):
-        bx, bz = rot_point(-45, 38, lx, lz, 0)
-        scenery(shop, "Feno", bx, 0.4, bz, 90 + rng.uniform(-12, 12), scale=0.75, name=f"ShopHay{i}")
-
-    # LOJA DE UPGRADES (Oficina) - lado norte, à direita
-    up = Inst("Model", "UpgradeShop")
-    plaza.add(up)
-    b = Builder(up, Xf(45, 0.4, 38, 0))
-    b.add("Body", (26, 12, 14), (0, 6, 0), (70, 130, 200), material="WoodPlanks", Tex="Madeira")
-    b.add("Roof", (28, 1, 16), (0, 12.5, 0), (50, 60, 80), material="Metal")
-    b.add("Door", (12, 8, 0.4), (0, 4, -7.05), (40, 45, 55), material="Metal")
-    b.add("Counter", (16, 3.6, 3), (0, 1.8, -8.6), (255, 205, 50), material="Metal")
-    sign = b.add("Sign", (16, 3.4, 0.6), (0, 15.2, -6.2), (255, 248, 230), material="WoodPlanks")
-    surface_text(sign, "OFICINA", color=(40, 90, 170), pps=22)
-    b.cyl("Gear", 0.6, 4.5, (9.5, 15.2, -6.4), (255, 205, 50), rot=(0, 90, 0), material="Metal")
-    ux, uz = rot_point(45, 38, 0, -10, 0)
-    marker(up, "UpgradeShopPoint", ux, 3, uz, (6, 2, 2))
-
-    # ALTAR DO REBIRTH - lado sul, à esquerda
-    alt = Inst("Model", "RebirthAltar")
-    plaza.add(alt)
-    b = Builder(alt, Xf(-45, 0.4, -40))
-    b.cyl("Base", 1.6, 16, (0, 0.8, 0), (120, 70, 170), material="Marble")
-    b.cyl("Top", 1, 10, (0, 2.1, 0), (160, 100, 220), material="Marble")
-    star = b.add("Star", (2.4, 2.4, 0.6), (0, 7, 0), (255, 220, 80), neon=True, collide=False, rot=(0, 0, 45))
-    star.add(Inst("PointLight", "Light", Range=18.0, Brightness=2.0, Color=Color.rgb(200, 140, 255)))
-    b.add("Star2", (2.4, 2.4, 0.6), (0, 7, 0), (255, 220, 80), neon=True, collide=False)
-    sign = b.add("Sign", (10, 2.4, 0.4), (0, 11, 0), (90, 50, 140))
-    surface_text(sign, "REBIRTH", color=(255, 230, 120), pps=24)
-    surface_text(sign, "REBIRTH", color=(255, 230, 120), pps=24, face=BACK, name="GuiBack")
-    marker(alt, "RebirthPoint", -45, 3, -40, (6, 2, 6))
-
-    # QUADRO DE MISSÕES e PLACAR - lado sul, à direita
-    board = Inst("Model", "Boards")
-    plaza.add(board)
-    b = Builder(board, Xf(30, 0.4, -46))
-    for i, x in enumerate((-6.5, 6.5)):
-        b.add(f"Post{i}", (0.8, 12, 0.8), (x, 6, 0), (120, 78, 42), material="Wood")
-    mb = b.add("MissionBoard", (13, 8, 0.6), (0, 8, 0), (110, 70, 40), material="WoodPlanks")
-    surface_text(mb, "MISSÕES DO DIA", color=(255, 230, 120), pps=18, face=BACK)
-    marker(board, "MissionPoint", 30, 3, -43, (6, 2, 2))
-    b = Builder(board, Xf(58, 0.4, -40, -25))
-    for i, x in enumerate((-8, 8)):
-        b.add(f"LPost{i}", (1, 18, 1), (x, 9, 0), (120, 78, 42), material="Wood")
-    lb = b.add("LeaderboardBoard", (16, 15, 0.6), (0, 10.5, 0), (255, 236, 190), material="WoodPlanks")
-    lb.add(Inst("SurfaceGui", "Gui", Face=Token(BACK), SizingMode=Token(SIZING_PPS), PixelsPerStud=20.0, LightInfluence=0.0,
-                AutoLocalize=False, children=[
-                    Inst("TextLabel", "Title", Size=UDim2(1, 0, 0.16, 0), BackgroundColor3=Color.rgb(255, 205, 50), Text="🏆 MAIORES VENDEDORES",
-                         TextScaled=True, Font=Token(FONT_FREDOKA), TextColor3=Color.rgb(110, 62, 28)),
-                ]))
-
-    # bancos, postes e canteiros
-    for i, (x, z, yw) in enumerate([(-70, 15, 90), (70, -15, -90), (-20, 52, 180), (20, -52, 0)]):
-        bench(plaza, x, z, yw)
-    for i, (x, z) in enumerate([(-80, 60), (80, 60), (-80, -60), (80, -60)]):
-        flowers(plaza, x, z)
-    for i, (x, z) in enumerate([(-88, 30), (88, 30), (-88, -30), (88, -30), (-60, 70), (60, -70)]):
-        scenery(plaza, "Arvore", x + rng.uniform(-2, 2), 0.4, z + rng.uniform(-2, 2), rng.uniform(0, 360),
-                scale=rng.uniform(0.8, 1.1), name=f"PlazaTree{i}", leaf=rng.choice([(110, 200, 70), (240, 150, 190)]))
-    return plaza
+# ---------------------------------------------------------------------------
+# ILHA FLUTUANTE (mapa inspirado na arte do jogo)
+#   centro: celeiro + silo + cercadinho de galinhas + ovo dourado (placar)
+#   anel de dentro (estrada de terra) e anel de fora (estrada asfaltada)
+#   entre os anéis: Galinheiro do Seu Zé, Mercado, Oficina, Portão Arco-íris, Banco, Fábrica
+#   12 granjas em círculo depois do anel de fora; borda com lagos, ponte, moinho, rotatória, pinheiros
+# ---------------------------------------------------------------------------
+ISLAND_R = 470
+INNER_R, INNER_W = 140, 22
+OUTER_R, OUTER_W = 232, 24
+PLOT_R = OUTER_R + OUTER_W / 2 + 8 + PLOT_D / 2  # centro das granjas
+SHOP_R = 186
 
 
-def build_world():
+def polar(r, deg):
+    a = math.radians(deg)
+    return r * math.cos(a), r * math.sin(a)
+
+
+def yaw_facing_center(deg):
+    """Giro para a frente (-Z local) apontar para o centro da ilha."""
+    return 90.0 - deg
+
+
+def yaw_facing_out(deg):
+    return -90.0 - deg
+
+
+def ring_road(parent, name, r, width, color, material, y=0.15, dash=None, segments=96, tex=None):
+    m = Inst("Model", name)
+    parent.add(m)
+    seg_len = 2 * math.pi * r / segments * 1.03
+    for i in range(segments):
+        deg = (i + 0.5) * 360 / segments
+        x, z = polar(r, deg)
+        kw = {"Tex": tex} if tex else {}
+        box(m, f"Seg{i}", x, y, z, seg_len, 0.3, width, color, material, yaw=-deg - 90, **kw)
+        if dash and i % 2 == 0:
+            box(m, f"Dash{i}", x, y + 0.17, z, seg_len * 0.55, 0.05, 0.7, dash, "Smooth", yaw=-deg - 90, collide=False)
+    return m
+
+
+def asset_pinheiro(b, **_):
+    b.cyl("Trunk", 3, 1.2, (0, 1.5, 0), (115, 75, 45), material="Wood")
+    for i, (y, d, h) in enumerate([(4.2, 7.5, 3.2), (6.6, 5.8, 3.0), (8.8, 4.0, 2.8), (10.6, 2.2, 2.2)]):
+        b.cyl(f"Layer{i}", h, d, (0, y, 0), (45 + i * 8, 140 + i * 10, 70 + i * 4), material="Grass")
+    b.ball("Top", 1.0, (0, 12.0, 0), (80, 180, 90), material="Grass")
+
+
+def asset_carrinho(b, **_):
+    b.add("Bed", (4.4, 1.6, 2.8), (0, 2.0, 0), (170, 110, 60), material="WoodPlanks")
+    for i, x in enumerate((-2.2, 2.2)):
+        b.add(f"Side{i}", (0.25, 1.2, 2.8), (x, 2.9, 0), (140, 88, 48), material="Wood")
+    for i, z in enumerate((-1.5, 1.5)):
+        b.cyl(f"Wheel{i}", 0.35, 2.4, (0.6, 1.2, z), (110, 70, 40), rot=(0, 90, 0), material="Wood")
+    b.add("HandleL", (3.2, 0.25, 0.25), (-3.6, 2.2, -0.9), (120, 78, 42), rot=(0, 0, -12))
+    b.add("HandleR", (3.2, 0.25, 0.25), (-3.6, 2.2, 0.9), (120, 78, 42), rot=(0, 0, -12))
+    for i in range(10):
+        b.egg(f"Egg{i}", 0.6, 0.8, (-1.6 + (i % 5) * 0.8, 3.1 + (i // 5) * 0.35, -0.5 + (i // 5) * 0.9),
+              (250, 245, 235) if i % 3 else (200, 145, 95), collide=False)
+
+
+PROPS["Pinheiro"] = asset_pinheiro
+PROPS["Carrinho"] = asset_carrinho
+
+
+def signpost(parent, x, z, yaw, text):
+    b = Builder(parent, Xf(x, 0, z, yaw))
+    b.add("Post", (0.6, 6, 0.6), (0, 3, 0), (120, 78, 42), material="Wood")
+    arrow = b.add("Board", (5, 1.4, 0.3), (1.6, 5, 0), (200, 145, 85), material="WoodPlanks")
+    b.add("Tip", (1, 1, 0.3), (4.3, 5, 0), (200, 145, 85), material="WoodPlanks", rot=(0, 0, 45))
+    surface_text(arrow, text, color=(255, 255, 255), pps=30)
+
+
+def coin(parent, name, x, y, z, size=2.4):
+    b = Builder(parent, Xf(x, y, z, rng.uniform(0, 360)), collide=False)
+    p = b.cyl(name, 0.4, size, (0, 0, 0), (255, 200, 40), rot=(0, 0, 0), material="Metal", reflect=0.3)
+    p.add(Inst("PointLight", "Glow", Range=6.0, Brightness=0.8, Color=Color.rgb(255, 220, 120)))
+
+
+def build_island():
     world = Inst("Model", "Map")
-    # chão gramado bem grande
-    box(world, "Ground", 0, -0.5, 0, 1500, 1, 900, (100, 190, 75), "Grass", Tex="Grama")
-    # rua principal (de ponta a ponta) com faixa e calçadas
-    box(world, "Road", 0, 0.12, 0, 1100, 0.25, ROAD_HALF * 2, (85, 85, 92), "Asphalt")
-    for x in range(-540, 541, 18):
-        if abs(x) > 98:
-            box(world, f"Dash{x}", x, 0.27, 0, 8, 0.05, 0.8, (255, 220, 60), "Smooth", collide=False)
-    for side in (-1, 1):
-        box(world, f"Sidewalk{side}", 0, 0.3, side * (ROAD_HALF + SIDEWALK / 2), 1100, 0.6, SIDEWALK, (215, 210, 200), "Concrete")
-        box(world, f"Curb{side}", 0, 0.35, side * (ROAD_HALF + 0.3), 1100, 0.7, 0.6, (245, 245, 240), "Concrete")
-        for i, x in enumerate(range(-520, 521, 65)):
-            if abs(x) > 100:
-                street_lamp(world, x + rng.uniform(-4, 4), side * (ROAD_HALF + SIDEWALK - 1.5), 0 if side < 0 else 180)
-    # moinhos e árvores em volta (borda do mapa), com tamanhos e giros variados
-    for i, (x, z) in enumerate([(-560, 200), (520, -230), (-300, -260), (360, 250), (0, 300), (-120, -320)]):
-        scenery(world, "Moinho", x + rng.uniform(-15, 15), 0, z + rng.uniform(-10, 10), rng.uniform(-40, 40) + (0 if z < 0 else 180),
-                scale=rng.uniform(0.85, 1.25), name=f"Windmill{i}")
-    # plantações, lago com píer e um celeiro grande nas bordas (o mapa não fica só gramado)
-    for i, (x, z, yw) in enumerate([(-420, 230, 8), (240, 240, -6), (-200, -250, 4), (430, -260, -10)]):
-        crop_field(world, f"Field{i}", x, z, yw, rng.choice([(255, 210, 60), (110, 190, 60), (240, 120, 50)]))
-    pond(world, 160, -270)
-    barn(world, -560, -90, 75)
-    for i in range(70):
-        while True:
-            x, z = rng.uniform(-700, 700), rng.uniform(-420, 420)
-            if abs(z) > 145 or abs(x) > 500:
-                break
-        scenery(world, "Arvore", x, 0, z, rng.uniform(0, 360), scale=rng.uniform(0.7, 1.5), name=f"Tree{i}",
-                leaf=rng.choice([(110, 200, 70), (95, 180, 60), (130, 210, 80), (240, 150, 190)]), apples=rng.random() < 0.5)
-    for i in range(30):
-        while True:
-            x, z = rng.uniform(-650, 650), rng.uniform(-400, 400)
-            if abs(z) > 140 or abs(x) > 500:
-                break
-        scenery(world, "Feno", x, 0, z, rng.uniform(0, 360), scale=rng.uniform(0.8, 1.2), name=f"Hay{i}")
+    b = Builder(world, Xf())
+    # topo gramado + "terra" embaixo (ilha flutuante)
+    b.cyl("Grass", 2, ISLAND_R * 2, (0, -1, 0), (100, 195, 75), material="Grass", Tex="Grama")
+    b.cyl("GrassLip", 1.2, ISLAND_R * 2 + 3, (0, -2.2, 0), (85, 170, 65), material="Grass")
+    # camadas de terra e pedra que vão afinando para baixo (o topo de cada uma fica abaixo da grama)
+    top = -2.9
+    for i, (h, r) in enumerate([(10, 466), (10, 448), (12, 420), (13, 380), (14, 320), (15, 240), (15, 150), (14, 70)]):
+        col = (150 - i * 6, 100 - i * 4, 60 - i * 3)
+        b.cyl(f"Cliff{i}", h, r * 2, (0, top - h / 2, 0), col, material="Ground" if i < 3 else "Rock")
+        top -= h
+    for i in range(36):
+        deg = i * 10 + rng.uniform(-3, 3)
+        x, z = polar(ISLAND_R - rng.uniform(4, 20), deg)
+        b.add(f"Chunk{i}", (rng.uniform(10, 22), rng.uniform(10, 26), rng.uniform(10, 18)), (x, rng.uniform(-30, -10), z),
+              (130 - rng.randint(0, 25), 85 - rng.randint(0, 15), 50), material="Rock", rot=(rng.uniform(-20, 20), rng.uniform(0, 360), rng.uniform(-20, 20)))
+    # parede invisível na borda (ninguém cai da ilha)
+    for i in range(48):
+        deg = (i + 0.5) * 7.5
+        x, z = polar(ISLAND_R - 2, deg)
+        box(world, f"EdgeWall{i}", x, 15, z, 2 * math.pi * ISLAND_R / 48 * 1.05, 32, 2, (255, 255, 255), yaw=-deg - 90, transparency=1.0)
+    # estradas
+    ring_road(world, "InnerRoad", INNER_R, INNER_W, (215, 175, 120), "Ground", tex="Terra")
+    ring_road(world, "OuterRoad", OUTER_R, OUTER_W, (80, 82, 90), "Asphalt", dash=(255, 220, 60))
+    ring_road(world, "OuterSidewalk", OUTER_R + OUTER_W / 2 + 4, 8, (215, 210, 200), "Concrete", y=0.25)
+    for i, deg in enumerate((30, 150, 270)):
+        mid = (INNER_R + OUTER_R) / 2
+        x, z = polar(mid, deg)
+        box(world, f"Spoke{i}", x, 0.12, z, 10, 0.3, OUTER_R - INNER_R - 10, (215, 175, 120), "Ground", yaw=yaw_facing_center(deg), Tex="Terra")
+    # postes no anel de fora
+    for i in range(24):
+        deg = i * 15 + 7.5
+        x, z = polar(OUTER_R - OUTER_W / 2 - 2, deg)
+        street_lamp(world, x, z, yaw_facing_out(deg) + 180)
     return world
 
 
-def crop_field(parent, name, x, z, yaw, crop):
-    field = Inst("Model", name)
-    parent.add(field)
-    b = Builder(field, Xf(x, 0, z, yaw), collide=False)
-    b.add("Soil", (90, 0.6, 60), (0, 0.1, 0), (150, 100, 60), material="Ground", Tex="Terra")
-    for row in range(10):
-        lz = -26 + row * 5.8
-        b.add(f"Row{row}", (84, 0.5, 2.2), (0, 0.55, lz), (120, 80, 45), material="Ground")
-        for k in range(14):
-            lx = -40 + k * 6 + rng.uniform(-0.8, 0.8)
-            h = rng.uniform(2.0, 3.4)
-            b.add(f"Stalk{row}_{k}", (0.4, h, 0.4), (lx, 0.6 + h / 2, lz), (80, 160, 60))
-            b.ball(f"Crop{row}_{k}", rng.uniform(1.0, 1.5), (lx, 0.6 + h, lz), crop)
-    for i, side in enumerate((-1, 1)):
-        for k in range(10):
-            fx, fz = rot_point(x, z, -45 + k * 10 + 5, side * 31, yaw)
-            scenery(field, "Cerca", fx, 0, fz, yaw, name=f"Fence{i}_{k}")
-
-
-def pond(parent, x, z):
-    m = Inst("Model", "Pond")
-    parent.add(m)
-    b = Builder(m, Xf(x, 0, z, 12))
-    b.cyl("Shore", 0.5, 92, (0, 0.05, 0), (225, 205, 150), material="Sand")
-    b.cyl("Water", 0.4, 84, (0, 0.2, 0), (70, 165, 225), material="Glass", transparency=0.15, collide=False)
-    b.cyl("Water2", 0.3, 50, (14, 0.25, 10), (90, 185, 240), material="Glass", transparency=0.2, collide=False)
-    for i in range(6):
-        b.add(f"Dock{i}", (6, 0.5, 3), (0, 1.2, -44 + i * 3.1), (170, 115, 65), material="WoodPlanks")
-    for i, (lx, lz) in enumerate([(-3, -40), (3, -40), (-3, -30), (3, -30)]):
-        b.add(f"DockPost{i}", (0.6, 3, 0.6), (lx, 0.6, lz), (120, 78, 42), material="Wood")
-    for i in range(10):
-        a = rng.uniform(0, math.pi * 2)
-        r = rng.uniform(18, 36)
-        b.cyl(f"Lily{i}", 0.15, rng.uniform(2, 3.5), (math.cos(a) * r, 0.45, math.sin(a) * r), (90, 175, 80), collide=False)
-    for i in range(14):
-        a = i * math.pi * 2 / 14 + rng.uniform(-0.1, 0.1)
-        b.add(f"Rock{i}", (rng.uniform(2, 4), rng.uniform(1, 2), rng.uniform(2, 3.5)), (math.cos(a) * 45, 0.5, math.sin(a) * 45),
-              (150, 150, 145), material="Rock", rot=(rng.uniform(-10, 10), rng.uniform(0, 360), rng.uniform(-10, 10)))
-
-
-def barn(parent, x, z, yaw):
-    m = Inst("Model", "Barn")
-    parent.add(m)
-    b = Builder(m, Xf(x, 0, z, yaw))
-    b.add("Body", (40, 18, 30), (0, 9, 0), (190, 45, 40), material="WoodPlanks", Tex="Madeira")
+def build_hub(plaza):
+    hub = Inst("Model", "Hub")
+    plaza.add(hub)
+    b = Builder(hub, Xf())
+    b.cyl("HubGrass", 0.4, (INNER_R - INNER_W / 2) * 2, (0, 0.1, 0), (120, 205, 85), material="Grass", Tex="Grama")
+    # celeiro grande + silo
+    bb = Builder(hub, Xf(-8, 0.3, 22, 0, 1.35))
+    bb.add("Body", (36, 18, 26), (0, 9, 0), (200, 50, 45), material="WoodPlanks", Tex="Madeira")
     for side in (-1, 1):
-        b.add(f"Roof{side}", (42, 1, 19), (0, 22.5, side * 8.2), (70, 70, 75), material="Metal", rot=(side * -33, 0, 0))
-    b.add("Door", (14, 14, 0.5), (0, 7, -15.1), (240, 235, 225), material="WoodPlanks")
-    for k, rz in enumerate((45, -45)):
-        b.add(f"DoorX{k}", (19, 0.8, 0.3), (0, 7, -15.4), (190, 45, 40), rot=(0, 0, rz))
-    b.add("Loft", (6, 5, 0.5), (0, 16, -15.1), (240, 235, 225))
-    surface_text(b.add("BarnSign", (16, 3, 0.4), (0, 20.5, -12.4), (250, 245, 235), rot=(-33, 0, 0)), "FAZENDA", color=(190, 45, 40), pps=18)
+        bb.add(f"RoofLow{side}", (38, 1, 9), (0, 19.5, side * 10.5), (130, 60, 45), material="Slate", rot=(side * -55, 0, 0), Tex="Telha")
+        bb.add(f"RoofHigh{side}", (38, 1, 9), (0, 25.2, side * 4.0), (130, 60, 45), material="Slate", rot=(side * -22, 0, 0), Tex="Telha")
+    bb.add("Ridge", (38.5, 0.8, 1.2), (0, 26.8, 0), (110, 45, 35))
+    bb.add("Door", (12, 13, 0.5), (0, 6.5, -13.1), (245, 240, 230), material="WoodPlanks")
+    for k, rz in enumerate((43, -43)):
+        bb.add(f"DoorX{k}", (17, 0.9, 0.3), (0, 6.5, -13.4), (200, 50, 45), rot=(0, 0, rz))
+    bb.add("Loft", (5, 4.5, 0.5), (0, 17, -13.1), (60, 35, 20))
+    bb.add("LoftHay", (4, 1.5, 0.6), (0, 15.5, -13.3), (240, 200, 90), material="Fabric")
+    for side in (-1, 1):
+        bb.add(f"Trim{side}", (0.6, 18, 26.4), (side * 18, 9, 0), (245, 240, 230))
+    sb = Builder(hub, Xf(24, 0.3, 34, 0, 1.3))
+    sb.cyl("Silo", 30, 12, (0, 15, 0), (200, 50, 45), material="Metal")
+    for i in range(5):
+        sb.cyl(f"Band{i}", 0.6, 12.3, (0, 3 + i * 6, 0), (230, 225, 220), material="Metal")
+    sb.ball("Dome", 12, (0, 30, 0), (210, 215, 220), material="Metal")
+    sb.add("Ladder", (1.2, 28, 0.3), (0, 14, -6.1), (180, 180, 185), material="Metal")
+    # mini galinheiro e fardos ao lado do celeiro
+    scenery(hub, "Galinheiro", -42, 0.3, 18, 90, scale=0.9, name="HubCoop")
+    for i in range(4):
+        scenery(hub, "Feno", -30 + i * 3.4, 0.3, -2 + rng.uniform(-1, 1), rng.uniform(-20, 20), scale=0.7, name=f"HubHay{i}")
+    # cercadinho redondo com galinhas soltas (com entrada virada para o sul)
+    pen_r = 56
+    for i in range(32):
+        deg = (i + 0.5) * 360 / 32
+        if 255 < deg < 285:
+            continue
+        x, z = polar(pen_r, deg)
+        scenery(hub, "Cerca", x, 0.3, z, -deg - 90, scale=1.12, name=f"PenFence{i}")
+    for i in range(14):
+        while True:
+            r, deg = rng.uniform(10, pen_r - 6), rng.uniform(0, 360)
+            x, z = polar(r, deg)
+            if not (-36 < x < 36 and 0 < z < 48):  # fora do celeiro e do silo
+                break
+        bird_model = make_model(f"PenHen{i}", asset_bird(rng.choice(["comum", "comum", "comum", "caipira"])), Xf(x, 0.3, z, rng.uniform(0, 360)), collide=False)
+        hub.add(bird_model)
+    # ovo dourado no pedestal + placar global
+    pb = Builder(hub, Xf(30, 0.3, -24))
+    pb.cyl("Pedestal", 4, 10, (0, 2, 0), (225, 220, 210), material="Marble")
+    pb.cyl("PedestalTop", 1, 12, (0, 4.5, 0), (240, 235, 225), material="Marble")
+    pb.egg("GoldenEgg", 7, 9.5, (0, 9.8, 0), (255, 200, 40), material="Metal", reflect=0.3)
+    glow = pb.ball("Glow", 1, (0, 9.8, 0), (255, 230, 120), transparency=1.0, collide=False)
+    glow.add(Inst("PointLight", "Light", Range=26.0, Brightness=2.5, Color=Color.rgb(255, 215, 110)))
+    lb = Builder(hub, Xf(30, 0.3, -40, 0))
+    for i, x in enumerate((-8, 8)):
+        lb.add(f"LPost{i}", (1, 18, 1), (x, 9, 0), (120, 78, 42), material="Wood")
+    board = lb.add("LeaderboardBoard", (16, 15, 0.6), (0, 10.5, 0), (255, 236, 190), material="WoodPlanks")
+    board.add(Inst("SurfaceGui", "Gui", Face=Token(FRONT), SizingMode=Token(SIZING_PPS), PixelsPerStud=20.0, LightInfluence=0.0,
+                   AutoLocalize=False, children=[
+                       Inst("TextLabel", "Title", Size=UDim2(1, 0, 0.16, 0), BackgroundColor3=Color.rgb(255, 205, 50), Text="MAIORES VENDEDORES",
+                            TextScaled=True, Font=Token(FONT_FREDOKA), TextColor3=Color.rgb(110, 62, 28)),
+                   ]))
+    # placa grande do jogo na entrada do cercadinho
+    scenery(hub, "Placa", 0, 0.3, -70, 180, scale=1.4, name="BigSign")
+    # gramado em volta do cercadinho: árvores, canteiros, bancos e postes (cada um num ângulo)
+    for i in range(10):
+        deg = i * 36 + rng.uniform(-8, 8)
+        if 250 < deg < 290:
+            continue  # caminho da entrada
+        x, z = polar(rng.uniform(84, 108), deg)
+        kind = i % 3
+        if kind == 0:
+            scenery(hub, "Arvore", x, 0.3, z, rng.uniform(0, 360), scale=rng.uniform(0.85, 1.1), name=f"HubTree{i}",
+                    leaf=rng.choice([(110, 200, 70), (240, 150, 190)]))
+        elif kind == 1:
+            scenery(hub, "Pinheiro", x, 0.3, z, rng.uniform(0, 360), scale=rng.uniform(0.8, 1.0), name=f"HubPine{i}")
+        else:
+            flowers(hub, x, z)
+    for i, deg in enumerate((15, 75, 135, 195, 330)):
+        x, z = polar(70, deg)
+        bench(hub, x, z, yaw_facing_center(deg) + 180)
+    for i in range(8):
+        deg = i * 45 + 22.5
+        x, z = polar(INNER_R - INNER_W / 2 - 4, deg)
+        street_lamp(hub, x, z, yaw_facing_out(deg))
     for i in range(6):
-        hx, hz = rot_point(x, z, -18 + i * 6 + rng.uniform(-1, 1), -22 + rng.uniform(-2, 2), yaw)
-        scenery(m, "Feno", hx, 0, hz, rng.uniform(0, 360), name=f"BarnHay{i}")
+        x, z = polar(rng.uniform(64, 120), rng.uniform(0, 360))
+        coin(hub, f"Coin{i}", x, 3.5, z)
+
+
+def shop_building(parent, deg, name, wall, roof, sign_text, sign_color, point_name, extra=None):
+    x, z = polar(SHOP_R, deg)
+    yaw = yaw_facing_out(deg)
+    m = Inst("Model", name)
+    parent.add(m)
+    b = Builder(m, Xf(x, 0.3, z, yaw))
+    b.add("Body", (26, 12, 16), (0, 6, 0), wall, material="WoodPlanks", Tex="Madeira")
+    b.add("Roof", (28, 1.2, 18), (0, 12.6, 0), roof, material="Slate")
+    b.add("Counter", (16, 3.6, 3), (0, 1.8, -9.6), (255, 240, 205), material="WoodPlanks")
+    b.add("Window", (15, 5, 0.4), (0, 6.5, -8.05), (60, 40, 25))
+    stripes = 8
+    for i in range(stripes):
+        sx = -10 + (i + 0.5) * (20 / stripes)
+        b.add(f"Awning{i}", (20 / stripes, 0.25, 4.5), (sx, 10.0, -10), [(235, 70, 60), (255, 255, 255)][i % 2] if extra != "blue" else [(70, 150, 230), (255, 255, 255)][i % 2],
+              material="Fabric", rot=(-14, 0, 0))
+    sign = b.add("Sign", (16, 3.4, 0.6), (0, 15.5, -6.5), (255, 248, 230), material="WoodPlanks")
+    surface_text(sign, sign_text, color=sign_color, pps=22)
+    px, pz = rot_point(x, z, 0, -12.5, yaw)
+    marker(m, point_name, px, 3, pz, (6, 2, 2))
+    return m, b
+
+
+def build_ring_buildings(plaza):
+    # Galinheiro do Seu Zé (aves) - 0°
+    _, b = shop_building(plaza, 0, "HenShop", (205, 60, 50), (120, 35, 30), "GALINHEIRO DO SEU ZÉ", (200, 60, 40), "HenShopPoint")
+    for i in range(3):
+        b.add(f"Crate{i}", (3, 2.4, 3), (-11 + i * 3.4, 1.2, -13.5), (190, 140, 80), material="WoodPlanks")
+    # Mercado com barracas e carrinhos (missões) - 60°
+    mx, mz = polar(SHOP_R, 60)
+    yaw = yaw_facing_out(60)
+    market = Inst("Model", "Market")
+    plaza.add(market)
+    mb = Builder(market, Xf(mx, 0.2, mz, yaw))
+    mb.add("Paving", (54, 0.3, 46), (0, 0.05, 0), (205, 200, 195), material="Concrete")
+    stalls = [((60, 170, 80), (255, 230, 60)), ((170, 90, 220), (255, 255, 255)), ((60, 140, 230), (255, 255, 255)), ((235, 60, 55), (255, 255, 255))]
+    for i, aw in enumerate(stalls):
+        sx, sz = rot_point(mx, mz, -19 + i * 12.6, 8 + (i % 2) * 2, yaw)
+        scenery(market, "Banca", sx, 0.4, sz, yaw + rng.uniform(-4, 4), scale=0.85, name=f"Stall{i}", awning=aw, text="OVOS")
+    for i in range(4):
+        cx, cz = rot_point(mx, mz, -18 + i * 11 + rng.uniform(-1, 1), -12 + rng.uniform(-2, 2), yaw)
+        scenery(market, "Carrinho", cx, 0.4, cz, yaw + rng.uniform(-35, 35), name=f"Cart{i}")
+    qx, qz = rot_point(mx, mz, 22, -16, yaw)
+    qb = Builder(market, Xf(qx, 0.4, qz, yaw))
+    for i, px in enumerate((-4, 4)):
+        qb.add(f"Post{i}", (0.7, 9, 0.7), (px, 4.5, 0), (120, 78, 42), material="Wood")
+    mboard = qb.add("MissionBoard", (9.5, 6, 0.5), (0, 6, 0), (110, 70, 40), material="WoodPlanks")
+    surface_text(mboard, "MISSÕES DO DIA", color=(255, 230, 120), pps=18)
+    px, pz = rot_point(mx, mz, 22, -19, yaw)
+    marker(market, "MissionPoint", px, 3, pz, (6, 2, 2))
+    # Oficina (melhorias) - 120°
+    _, b = shop_building(plaza, 120, "UpgradeShop", (200, 140, 80), (110, 80, 60), "OFICINA", (40, 90, 170), "UpgradeShopPoint", extra="blue")
+    b.add("GearSign", (6, 6, 0.6), (0, 18.5, -5), (90, 90, 95), material="Metal")
+    b.cyl("Gear", 0.8, 4.6, (0, 18.5, -5.4), (230, 230, 235), rot=(0, 90, 0), material="Metal")
+    for i in range(8):
+        a = i * 45
+        gx, gy = math.cos(math.radians(a)) * 2.6, math.sin(math.radians(a)) * 2.6
+        b.add(f"Tooth{i}", (1, 1, 0.8), (gx, 18.5 + gy, -5.4), (230, 230, 235), material="Metal", rot=(0, 0, a))
+    # Portão arco-íris trancado (rebirth) - 180°
+    rx, rz = polar(SHOP_R, 180)
+    yaw = yaw_facing_out(180)
+    portal = Inst("Model", "RebirthGate")
+    plaza.add(portal)
+    pb = Builder(portal, Xf(rx, 0.3, rz, yaw))
+    pb.cyl("Base", 1, 30, (0, 0.5, 0), (225, 220, 215), material="Marble")
+    for i, px in enumerate((-9, 9)):
+        pb.add(f"Pillar{i}", (3.2, 16, 3.2), (px, 8, 0), (215, 210, 220), material="Marble")
+        pb.ball(f"PillarTop{i}", 3.6, (px, 16.6, 0), (225, 220, 230), material="Marble")
+    for i in range(9):
+        pb.add(f"Bar{i}", (0.4, 12, 0.4), (-7 + i * 1.75, 6.5, 0), (90, 90, 110), material="Metal")
+    pb.add("BarTop", (16, 0.6, 0.5), (0, 12.6, 0), (90, 90, 110), material="Metal")
+    pb.add("BarMid", (16, 0.5, 0.5), (0, 5, 0), (90, 90, 110), material="Metal")
+    pb.add("Lock", (3, 3.2, 1.2), (0, 6.5, -0.6), (255, 200, 40), material="Metal", reflect=0.25)
+    pb.cyl("Shackle", 0.6, 2.4, (0, 8.6, -0.6), (200, 200, 210), rot=(0, 90, 0), material="Metal")
+    pb.cyl("Shield", 16, 26, (0, 8, 4), (200, 160, 255), material="Glass", transparency=0.75, collide=False)
+    ex, ez = rot_point(rx, rz, 0, 4, yaw)
+    portal.add(make_model("RainbowEgg", asset_egg("arcoiris"), Xf(ex, 14, ez, yaw, 5.0), collide=False))
+    glow = Builder(portal, Xf(ex, 18, ez)).ball("RainbowGlow", 1, (0, 0, 0), (255, 255, 255), transparency=1.0, collide=False)
+    glow.add(Inst("PointLight", "Light", Range=30.0, Brightness=2.0, Color=Color.rgb(230, 170, 255)))
+    sign = pb.add("Sign", (12, 2.6, 0.5), (0, 20, 0), (110, 60, 170))
+    surface_text(sign, "REBIRTH", color=(255, 230, 120), pps=24)
+    px, pz = rot_point(rx, rz, 0, -6, yaw)
+    marker(portal, "RebirthPoint", px, 3, pz, (8, 2, 4))
+    # Banco (loja Robux) - 240°
+    bx, bz = polar(SHOP_R, 240)
+    yaw = yaw_facing_out(240)
+    bank = Inst("Model", "Bank")
+    plaza.add(bank)
+    kb = Builder(bank, Xf(bx, 0.3, bz, yaw))
+    kb.add("Steps", (28, 1.6, 20), (0, 0.8, 0), (220, 215, 205), material="Marble")
+    kb.add("Body", (24, 12, 14), (0, 7.6, 2), (235, 230, 220), material="Marble")
+    for i in range(5):
+        kb.cyl(f"Column{i}", 11, 1.8, (-9.6 + i * 4.8, 7.1, -7), (245, 240, 235), material="Marble")
+    kb.add("Beam", (26, 1.6, 4), (0, 13.4, -6), (225, 220, 210), material="Marble")
+    for side in (-1, 1):
+        kb.add(f"Roof{side}", (14.5, 1.2, 20), (side * 6.3, 16, 0), (80, 110, 170), material="Slate", rot=(0, 0, side * -22))
+    kb.add("Door", (5, 8, 0.4), (0, 5.6, -5.1), (120, 80, 40), material="Wood")
+    kb.cyl("BigCoin", 1.2, 7, (0, 22, -2), (255, 200, 40), rot=(0, 90, 0), material="Metal", reflect=0.3)
+    sign = kb.add("Sign", (10, 2.2, 0.4), (0, 13.4, -8.1), (245, 240, 235))
+    surface_text(sign, "BANCO", color=(200, 150, 30), pps=24)
+    px, pz = rot_point(bx, bz, 0, -12, yaw)
+    marker(bank, "StorePoint", px, 3, pz, (6, 2, 2))
+    # Fábrica com esteiras (decoração) - 300°
+    fx, fz = polar(SHOP_R, 300)
+    yaw = yaw_facing_out(300)
+    fac = Inst("Model", "Factory")
+    plaza.add(fac)
+    fb = Builder(fac, Xf(fx, 0.3, fz, yaw))
+    fb.add("Body", (28, 14, 18), (0, 7, 4), (150, 160, 175), material="Concrete")
+    fb.add("Roof", (29, 1, 19), (0, 14.5, 4), (90, 95, 110), material="Metal")
+    for i, (cx, h) in enumerate([(-8, 12), (-3, 16), (8, 10)]):
+        fb.cyl(f"Chimney{i}", h, 2.6, (cx, 15 + h / 2, 8), (200, 200, 205), material="Metal")
+        fb.cyl(f"ChimneyBand{i}", 1, 2.8, (cx, 14 + h, 8), (220, 80, 50), material="Metal")
+    for i in range(3):
+        fb.add(f"Hatch{i}", (5, 5, 0.4), (-9 + i * 9, 3.5, -5.1), (40, 45, 55), material="Metal")
+        cx2, cz2 = rot_point(fx, fz, -9 + i * 9, -10, yaw)
+        scenery(fac, "Esteira", cx2, 0.3, cz2, yaw, name=f"Belt{i}")
+        kx, kz = rot_point(fx, fz, -9 + i * 9, -11, yaw)
+        coin(fac, f"BeltCoin{i}", kx, 2.2, kz, size=1.8)
+    for i in range(2):
+        fb.cyl(f"Pipe{i}", 8, 1.4, (15, 4, -1 + i * 3), (220, 90, 60), rot=(0, 0, 0), material="Metal")
+    # placas com setas nas trilhas
+    for i, deg in enumerate((30, 150, 270)):
+        x, z = polar(INNER_R + 18, deg + 4)
+        signpost(plaza, x, z, yaw_facing_center(deg) + 90, "GRANJAS")
+
+
+def build_outskirts(world):
+    def free_spot(r_lo, r_hi, avoid_deg=None):
+        while True:
+            r, deg = rng.uniform(r_lo, r_hi), rng.uniform(0, 360)
+            if avoid_deg is not None and any(abs((deg - a + 180) % 360 - 180) < w for a, w in avoid_deg):
+                continue
+            return r, deg
+
+    # lagos com ponte (entre as granjas, na borda)
+    for k, deg in enumerate((15, 195)):
+        x, z = polar(408, deg)
+        m = Inst("Model", f"Pond{k}")
+        world.add(m)
+        b = Builder(m, Xf(x, 0, z, -deg))
+        b.add("Shore", (70, 0.4, 44), (0, 0.1, 0), (225, 205, 150), material="Sand")
+        b.add("Water", (64, 0.5, 38), (0, 0.25, 0), (70, 165, 225), material="Glass", transparency=0.15, collide=False)
+        for i in range(8):
+            b.add(f"Bridge{i}", (3, 0.6, 12), (-10 + i * 3, 2.2 + math.sin(i / 7 * math.pi) * 1.6, 0), (175, 115, 65), material="WoodPlanks")
+        for i, (bx, bz) in enumerate([(-11, -6), (11, -6), (-11, 6), (11, 6)]):
+            b.add(f"Rail{i}", (0.5, 3, 0.5), (bx, 3.2, bz), (130, 85, 45), material="Wood")
+        b.add("RailL", (22, 0.4, 0.4), (0, 4.6, -6), (130, 85, 45), material="Wood")
+        b.add("RailR", (22, 0.4, 0.4), (0, 4.6, 6), (130, 85, 45), material="Wood")
+        for i in range(8):
+            a = rng.uniform(0, math.pi * 2)
+            b.add(f"Rock{i}", (rng.uniform(2, 4), rng.uniform(1, 2), rng.uniform(2, 3)), (math.cos(a) * 34, 0.6, math.sin(a) * 21),
+                  (150, 150, 145), material="Rock", rot=(0, rng.uniform(0, 360), 0))
+    # moinho num morrinho
+    hx, hz = polar(415, 105)
+    hill = Builder(world, Xf(hx, -14, hz))
+    hill.ball("Hill", 52, (0, 0, 0), (110, 200, 80), material="Grass")
+    scenery(world, "Moinho", hx, 9.5, hz, yaw_facing_center(105), scale=1.0, name="Windmill")
+    # rotatória com caminhão de entrega
+    rx, rz = polar(410, 285)
+    rb = Builder(world, Xf(rx, 0, rz))
+    rb.cyl("RoundRoad", 0.3, 46, (0, 0.15, 0), (80, 82, 90), material="Asphalt")
+    rb.cyl("RoundGrass", 0.5, 24, (0, 0.2, 0), (110, 200, 80), material="Grass")
+    scenery(world, "Pinheiro", rx, 0.4, rz, 0, scale=0.9, name="RoundTree")
+    tb = Builder(world, Xf(rx + 17, 0.3, rz, 90))
+    tb.add("Cargo", (5.5, 5.5, 9), (0, 3.6, 1.5), (245, 245, 240))
+    tb.add("Cab", (5.5, 4.2, 4), (0, 2.9, -5), (255, 150, 40))
+    tb.add("Windshield", (4.8, 1.8, 0.2), (0, 3.9, -7.05), (120, 180, 230), material="Glass")
+    for i, (wx, wz) in enumerate([(-2.8, -4.5), (2.8, -4.5), (-2.8, 3.5), (2.8, 3.5)]):
+        tb.cyl(f"Wheel{i}", 0.8, 2.2, (wx, 1.1, wz), (40, 40, 45), rot=(0, 0, 0))
+    # pinheiros, árvores, fenos e flores na borda (fora das granjas)
+    avoid = [(15, 9), (195, 9), (105, 8), (285, 6)]
+    for i in range(70):
+        r, deg = free_spot(362, 455, avoid)
+        x, z = polar(r, deg)
+        if rng.random() < 0.6:
+            scenery(world, "Pinheiro", x, 0, z, rng.uniform(0, 360), scale=rng.uniform(0.8, 1.4), name=f"Pine{i}")
+        else:
+            scenery(world, "Arvore", x, 0, z, rng.uniform(0, 360), scale=rng.uniform(0.8, 1.2), name=f"Tree{i}",
+                    leaf=rng.choice([(110, 200, 70), (130, 210, 80), (240, 150, 190)]), apples=rng.random() < 0.5)
+    for i in range(16):
+        r, deg = free_spot(360, 450, avoid)
+        x, z = polar(r, deg)
+        scenery(world, "Feno", x, 0, z, rng.uniform(0, 360), name=f"Hay{i}")
+    for i in range(10):
+        r, deg = free_spot(365, 445, avoid)
+        flowers(world, *polar(r, deg))
+    # árvores no anel do meio (entre os prédios)
+    for i, deg in enumerate((88, 152, 208, 332, 30 + 8, 270 - 8)):
+        x, z = polar(SHOP_R + rng.uniform(-14, 14), deg + rng.uniform(-3, 3))
+        scenery(world, "Pinheiro" if i % 2 else "Arvore", x, 0.3, z, rng.uniform(0, 360), scale=rng.uniform(0.8, 1.0), name=f"MidTree{i}")
+
+
+def build_plaza():
+    plaza = Inst("Model", "Plaza")
+    build_hub(plaza)
+    build_ring_buildings(plaza)
+    return plaza
 
 
 def build_assets():
@@ -907,20 +1121,21 @@ def build():
     )
 
     plots = Inst("Folder", "Plots")
-    index = 0
-    for z_side, yaw in ((1, 0.0), (-1, 180.0)):
-        for x in PLOT_XS:
-            index += 1
-            cz = z_side * (ROAD_HALF + SIDEWALK + 2 + PLOT_D / 2)
-            plots.add(build_plot(index, x, cz, yaw))
+    for index in range(1, 13):
+        deg = (index - 1) * 30 + 15  # 12 granjas em volta da ilha
+        cx, cz = polar(PLOT_R, deg)
+        plots.add(build_plot(index, cx, cz, yaw_facing_center(deg)))
 
-    spawn = Inst("SpawnLocation", "Spawn", Anchored=True, Size=V3(12, 1, 12), CFrame=CF(0, 0.6, -40), Color=Color8(255, 205, 50),
+    spawn = Inst("SpawnLocation", "Spawn", Anchored=True, Size=V3(12, 1, 12), CFrame=CF(0, 0.6, -90), Color=Color8(255, 205, 50),
                  Material=Token(M["Smooth"]), Neutral=True, Duration=Int(0), Transparency=0.4, TopSurface=Token(0), BottomSurface=Token(0))
+
+    world = build_island()
+    build_outskirts(world)
 
     workspace = Inst(
         "Workspace", "Workspace",
         StreamingEnabled=False,
-        children=[build_world(), build_plaza(), plots, spawn, Inst("Terrain", "Terrain")],
+        children=[world, build_plaza(), plots, spawn, Inst("Terrain", "Terrain")],
     )
 
     shared = Inst("Folder", "Shared", children=scripts_from_dir(os.path.join(src, "ReplicatedStorage", "Shared")))

@@ -147,7 +147,7 @@ end
 
 function Shop.Init()
 	-- balcões da praça: chegar perto e apertar E abre o painel certo na tela
-	for pointName, info in { HenShopPoint = { "Hens", "Ver aves", "Galinheiro do Seu Zé" }, UpgradeShopPoint = { "Upgrades", "Ver melhorias", "Oficina" }, RebirthPoint = { "Rebirth", "Rebirth", "Altar" }, MissionPoint = { "Missions", "Ver missões", "Quadro" } } do
+	for pointName, info in { HenShopPoint = { "Hens", "Ver aves", "Galinheiro do Seu Zé" }, UpgradeShopPoint = { "Upgrades", "Ver melhorias", "Oficina" }, RebirthPoint = { "Rebirth", "Rebirth", "Altar" }, MissionPoint = { "Missions", "Ver missões", "Quadro" }, StorePoint = { "Robux", "Ver loja", "Banco" } } do
 		local part = point(pointName)
 		if part then
 			local prompt = Registry.Plots.MakePrompt(part, info[2], info[3], "all", 0, 14)

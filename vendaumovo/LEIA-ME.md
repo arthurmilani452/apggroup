@@ -2,18 +2,25 @@
 
 Arquivo para abrir no Roblox Studio: **`vendaumovo/place/VendaUmOvo.rbxlx`**
 
-Tycoon de granja para todas as idades. Cada jogador ganha uma granja na beira da rua, com uma banca de ovos na calçada (igual barraquinha de limonada). As aves botam sozinhas, você junta os ovos na cesta, leva até a banca e vende. Com as moedas, compra aves melhores e melhorias, e depois faz rebirth.
+Tycoon de granja para todas as idades, numa ilha flutuante. Cada jogador ganha uma das 12 granjas em volta da ilha, com uma banca de ovos virada para a estrada (igual barraquinha de limonada). As aves botam sozinhas, você junta os ovos na cesta, leva até a banca e vende. Com as moedas, compra aves melhores e melhorias, e depois faz rebirth.
+
+## O mapa
+- **Centro:** celeiro vermelho, silo, cercadinho com galinhas soltas, o ovo dourado no pedestal e o placar dos maiores vendedores.
+- **Anel do meio (entre a estrada de terra e o asfalto):** Galinheiro do Seu Zé (aves), Mercado com barracas e carrinhos (missões), Oficina com a engrenagem (melhorias), Portão Arco-íris trancado (rebirth), Banco com a moeda (loja de Robux) e a Fábrica com esteiras.
+- **Em volta:** as 12 granjas, cada uma na beira da estrada asfaltada.
+- **Borda da ilha:** lagos com ponte, moinho no morro, rotatória com caminhão, pinheiros e fardos de feno. Tem parede invisível na beirada, ninguém cai.
 
 ## Como jogar
 1. Você nasce na sua granja. A placa do portão mostra seu nome.
 2. As aves botam no ninho de cada uma (até 3 ovos por ninho; ninho cheio = ela espera).
 3. Encoste no ovo ou aperte **E** perto do ninho para pegar. A cesta tem limite.
 4. Vá até a **banca** (na frente da granja) e aperte **E** ou pise no tapete verde atrás do balcão. Vende tudo de uma vez.
-5. Na **praça** do meio do mapa ficam:
+5. No anel do meio da ilha ficam os balcões (chegue perto e aperte **E**):
    - **Galinheiro do Seu Zé**: aves novas. Com os ninhos cheios, a ave mais fraca sai e devolve 25% do preço dela.
    - **Oficina**: melhorias (cesta, mais ninhos, postura rápida, tênis veloz, coleta automática, esteira, decoração).
-   - **Altar do Rebirth**: recomeça a granja, e toda venda passa a valer +50% por rebirth, pra sempre.
-   - **Quadro de missões** e **placar global** dos maiores vendedores.
+   - **Portão Arco-íris**: rebirth. Recomeça a granja, e toda venda passa a valer +50% por rebirth, pra sempre.
+   - **Mercado**: quadro das missões do dia.
+   - **Banco**: loja de Robux.
 6. Botões da esquerda: Aves, Melhorias, Rebirth, Missões, Presente e Loja (Robux).
 
 Seta amarela no começo: aponta o ninho com ovo ou a banca, até a pessoa juntar 2.000 moedas.
