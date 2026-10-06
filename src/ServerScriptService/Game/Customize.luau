@@ -18,6 +18,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Cosmetics = require(ReplicatedStorage.Shared.Cosmetics)
 local Critters = require(ReplicatedStorage.Shared.Critters)
 local Format = require(ReplicatedStorage.Shared.Format)
+local Models3D = require(ReplicatedStorage.Shared.Models3D)
 local Registry = require(script.Parent.Registry)
 
 local Customize = {}
@@ -404,6 +405,72 @@ local function clearFolder(plot, name: string): Folder
 	return folder
 end
 
+-- v29: ginásio 3D. As paredes, torres, portão e piso de peças ficam INVISÍVEIS (mas continuam
+-- batendo, então nada muda no jogo) e o modelo 3D do Higgsfield aparece no lugar, só visual.
+-- Ajustes no Studio (atributos no modelo importado): Size = maior lado em studs, Lift = sobe/desce, Turn = gira.
+local GYM_SIZE = 96 -- a base tem 64 x 88 + as torres dos cantos
+local GYM_SINK = 1.2 -- o piso do modelo fica um pouco abaixo do piso de verdade (não cobre os pedestais)
+local hiddenParts: { [any]: { [BasePart]: number } } = {}
+
+local function gymShell(plot): { BasePart }
+	local model: Model = plot.Model
+	local list = {}
+	local function add(instance: Instance?)
+		if instance and instance:IsA("BasePart") then
+			table.insert(list, instance)
+		end
+	end
+	add(model:FindFirstChild("Floor"))
+	for i = 0, 4 do
+		add(model:FindFirstChild("Stripe" .. i))
+		local tower = model:FindFirstChild("Tower" .. i)
+		if tower then
+			for _, d in tower:GetDescendants() do
+				add(d)
+			end
+		end
+	end
+	for _, name in WALL_NAMES do
+		add(model:FindFirstChild(name))
+		add(model:FindFirstChild(name .. "Top"))
+		add(model:FindFirstChild(name .. "Trim"))
+	end
+	for _, name in { "GateA", "GateB", "GateTop", "GateGlow" } do
+		add(model:FindFirstChild(name))
+	end
+	return list
+end
+
+local function showShell(plot)
+	local hidden = hiddenParts[plot]
+	if hidden then
+		for part, transparency in hidden do
+			part.Transparency = transparency
+		end
+		hiddenParts[plot] = nil
+	end
+end
+
+local function placeGym(plot, gymId: string, props: Folder): boolean
+	local mesh = Models3D.Get(gymId, { Size = GYM_SIZE, Fit = "Max" })
+	if not mesh then
+		return false
+	end
+	local origin: CFrame = plot.Origin.CFrame
+	local floorY = plot.FloorTop or (origin.Position.Y + plot.Origin.Size.Y / 2)
+	-- frente do modelo (-Z) virada para a entrada da base (a mesma frente do localCFrame)
+	mesh:PivotTo(CFrame.new(origin.Position.X, floorY - GYM_SINK, origin.Position.Z) * origin.Rotation)
+	mesh.Name = "Gym"
+	mesh.Parent = props
+	local hidden = {}
+	for _, part in gymShell(plot) do
+		hidden[part] = part.Transparency
+		part.Transparency = 1
+	end
+	hiddenParts[plot] = hidden
+	return true
+end
+
 function Customize.ApplyTheme(plot, themeId: string)
 	local theme = Cosmetics.ById.theme[themeId]
 	local saved = defaults[plot]
@@ -415,9 +482,13 @@ function Customize.ApplyTheme(plot, themeId: string)
 		part.Color = look.Color
 		part.Material = look.Material
 	end
+	showShell(plot)
 	local props = clearFolder(plot, "ThemeProps")
 	plot.Model:SetAttribute("Theme", themeId)
 	if not theme or themeId == "classic" then
+		return
+	end
+	if theme.Gym and placeGym(plot, theme.Gym, props) then
 		return
 	end
 	local groups = themeParts(plot)
