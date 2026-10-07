@@ -45,6 +45,7 @@ local function rebirth(player: Player)
 	Registry.Game.ApplySpeed(player)
 	Registry.Game.Push(player)
 	fx(player, "rebirth", gain, data.Rebirths)
+	Registry.Bonus.Badge(player, "Renasceu")
 	Registry.Remotes.NotifyAll("n.rebirth", { player = player.DisplayName, n = data.Rebirths }, "event")
 	task.spawn(Registry.Data.Save, player) -- renascer é importante: salva já
 end
@@ -70,6 +71,7 @@ local function evolve(player: Player)
 	Registry.Game.Push(player)
 	local seal = Config.Seals[data.Seal]
 	fx(player, "seal", data.Seal, seal and seal.Id)
+	Registry.Bonus.Badge(player, "Selo")
 	Registry.Remotes.NotifyAll("n.seal", { player = player.DisplayName, seal = seal and seal.Id or "" }, "event")
 	task.spawn(Registry.Data.Save, player)
 end
@@ -160,10 +162,22 @@ local function claimOffline(player: Player)
 	end
 end
 
--- Curtir a granja de outro jogador (uma vez por granja por sessão)
+-- Curtir a granja de outro jogador (uma vez por dono por servidor).
+-- v6: guardado por quem curtiu x dono (antes era por granja e zerava quando o dono saía e voltava:
+-- dava para curtir de novo e ganhar o prêmio de novo)
+local likedOwners: { [number]: { [number]: boolean } } = {}
+
 function Shop.Like(player: Player, plot: any)
 	local owner = plot.Owner
 	if not owner or owner == player or plot.LikedBy[player.UserId] then
+		return
+	end
+	local mine = likedOwners[player.UserId]
+	if not mine then
+		mine = {}
+		likedOwners[player.UserId] = mine
+	end
+	if mine[owner.UserId] then
 		return
 	end
 	local ownerData = Registry.Game.Data(owner)
@@ -171,6 +185,7 @@ function Shop.Like(player: Player, plot: any)
 		return
 	end
 	plot.LikedBy[player.UserId] = true
+	mine[owner.UserId] = true
 	ownerData.Likes += 1
 	Registry.Plots.RefreshSign(plot)
 	local reward = Registry.Game.Reward(player, Config.LikeSeconds, 10, false)
@@ -190,6 +205,7 @@ local function teleport(player: Player, where: any)
 		humanoid.Sit = false -- desce do trator antes de teleportar
 		task.wait(0.15)
 	end
+	Registry.Guard.Grace(player, 3) -- teleporte do próprio jogo
 	if where == "plaza" then
 		local s = Layout.PlazaSpawn
 		character:PivotTo(CFrame.new(s[1], 5, s[2]))
@@ -258,6 +274,10 @@ local function setSetting(player: Player, key: any, value: any)
 	if key == "Lang" and value ~= "pt" and value ~= "en" then
 		return
 	end
+	-- v6: número tem que ser inteiro e pequeno (NaN ou infinito quebrava o save do próprio jogador)
+	if type(value) == "number" and (value ~= value or math.abs(value) > 1e6 or value % 1 ~= 0) then
+		return
+	end
 	data.Settings[key] = value
 end
 
@@ -279,7 +299,7 @@ function Shop.Init()
 	on("Setting", setSetting)
 	on("Refresh", function(player: Player)
 		Registry.Game.Push(player)
-	end)
+	end, 2) -- v6: no máximo a cada 2 s (o estado inteiro é pesado de montar e enviar)
 
 	-- relógio do servidor: tempo do presente e virada do dia das missões
 	task.spawn(function()

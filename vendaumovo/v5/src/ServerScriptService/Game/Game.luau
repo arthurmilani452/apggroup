@@ -52,6 +52,7 @@ function Game.Ctx(player: Player): any
 		Weather = if Registry.Weather then Registry.Weather.Current else nil,
 		Friends = friends[player] or 0,
 		Group = inGroup[player] == true,
+		Premium = player.MembershipType == Enum.MembershipType.Premium, -- v6: +10% (Config.PremiumBonus)
 		NoRandom = policy[player] ~= nil and policy[player].NoRandom == true, -- sem prêmio sorteado ligado a compra
 	}
 end

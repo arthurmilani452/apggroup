@@ -1197,6 +1197,53 @@ for lang, keys in V5 do
 	end
 end
 
+-- ---------------------------------------------------------------------------
+-- Textos da versão 6: prêmio por tempo jogado, convite, Chocar já
+-- ---------------------------------------------------------------------------
+local V6: { [string]: { [string]: string } } = {
+	pt = {
+		["play.title"] = "Prêmio por tempo ({a}/{b})",
+		["play.titleDone"] = "Prêmio por tempo",
+		["play.desc"] = "Jogue {m} min nesta visita e pegue moedas",
+		["play.descTurbo"] = "Jogue {m} min: moedas e 10 min de Turbo",
+		["play.claim"] = "PEGAR",
+		["play.done"] = "Você pegou todos hoje. Volte depois!",
+		["n.playNotYet"] = "Ainda não deu o tempo",
+		["n.playTurbo"] = "Turbo ligado por {n} min",
+		["invite.title"] = "Chame os amigos",
+		["invite.desc"] = "Cada amigo no servidor dá +{n}% de renda",
+		["invite.button"] = "CONVIDAR",
+		["invite.cant"] = "Não deu para abrir o convite agora",
+		["prod.ChocarJa"] = "Chocar Já",
+		["prod.ChocarJa.d"] = "O ovo que mais falta termina de chocar na hora",
+		["n.hatchNow"] = "Pronto! Pode pegar o pet na chocadeira",
+		["n.hatchNone"] = "Nenhum ovo chocando agora",
+	},
+	en = {
+		["play.title"] = "Playtime reward ({a}/{b})",
+		["play.titleDone"] = "Playtime reward",
+		["play.desc"] = "Play {m} min this visit to get coins",
+		["play.descTurbo"] = "Play {m} min: coins and 10 min of Turbo",
+		["play.claim"] = "CLAIM",
+		["play.done"] = "You got them all. Come back later!",
+		["n.playNotYet"] = "Not yet",
+		["n.playTurbo"] = "Turbo on for {n} min",
+		["invite.title"] = "Invite friends",
+		["invite.desc"] = "Each friend in the server gives +{n}% income",
+		["invite.button"] = "INVITE",
+		["invite.cant"] = "Couldn't open the invite right now",
+		["prod.ChocarJa"] = "Hatch Now",
+		["prod.ChocarJa.d"] = "The egg with the most time left hatches right away",
+		["n.hatchNow"] = "Done! Grab your pet at the incubator",
+		["n.hatchNone"] = "No egg is hatching right now",
+	},
+}
+for lang, keys in V6 do
+	for key, text in keys do
+		TEXT[lang][key] = text
+	end
+end
+
 Lang.Text = TEXT
 
 function Lang.Set(lang: string)

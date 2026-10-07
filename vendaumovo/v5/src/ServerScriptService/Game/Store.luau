@@ -213,6 +213,11 @@ function Store.CheckPasses(player: Player)
 		if not player.Parent then
 			return
 		end
+		-- v6: comprado enquanto os dados ainda carregavam (só valia na sessão): agora guarda no save também
+		local data = Registry.Game.Data(player)
+		if Registry.Game.Owned(player)[pass.Key] and data and not (data.Passes and data.Passes[pass.Key]) then
+			grantPass(player, pass, false)
+		end
 		-- passe já guardado no save (ou já entregue nesta sessão) não precisa perguntar de novo ao Roblox
 		if (tonumber(pass.Id) or 0) > 0 and not Registry.Game.Owned(player)[pass.Key] and not Registry.Game.HasPass(player, pass.Key) then
 			local has, asked = ownsPass(player, pass)
@@ -258,6 +263,19 @@ local function buyProduct(player: Player, key: any)
 		notify(player, "n.onceHave", nil, "info")
 		return
 	end
+	-- Chocar já: só abre a janela se houver ovo chocando (senão seriam Robux jogados fora)
+	if product.Kind == "hatch" then
+		local now, waiting = os.time(), false
+		for _, hatch in data.Hatch or {} do
+			if (tonumber(hatch.Ready) or 0) > now then
+				waiting = true
+			end
+		end
+		if not waiting then
+			notify(player, "n.hatchNone", nil, "info")
+			return
+		end
+	end
 	-- Recarga de poderes: só abre a janela se houver poder recarregando (senão seriam Robux jogados fora)
 	if product.Kind == "refill" then
 		local refill = Sim.RefillState(Config, data, Registry.Game.Ctx(player))
@@ -278,6 +296,8 @@ local function announceProduct(player: Player, product: any, out: any)
 		notify(player, "n.onceAgain", nil, "info")
 	elseif product.Kind == "refill" then
 		notify(player, "n.refill", nil, "success")
+	elseif product.Kind == "hatch" and out.Hatched then
+		notify(player, "n.hatchNow", nil, "success")
 	elseif product.Kind == "pack" then
 		notify(player, "n.packOn", nil, "success")
 	elseif out.Boost then

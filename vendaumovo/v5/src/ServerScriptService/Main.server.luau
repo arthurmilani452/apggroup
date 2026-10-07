@@ -45,9 +45,11 @@ Registry.Events = require(GameFolder.Events)
 Registry.Tractor = require(GameFolder.Tractor)
 Registry.Store = require(GameFolder.Store)
 Registry.Leaderboard = require(GameFolder.Leaderboard)
+Registry.Guard = require(GameFolder.Guard)
+Registry.Bonus = require(GameFolder.Bonus)
 
 -- Cada sistema liga sozinho; se um der erro, os outros continuam
-for _, name in { "Game", "Weather", "Plots", "Farm", "Shop", "Events", "Tractor", "Store", "Leaderboard" } do
+for _, name in { "Game", "Weather", "Plots", "Farm", "Shop", "Events", "Tractor", "Store", "Leaderboard", "Guard", "Bonus" } do
 	local ok, err = pcall(Registry[name].Init)
 	if not ok then
 		warn("[Main] " .. name .. ".Init falhou:", err)
@@ -71,6 +73,7 @@ local function onCharacter(player: Player, character: Model)
 	local plot = Registry.Plots.Of(player)
 	if plot and character:WaitForChild("HumanoidRootPart", 10) then
 		task.defer(function()
+			Registry.Guard.Grace(player, 3) -- o servidor que moveu: não é teleporte de hack
 			character:PivotTo(Registry.Plots.SpawnCFrame(plot))
 		end)
 	end
@@ -119,9 +122,11 @@ local function onPlayerRemoving(player: Player)
 	pcall(Registry.Farm.Sweep, player)
 	-- devolve o terreno JÁ (antes das chamadas que esperam a internet): daqui em diante nada mais cai no chão
 	pcall(Registry.Plots.Release, player)
-	pcall(Registry.Leaderboard.Write, player)
 	Registry.Remotes.RemovePlayer(player)
+	-- v6: salva PRIMEIRO (o placar espera a internet e atrasava o save; se o jogador já entrou em outro
+	-- servidor nesse meio tempo, o save podia ser recusado)
 	Registry.Data.Save(player, true)
+	pcall(Registry.Leaderboard.Write, player)
 	Registry.Data.Remove(player)
 end
 
@@ -300,8 +305,8 @@ game:BindToClose(function()
 		pending += 1
 		task.spawn(function()
 			pcall(Registry.Farm.Sweep, player) -- o que está no chão entra na conta antes do último save
-			pcall(Registry.Leaderboard.Write, player)
 			Registry.Data.Save(player, true)
+			pcall(Registry.Leaderboard.Write, player)
 			pending -= 1
 		end)
 	end

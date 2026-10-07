@@ -99,12 +99,21 @@ function Farm.TryBuy(player: Player, plot: any, button: any): boolean
 	Registry.Remotes.Fx:FireAllClients("buy", position, button.Id, player.UserId)
 	if button.Kind == "unlock" then
 		fx(player, "newbiz", position, button.Biz)
+		local bizId = Config.Businesses[button.Biz].Id
+		if button.Biz == 2 then
+			Registry.Bonus.Badge(player, "Granja")
+		elseif bizId == "fabrica" then
+			Registry.Bonus.Badge(player, "Fabrica")
+		elseif bizId == "foguete" then
+			Registry.Bonus.Badge(player, "Foguete")
+		end
 		-- os primeiros negócios todo mundo abre em minutos: só avisa o servidor a partir do 4º
 		if button.Biz >= 4 then
 			Registry.Remotes.NotifyAll("n.unlocked", { player = player.DisplayName, biz = Config.Businesses[button.Biz].Id }, "event")
 		end
 	elseif button.Kind == "manager" then
 		fx(player, "manager", position, button.Biz)
+		Registry.Bonus.Badge(player, "Gerente")
 		-- contratou no meio de um ciclo feito na mão: o ciclo termina agora e paga (o tapete some com o
 		-- gerente; não fica um trabalho "fantasma" correndo). A espera antiga perde a senha e não paga de novo.
 		local token = plot.Run.Work[button.Biz]
@@ -410,6 +419,17 @@ end
 -- ---------------------------------------------------------------------------
 -- Posição do jogador
 -- ---------------------------------------------------------------------------
+-- v6: moedinhas voando só para quem está perto (antes iam para o servidor todo a cada moeda pega)
+local FX_RADIUS = 180
+local function fxMoneyNear(position: Vector3, amount: number, ownerId: number)
+	for _, other in Players:GetPlayers() do
+		local root = Registry.Plots.RootOf(other)
+		if other.UserId == ownerId or (root and (root.Position - position).Magnitude <= FX_RADIUS) then
+			Registry.Remotes.Fx:FireClient(other, "money", position, amount, ownerId)
+		end
+	end
+end
+
 local function pollPlayer(player: Player, plot: any, dt: number)
 	local data = Registry.Game.Data(player)
 	if not data then
@@ -470,7 +490,7 @@ local function pollPlayer(player: Player, plot: any, dt: number)
 				end
 			end
 			if amount > 0 then
-				Registry.Remotes.Fx:FireAllClients("money", at(plot, cash, 3), amount, player.UserId)
+				fxMoneyNear(at(plot, cash, 3), amount, player.UserId)
 				changed = true
 			end
 		end
@@ -547,7 +567,7 @@ local function pollPlayer(player: Player, plot: any, dt: number)
 		local value, count, fresh = Sim.Sell(Config, data, ctx)
 		if count > 0 then
 			local position = at(plot, sell, 4)
-			Registry.Remotes.Fx:FireAllClients("money", position, value, player.UserId)
+			fxMoneyNear(position, value, player.UserId)
 			fx(player, "sold", position, value, count)
 			for _, key in fresh do
 				fx(player, "album", position, key)
@@ -659,7 +679,7 @@ local function passPerks(player: Player, plot: any, dt: number)
 				fx(player, "tips", where, got.TipCoins, got.Tips)
 			end
 			if got.Coins > 0 then
-				Registry.Remotes.Fx:FireAllClients("money", where, got.Coins, player.UserId)
+				fxMoneyNear(where, got.Coins, player.UserId)
 			end
 			if #got.Eggs > 0 then
 				for _, egg in got.Eggs do

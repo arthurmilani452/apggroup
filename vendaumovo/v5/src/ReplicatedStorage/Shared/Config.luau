@@ -27,6 +27,7 @@ Config.LeaderboardStore = "VendaUmOvo_Top_v4"
 Config.MaxPlayers = 8
 Config.GroupId = 869887016 -- grupo Critter Club Studios (0 = sem bônus de grupo)
 Config.GroupBonus = 0.10 -- +10% para quem está no grupo
+Config.PremiumBonus = 0.10 -- v6: +10% para assinante Roblox Premium (conta no "Amigos e grupo")
 
 -- ---------------------------------------------------------------------------
 -- IMAGENS, TEXTURAS e SONS ("rbxassetid://123"). Vazio = o jogo usa emoji/cor no lugar.
@@ -396,7 +397,7 @@ Config.SpecialPets = {
 -- Weight = peso no sorteio. Seconds = segundos de renda; Stars; Boost; Egg = ovo raro da melhor linha.
 -- ---------------------------------------------------------------------------
 Config.Wheel = {
-	FreeEvery = 4 * 3600,
+	FreeEvery = 3600, -- v6: de 4 h para 1 h (motivo para voltar ao jogo várias vezes no dia)
 	MaxBanked = 20,
 	Prizes = {
 		{ Id = "coins1", Weight = 30, Seconds = 12, Min = 100, Color = Color3.fromRGB(235, 70, 60) },
@@ -451,7 +452,7 @@ Config.Tractor = { Speed = 40, Turn = 2.2 }
 --   Total de estrelas = StarK * (tudo que ganhou desde o último Selo / StarBase) ^ StarPow
 --   Renascer entrega a diferença para o que já recebeu (não adianta renascer toda hora).
 -- ---------------------------------------------------------------------------
-Config.RebirthMinStars = 30 -- só pode renascer quando for ganhar pelo menos isto
+Config.RebirthMinStars = 15 -- v6: era 30; o 1º renascimento chega mais cedo -- só pode renascer quando for ganhar pelo menos isto
 Config.StarBase = 1e6
 Config.StarK = 1
 Config.StarPow = 0.3
@@ -567,7 +568,7 @@ Config.Weather = {
 -- GoldenSpins giros da roleta). Tudo grátis: chave e baú NÃO são vendidos (nada sorteado é pago). Regras: Sim.Key*/Sim.*Chest.
 -- ---------------------------------------------------------------------------
 Config.Keys = {
-	MinBiz = 2, -- só depois de abrir tantos negócios (a Granja)
+	MinBiz = 3, -- v6: só depois de abrir 3 negócios (antes era 2: muita coisa nova logo no começo)
 	First = { 25, 40 }, -- 1ª chave da vida: segundos de jogo depois de liberar
 	Every = { 100, 160 }, -- segundos de jogo entre uma chave pega e a próxima aparecer
 	Need = 3, -- chaves para abrir o baú (com Need na mão não nasce outra)
@@ -587,7 +588,7 @@ Config.Keys = {
 -- Regras: Sim.PowerInfo / Sim.UsePower. O produto "Recarga" (Config.Products) zera as recargas.
 -- ---------------------------------------------------------------------------
 Config.Powers = {
-	{ Id = "galo", Emoji = "🐓", MinBiz = 2, Cooldown = 300, Duration = 20, Speed = 2, Color = Color3.fromRGB(255, 120, 60) },
+	{ Id = "galo", Emoji = "🐓", MinBiz = 3, Cooldown = 300, Duration = 20, Speed = 2, Color = Color3.fromRGB(255, 120, 60) },
 	{ Id = "moedas", Emoji = "🪙", MinBiz = 4, Cooldown = 360, Seconds = 15, Min = 300, Color = Color3.fromRGB(255, 205, 50) },
 	{ Id = "sorte", Emoji = "🍀", MinBiz = 6, Cooldown = 600, Mut = "g", Color = Color3.fromRGB(90, 210, 110) },
 }
@@ -671,6 +672,30 @@ Config.Products = {
 	{ Key = "Sorte", Id = 3716944132, Kind = "boost", Boost = "Sorte", Seconds = 900, Icon = "Trevo", Emoji = "🍀", Robux = 19 },
 	-- Kind "refill": deixa todos os poderes (Config.Powers) prontos na hora. Id = 0: ainda não criado no Roblox (fica fora da loja).
 	{ Key = "Recarga", Id = 0, Kind = "refill", Icon = "Raio", Emoji = "⚡", Robux = 19 },
+	-- v6. Kind "hatch": a chocadeira com mais tempo faltando termina na hora. Sem ovo chocando, vira
+	-- Seconds de renda em moedas. Id = 0: crie o produto no Roblox e cole o número aqui.
+	{ Key = "ChocarJa", Id = 0, Kind = "hatch", Seconds = 600, Min = 300, Icon = "Relogio", Emoji = "🐣", Robux = 15 },
+}
+
+-- v6: PRÊMIO POR TEMPO JOGADO nesta visita (zera ao sair). Minutes desde que entrou; Seconds/Min de renda;
+-- Turbo = segundos de Turbo grátis. Regras no servidor: ServerScriptService/Game/Bonus.
+Config.PlayRewards = {
+	{ Minutes = 5, Seconds = 60, Min = 100 },
+	{ Minutes = 10, Seconds = 120, Min = 250 },
+	{ Minutes = 20, Seconds = 240, Min = 600 },
+	{ Minutes = 35, Seconds = 420, Min = 1200 },
+	{ Minutes = 60, Seconds = 900, Min = 3000, Turbo = 600 },
+}
+
+-- v6: EMBLEMAS (badges). Crie em create.roblox.com > seu jogo > Emblemas e cole o número. 0 = desligado.
+Config.Badges = {
+	Bemvindo = 0, -- entrou no jogo
+	Granja = 0, -- abriu o 2º negócio
+	Fabrica = 0, -- abriu a Fábrica
+	Foguete = 0, -- abriu o Foguete (último negócio)
+	Gerente = 0, -- contratou o 1º gerente
+	Renasceu = 0, -- 1º renascimento
+	Selo = 0, -- ganhou um Selo
 }
 Config.TurboBoostMult = 2 -- velocidade de todos os negócios
 Config.LuckBoostMult = 3 -- ovos raros aparecem tantas vezes mais rápido

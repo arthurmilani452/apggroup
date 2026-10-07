@@ -72,7 +72,7 @@ local function runGift(event: any)
 		for _, player in Players:GetPlayers() do
 			if not claimed[player] then
 				local root = Registry.Plots.RootOf(player)
-				if root and Registry.Game.Data(player) and (root.CFrame.Position - position).Magnitude <= 11 then
+				if root and Registry.Game.Data(player) and (root.CFrame.Position - position).Magnitude <= 11 and Registry.Guard.Ok(player) then
 					claimed[player] = true
 					local reward = Registry.Game.Reward(player, randomBetween(event.Seconds), 25, false)
 					Registry.Remotes.Fx:FireClient(player, "reward", nil, reward, "giftEgg")
@@ -204,7 +204,7 @@ local function pollHunt()
 			for index, spot in spots do
 				if not data.Hunt[tostring(index)] then
 					local d = root.CFrame.Position - Vector3.new(spot[1], spot[2] + 2, spot[3])
-					if d.Magnitude <= 6.5 then
+					if d.Magnitude <= 6.5 and Registry.Guard.Ok(player) then
 						local fresh, found = Sim.FindHunt(Config, data, index, #spots)
 						if fresh then
 							Registry.Remotes.Fx:FireClient(player, "hunt", root.CFrame.Position, found, #spots)
@@ -278,7 +278,7 @@ local function crackGiant()
 		local data = Registry.Game.Data(player)
 		if data then
 			local root = Registry.Plots.RootOf(player)
-			local near = root ~= nil and (root.CFrame.Position - center).Magnitude <= G.NearRadius
+			local near = root ~= nil and (root.CFrame.Position - center).Magnitude <= G.NearRadius and Registry.Guard.Ok(player)
 			local coins, pet = Sim.GiantReward(Config, data, Registry.Game.Ctx(player), near, giant.Variant, math.random)
 			Registry.Remotes.Fx:FireClient(player, "giantReward", nil, coins, { near, pet })
 			if pet then
@@ -354,10 +354,14 @@ local function pollObby()
 		return
 	end
 	local chest = Vector3.new(obby.Chest[1], obby.Chest[2], obby.Chest[3])
+	local start = Vector3.new(obby.Start[1], obby.Start[2], obby.Start[3])
 	for _, player in Players:GetPlayers() do
 		local data = Registry.Game.Data(player)
 		local root = Registry.Plots.RootOf(player)
-		if data and root and (root.CFrame.Position - chest).Magnitude <= Config.Obby.Radius then
+		if root and (root.CFrame.Position - start).Magnitude <= 14 then
+			Registry.Guard.ObbyStarted(player) -- passou pela largada (o baú só paga quem fez o percurso)
+		end
+		if data and root and (root.CFrame.Position - chest).Magnitude <= Config.Obby.Radius and Registry.Guard.ObbyOk(player) then
 			local now = os.time()
 			local coins = Sim.ClaimObby(Config, data, Registry.Game.Ctx(player), now)
 			if coins > 0 then

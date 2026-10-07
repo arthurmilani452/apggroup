@@ -4215,11 +4215,18 @@ do
 		hens[hen] = nil
 	end
 
+	-- v6: no celular, mexer dezenas de aves por frame pesava. Agora só as perto (90 studs) e metade por
+	-- frame (cada ave pula a 30 quadros por segundo, que o olho não percebe).
+	local henFrame = 0
 	function stepHens(t: number)
+		henFrame += 1
+		local half = henFrame % 2
+		local i = 0
 		for hen, base in hens do
+			i += 1
 			if not hen.Parent then
 				hens[hen] = nil
-			elseif (base.Position - eye).Magnitude < 170 then
+			elseif i % 2 == half and (base.Position - eye).Magnitude < 90 then
 				local model: any = hen
 				local phase = num(model:GetAttribute("Phase"))
 				local hop = math.max(0, math.sin(t * 3 + phase)) * 0.28
@@ -4316,7 +4323,8 @@ local petSets, clearPets, stepPets
 do
 	petSets = {}
 
-	local function makePet(key: string, level: number): Model?
+	-- own = pet do próprio jogador (com luz e mais brilho); pets dos outros vêm mais leves (v6)
+	local function makePet(key: string, level: number, own: boolean): Model?
 		local lineId, mut = Sim.ParseKey(key)
 		local special = Config.SpecialPets[lineId]
 		local model: Model?
@@ -4358,10 +4366,10 @@ do
 			Speed = NumberRange.new(1, 2.5),
 			SpreadAngle = Vector2.new(180, 180),
 			LightEmission = 0.8,
-			Rate = if mut == "s" then 3 else 7,
+			Rate = if not own then 2 elseif mut == "s" then 3 else 7,
 			Parent = root,
 		})
-		if special or mut ~= "s" then
+		if own and (special or mut ~= "s") then
 			new("PointLight", { Color = color, Range = 9, Brightness = 1.4, Parent = root })
 		end
 		local gui = billboard({ Name = "Tag", Size = UDim2.new(5.6, 0, 1.15, 0), StudsOffsetWorldSpace = Vector3.new(0, model:GetExtentsSize().Y + 1, 0), MaxDistance = 42, Adornee = root, Parent = root })
@@ -4389,8 +4397,9 @@ do
 			end
 			local character = owner.Character
 			local root = character and character:FindFirstChild("HumanoidRootPart")
-			local near = root ~= nil and root:IsA("BasePart") and (root.CFrame.Position - eye).Magnitude < 220
 			local set = petSets[owner]
+			-- v6: aparece a 200 studs e só some depois de 240 (antes sumia e voltava sem parar na borda)
+			local near = root ~= nil and root:IsA("BasePart") and (root.CFrame.Position - eye).Magnitude < (if set then 240 else 200)
 			if not near or text == "" then
 				if set then
 					clearPets(owner)
@@ -4403,8 +4412,9 @@ do
 				petSets[owner] = set
 				for entry in string.gmatch(text, "[^,]+") do
 					local key, level = string.match(entry, "^(.-)=(%d+)$")
-					if key and #set.Pets < 8 then
-						local model = makePet(key, tonumber(level) or 1)
+					local isOwn = owner == Players.LocalPlayer
+					if key and #set.Pets < (if isOwn then 8 else 3) then -- dos outros, só os 3 primeiros (leve no celular)
+						local model = makePet(key, tonumber(level) or 1, isOwn)
 						if model then
 							table.insert(set.Pets, { Model = model, Position = nil, Look = Vector3.new(0, 0, -1) })
 						end

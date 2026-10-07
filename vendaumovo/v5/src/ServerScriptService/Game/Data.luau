@@ -96,7 +96,11 @@ function Data.Load(player: Player): Profile
 	end
 	local loaded, result = false, nil
 	if store then
-		local attempts = 6
+		-- v6: espera o outro servidor soltar o progresso (até ~40 s) e NUNCA toma a trava de uma sessão viva.
+		-- Antes, na 6ª tentativa (~15 s) a trava era tomada à força: se o servidor antigo ainda estava salvando
+		-- a saída, o save dele era recusado e o jogador perdia o que fez desde o último save automático.
+		-- Sessão morta (servidor caiu) libera sozinha depois de SESSION_TIMEOUT.
+		local attempts = 14
 		for attempt = 1, attempts do
 			if not player.Parent then
 				break
@@ -104,7 +108,7 @@ function Data.Load(player: Player): Profile
 			local locked = false
 			local ok, err = pcall(function()
 				(store :: DataStore):UpdateAsync(keyFor(player), function(old)
-					if lockedByOther(old) and attempt < attempts then
+					if lockedByOther(old) then
 						locked = true
 						return nil
 					end

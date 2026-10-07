@@ -293,6 +293,9 @@ function Sim.CashMult(C: any, data: any, ctx: any): (number, any)
 	if ctx and ctx.Group then
 		social += C.GroupBonus
 	end
+	if ctx and ctx.Premium then
+		social += C.PremiumBonus or 0
+	end
 	parts.Social = social
 	if (tonumber(data.HuntTotal) or 0) > 0 and Sim.HuntCount(data) >= data.HuntTotal then
 		parts.Hunt = C.HuntAllBonus
@@ -1867,6 +1870,24 @@ function Sim.DeliverProduct(C: any, data: any, ctx: any, product: any, now: numb
 					break
 				end
 			end
+		end
+		return out
+	end
+	-- "hatch": a chocadeira com mais tempo faltando termina agora. Nada chocando: vira moedas (não perde a compra)
+	if product.Kind == "hatch" then
+		local best, left = nil, 0
+		for slot, hatch in data.Hatch or {} do
+			local remaining = (tonumber(hatch.Ready) or 0) - now
+			if remaining > left then
+				best, left = slot, remaining
+			end
+		end
+		if best then
+			data.Hatch[best].Ready = now
+			out.Hatched = best
+		else
+			out.Coins = Sim.Reward(C, data, ctx, product.Seconds or 0, product.Min)
+			Sim.AddCoins(data, out.Coins, false)
 		end
 		return out
 	end

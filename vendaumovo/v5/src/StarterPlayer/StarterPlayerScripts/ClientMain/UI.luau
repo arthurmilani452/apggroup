@@ -94,6 +94,9 @@ function UI.Shine(): UIGradient
 end
 
 -- Texto. MaxText = tamanho máximo da letra (o texto encolhe para caber). Dark = letra marrom sem contorno.
+-- Menor tamanho de letra (px). 6 deixava descrição ilegível no celular (a tela encolhe tudo pela metade).
+UI.MinText = 9
+
 function UI.Label(props: { [string]: any }): TextLabel
 	local base: { [string]: any } = {
 		BackgroundTransparency = 1,
@@ -115,7 +118,7 @@ function UI.Label(props: { [string]: any }): TextLabel
 	if not dark then
 		UI.TextStroke().Parent = l
 	end
-	new("UITextSizeConstraint", { MaxTextSize = maxText, MinTextSize = 6, Parent = l })
+	new("UITextSizeConstraint", { MaxTextSize = maxText, MinTextSize = UI.MinText, Parent = l })
 	return l
 end
 
@@ -182,7 +185,7 @@ function UI.Button(props: { [string]: any }, onClick: () -> ()): TextButton
 		end
 	end
 	local b = new("TextButton", base, { UI.Corner(0.3), UI.Stroke(C.DarkBrown, 3), UI.TextStroke(), UI.Shine() })
-	new("UITextSizeConstraint", { MaxTextSize = maxText, MinTextSize = 6, Parent = b })
+	new("UITextSizeConstraint", { MaxTextSize = maxText, MinTextSize = UI.MinText, Parent = b })
 	b.Activated:Connect(function()
 		UI.Sound("Clique", 0.35)
 		UI.Pop(b, 0.92)
@@ -330,14 +333,41 @@ end
 
 -- Toca um som. volume 0..1 (padrão 0,7); speed = altura (1 = normal; mais alto = mais agudo); jitter = quanto
 -- a altura varia ao acaso para cima e para baixo (0,06 = 6%), para o mesmo som repetido não enjoar.
+-- v6: o mesmo som tocado de novo antes de acabar cortava o anterior. Agora cada som tem até 2 cópias
+-- extras: toca na primeira que estiver livre.
+local soundPool: { [string]: { Sound } } = {}
+local function freeVoice(name: string, s: Sound): Sound
+	if not s.IsPlaying then
+		return s
+	end
+	local pool = soundPool[name]
+	if not pool then
+		pool = {}
+		soundPool[name] = pool
+	end
+	for _, copy in pool do
+		if not copy.IsPlaying then
+			return copy
+		end
+	end
+	if #pool < 2 then
+		local copy = s:Clone()
+		copy.Parent = s.Parent
+		table.insert(pool, copy)
+		return copy
+	end
+	return s
+end
+
 function UI.Sound(name: string, volume: number?, speed: number?, jitter: number?)
 	if not UI.SfxOn or name == "Musica" then
 		return
 	end
-	local s = getSound(name)
-	if not s then
+	local base = getSound(name)
+	if not base then
 		return
 	end
+	local s = freeVoice(name, base)
 	local pitch = speed or 1
 	if jitter then
 		pitch *= 1 + (math.random() * 2 - 1) * jitter
@@ -385,7 +415,9 @@ function UI.InitScale(gui: ScreenGui): Frame
 		if size.X < 50 or size.Y < 50 then
 			return
 		end
-		local s = math.clamp(math.min(size.Y / 720, size.X / 1100), 0.5, 1.25)
+		-- no celular a escala não desce de 0.6: abaixo disso letras e botões ficam pequenos demais para o dedo
+		local touch = game:GetService("UserInputService").TouchEnabled
+		local s = math.clamp(math.min(size.Y / 720, size.X / 1100), if touch then 0.6 else 0.5, 1.25)
 		UI.Scale = s
 		scale.Scale = s
 		root.Size = UDim2.fromScale(1 / s, 1 / s)
@@ -394,10 +426,21 @@ function UI.InitScale(gui: ScreenGui): Frame
 		end
 	end
 	apply()
-	local camera = workspace.CurrentCamera
-	if camera then
-		camera:GetPropertyChangedSignal("ViewportSize"):Connect(apply)
+	-- se o Roblox trocar a câmera, a tela continua acompanhando o tamanho da nova
+	local viewportConn: RBXScriptConnection? = nil
+	local function watchCamera()
+		if viewportConn then
+			viewportConn:Disconnect()
+			viewportConn = nil
+		end
+		local camera = workspace.CurrentCamera
+		if camera then
+			viewportConn = camera:GetPropertyChangedSignal("ViewportSize"):Connect(apply)
+		end
+		apply()
 	end
+	watchCamera()
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera)
 	UI.Root = root
 	return root
 end
@@ -407,8 +450,8 @@ end
 -- pulinho quando a primeira moeda chega (padrão: o próprio alvo).
 function UI.FlyCoins(gui: Instance, target: GuiObject, amount: number, at: Vector2?, pop: GuiObject?)
 	local root = UI.Root
-	if not root or not target.Parent then
-		return
+	if not root or not target.Parent or UI.OpenPanel then
+		return -- com painel aberto as moedas passariam por cima dele
 	end
 	local s = UI.Scale
 	local origin = root.AbsolutePosition
@@ -491,7 +534,7 @@ function UI.MakePanel(gui: Instance, name: string, color: Color3): (ScrollingFra
 		Visible = false,
 		ZIndex = 5,
 		Parent = gui,
-	}, { UI.Corner(0.06), UI.Stroke(C.DarkBrown, 4), new("UISizeConstraint", { MaxSize = Vector2.new(760, 600), MinSize = Vector2.new(300, 250) }) })
+	}, { UI.Corner(0.06), UI.Stroke(C.DarkBrown, 4), new("UISizeConstraint", { MaxSize = Vector2.new(1000, 600), MinSize = Vector2.new(300, 250) }) })
 	local header = new("Frame", { Name = "Header", Size = UDim2.new(1, 0, 0, 68), BackgroundColor3 = color, ZIndex = 5, Parent = panel }, { UI.Corner(0.3), UI.Stroke(C.DarkBrown, 3), UI.Shine() })
 	local title = UI.Label({ Name = "Title", Position = UDim2.new(0, 22, 0.12, 0), Size = UDim2.new(1, -110, 0.76, 0), Text = name, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6, Parent = header })
 	UI.Button({ Name = "Close", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(66, 60), Text = "X", BackgroundColor3 = C.Red, ZIndex = 6, Parent = header }, function()
@@ -514,9 +557,11 @@ function UI.MakePanel(gui: Instance, name: string, color: Color3): (ScrollingFra
 	return list, title
 end
 
+-- Apaga o conteúdo da lista (menos o que tem o atributo Keep: ex. a caixa de código, que não pode
+-- sumir enquanto a pessoa digita)
 function UI.Clear(list: Instance)
 	for _, child in list:GetChildren() do
-		if child:IsA("GuiObject") then
+		if child:IsA("GuiObject") and not child:GetAttribute("Keep") then
 			child:Destroy()
 		end
 	end
@@ -546,7 +591,7 @@ function UI.Card(list: Instance, order: number, iconObj: GuiObject, title: strin
 	iconObj.ZIndex = 7
 	iconObj.Parent = f
 	UI.Label({ Position = UDim2.new(0, 84, 0.08, 0), Size = UDim2.new(0.64, -84, 0.44, 0), Text = title, TextXAlignment = Enum.TextXAlignment.Left, Dark = true, MaxText = 26, ZIndex = 7, Parent = f })
-	UI.Label({ Position = UDim2.new(0, 84, 0.52, 0), Size = UDim2.new(0.64, -84, 0.38, 0), Text = desc, TextXAlignment = Enum.TextXAlignment.Left, Dark = true, TextColor3 = C.Brown, MaxText = 18, Font = UI.Font2, ZIndex = 7, Parent = f })
+	local d = UI.Label({ Position = UDim2.new(0, 84, 0.52, 0), Size = UDim2.new(0.64, -84, 0.38, 0), Text = desc, TextXAlignment = Enum.TextXAlignment.Left, Dark = true, TextColor3 = C.Brown, MaxText = 18, Font = UI.Font2, ZIndex = 7, Parent = f })
 	local b = UI.Button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.new(0.33, 0, 0, 64), Text = buttonText, BackgroundColor3 = buttonColor, MaxText = 24, ZIndex = 7, Parent = f }, function()
 		if onClick then
 			onClick()
@@ -554,7 +599,39 @@ function UI.Card(list: Instance, order: number, iconObj: GuiObject, title: strin
 	end)
 	b.Active = onClick ~= nil
 	b.AutoButtonColor = onClick ~= nil
-	return f
+	return f, b, d
+end
+
+-- ---------------------------------------------------------------------------
+-- Textos com contagem regressiva. Em vez de refazer o painel inteiro a cada segundo (perdia o toque do
+-- jogador e criava centenas de peças por segundo), o painel registra só o texto que muda.
+--   UI.LiveText(rótulo, fim (horário do servidor), function(segundos que faltam) -> texto)
+-- UI.TickLive() atualiza todos e devolve true se algum chegou a zero (aí vale refazer o painel uma vez).
+-- ---------------------------------------------------------------------------
+UI.Live = {} :: { { Label: TextLabel | TextButton, Ends: number, Text: (number) -> string } }
+
+function UI.LiveText(label: TextLabel | TextButton, ends: number, text: (number) -> string)
+	label.Text = text(math.max(0, ends - workspace:GetServerTimeNow()))
+	table.insert(UI.Live, { Label = label, Ends = ends, Text = text })
+end
+
+function UI.TickLive(): boolean
+	local now = workspace:GetServerTimeNow()
+	local crossed = false
+	local keep = {}
+	for _, entry in UI.Live do
+		if entry.Label.Parent then
+			local left = entry.Ends - now
+			if left <= 0 then
+				crossed = true
+			else
+				entry.Label.Text = entry.Text(left)
+				table.insert(keep, entry)
+			end
+		end
+	end
+	UI.Live = keep
+	return crossed
 end
 
 -- Barra de progresso

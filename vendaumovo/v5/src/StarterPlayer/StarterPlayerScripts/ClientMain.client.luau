@@ -599,7 +599,8 @@ function Hud.Bottom()
 	local height = math.max(math.min(H * 0.8, 600, band), math.min(250, band), 120)
 	for _, panel in UI.Panels do
 		panel.Position = UDim2.new(0.5, 0, 0, 54 + band / 2)
-		panel.Size = UDim2.new(0.66, 0, 0, height)
+		-- no celular o painel usa a largura entre as colunas de botões (com 0.66 sobrava meia tela vazia)
+		panel.Size = if isTouch then UDim2.new(0, math.clamp(W - 200, 300, 1000), 0, height) else UDim2.new(0.66, 0, 0, height)
 	end
 end
 
@@ -964,7 +965,9 @@ function V5.Build()
 			end
 		end)
 		button.MouseEnter:Connect(function()
-			showHint(power)
+			if not isTouch then -- no celular o toque também dispara MouseEnter: a dica já aparece pelo toque longo
+				showHint(power)
+			end
 		end)
 		button.MouseLeave:Connect(function()
 			if hintFor == power.Id and not (press and press.Long) then
@@ -1373,10 +1376,34 @@ UI.Refreshers.Pets = function()
 			local key = tostring(hatch.Key)
 			local left = num(hatch.ReadyAt) - now
 			local ready = left <= 0
-			UI.Card(petsList, order, UI.Icon(petIcon(key), {}), T("pets.incubator", { n = slot }), if ready then T("pets.ready") else T("pets.hatching", { pet = petName(key) }), if ready then T("pets.goGet") else Format.Time(left), if ready then C.Green else C.Gray, nil)
+			local _, hatchButton = UI.Card(petsList, order, UI.Icon(petIcon(key), {}), T("pets.incubator", { n = slot }), if ready then T("pets.ready") else T("pets.hatching", { pet = petName(key) }), if ready then T("pets.goGet") else Format.Time(left), if ready then C.Green else C.Gray, nil)
+			if not ready then
+				UI.LiveText(hatchButton, num(hatch.ReadyAt), function(remaining)
+					return Format.Time(remaining)
+				end)
+			end
 		else
 			UI.Card(petsList, order, UI.Icon("Ovo_Branco", {}, "🥚"), T("pets.incubator", { n = slot }), T("pets.empty"), "...", C.Gray, nil)
 		end
+	end
+	-- v6: "Chocar já" (produto). Aparece só com ovo chocando e o produto criado no Roblox (Id no Config).
+	local hatchProduct = nil
+	for _, product in Config.Products do
+		if product.Kind == "hatch" and (Loja.ProductOnSale(product) or Loja.Preview) then
+			hatchProduct = product
+		end
+	end
+	local anyHatching = false
+	for _, hatch in hatching do
+		if type(hatch) == "table" and num(hatch.ReadyAt) > now then
+			anyHatching = true
+		end
+	end
+	if hatchProduct and anyHatching then
+		order += 1
+		UI.Card(petsList, order, UI.Icon(hatchProduct.Icon, {}, hatchProduct.Emoji), T("prod." .. hatchProduct.Key), T("prod." .. hatchProduct.Key .. ".d"), Loja.Price(hatchProduct), C.Green, function()
+			request("BuyProduct", hatchProduct.Key)
+		end)
 	end
 	-- resumo
 	local list = {}
@@ -1578,7 +1605,12 @@ UI.Refreshers.Wheel = function()
 	local wait = num(state.SpinFreeAt) - workspace:GetServerTimeNow()
 	local spins = num(state.Spins)
 	UI.Label({ Position = UDim2.new(0.6, 0, 0.08, 0), Size = UDim2.new(0.37, 0, 0.16, 0), Text = T("wheel.spins", { n = spins }), Dark = true, MaxText = 26, ZIndex = 7, Parent = box })
-	UI.Label({ Position = UDim2.new(0.6, 0, 0.26, 0), Size = UDim2.new(0.37, 0, 0.2, 0), Text = if wait > 0 then T("wheel.freeIn", { t = Format.Time(wait) }) else T("wheel.freeNow"), Dark = true, TextColor3 = C.Brown, Font = UI.Font2, TextWrapped = true, MaxText = 18, ZIndex = 7, Parent = box })
+	local freeLabel = UI.Label({ Position = UDim2.new(0.6, 0, 0.26, 0), Size = UDim2.new(0.37, 0, 0.2, 0), Text = if wait > 0 then T("wheel.freeIn", { t = Format.Time(wait) }) else T("wheel.freeNow"), Dark = true, TextColor3 = C.Brown, Font = UI.Font2, TextWrapped = true, MaxText = 18, ZIndex = 7, Parent = box })
+	if wait > 0 then
+		UI.LiveText(freeLabel, num(state.SpinFreeAt), function(remaining)
+			return T("wheel.freeIn", { t = Format.Time(remaining) })
+		end)
+	end
 	UI.Button({ Position = UDim2.new(0.61, 0, 0.5, 0), Size = UDim2.new(0.35, 0, 0.2, 0), Text = T("wheel.spin"), BackgroundColor3 = if spins > 0 then C.Green else C.Gray, MaxText = 30, ZIndex = 7, Parent = box }, function()
 		if state and num(state.Spins) > 0 and not wheelSpinning then
 			request("Spin")
@@ -1668,27 +1700,13 @@ end
 -- PRESENTES: presente por tempo, sequência de dias e códigos
 local giftsList = makePanel("Gifts", "gifts.title", C.Red)
 local codeText = ""
-UI.Refreshers.Gifts = function()
-	UI.Clear(giftsList)
-	if not state then
-		return
-	end
-	local giftLeft = num(state.GiftLeft)
-	local ready = giftLeft <= 0
-	UI.Card(giftsList, 1, UI.Icon("Presente", {}), T("gift.play"), if ready then T("gift.ready", { n = short(num(state.GiftReward)) }) else T("gift.wait", { t = Format.Time(giftLeft) }), if ready then T("gift.open") else Format.Time(giftLeft), if ready then C.Green else C.Gray, if ready
-		then function()
-			request("ClaimGift")
-		end
-		else nil)
-	UI.Card(giftsList, 2, UI.Icon("Estrela", {}), T("streak.title", { n = num(state.StreakDay, 1) }), T("streak.info"), if state.StreakCan then T("streak.claim") else T("streak.done"), if state.StreakCan then C.Green else C.Gray, if state.StreakCan
-		then function()
-			request("ClaimStreak")
-		end
-		else nil)
-	-- código
-	local f = new("Frame", { Size = UDim2.new(1, -10, 0, 88), BackgroundColor3 = C.Cream, LayoutOrder = 3, ZIndex = 6, Parent = giftsList }, { UI.Corner(0.2), UI.Stroke(C.Brown, 2) })
-	UI.Label({ Position = UDim2.new(0.03, 0, 0.06, 0), Size = UDim2.new(0.6, 0, 0.34, 0), Text = T("code.title"), TextXAlignment = Enum.TextXAlignment.Left, Dark = true, MaxText = 22, ZIndex = 7, Parent = f })
+-- caixa do código: criada uma vez (refazer a cada segundo fechava o teclado do celular no meio da digitação)
+local function makeCodeRow()
+	local f = new("Frame", { Name = "CodeRow", Size = UDim2.new(1, -10, 0, 88), BackgroundColor3 = C.Cream, LayoutOrder = 3, ZIndex = 6, Parent = giftsList }, { UI.Corner(0.2), UI.Stroke(C.Brown, 2) })
+	f:SetAttribute("Keep", true)
+	local title = UI.Label({ Name = "Title", Position = UDim2.new(0.03, 0, 0.06, 0), Size = UDim2.new(0.6, 0, 0.34, 0), Text = T("code.title"), TextXAlignment = Enum.TextXAlignment.Left, Dark = true, MaxText = 22, ZIndex = 7, Parent = f })
 	local box = new("TextBox", {
+		Name = "Box",
 		Position = UDim2.new(0.03, 0, 0.44, 0),
 		Size = UDim2.new(0.6, 0, 0.48, 0),
 		BackgroundColor3 = C.White,
@@ -1700,16 +1718,92 @@ UI.Refreshers.Gifts = function()
 		ClearTextOnFocus = false,
 		ZIndex = 7,
 		Parent = f,
-	}, { UI.Corner(0.3), UI.Stroke(C.Brown, 2), new("UITextSizeConstraint", { MaxTextSize = 22, MinTextSize = 6 }) })
+	}, { UI.Corner(0.3), UI.Stroke(C.Brown, 2), new("UITextSizeConstraint", { MaxTextSize = 22, MinTextSize = UI.MinText }) })
 	box:GetPropertyChangedSignal("Text"):Connect(function()
 		codeText = box.Text
 	end)
-	UI.Button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.new(0.3, 0, 0, 64), Text = T("code.redeem"), BackgroundColor3 = C.Blue, MaxText = 24, ZIndex = 7, Parent = f }, function()
+	local button = UI.Button({ Name = "Redeem", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.new(0.3, 0, 0, 64), Text = T("code.redeem"), BackgroundColor3 = C.Blue, MaxText = 24, ZIndex = 7, Parent = f }, function()
 		if #codeText > 0 then
 			request("RedeemCode", codeText)
 			codeText = ""
+			box.Text = ""
 		end
 	end)
+	f:SetAttribute("Lang", Lang.Current)
+	return f, title, box, button
+end
+
+UI.Refreshers.Gifts = function()
+	UI.Clear(giftsList)
+	if not state then
+		return
+	end
+	local giftLeft = num(state.GiftLeft)
+	local ready = giftLeft <= 0
+	local _, giftButton, giftDesc = UI.Card(giftsList, 1, UI.Icon("Presente", {}), T("gift.play"), if ready then T("gift.ready", { n = short(num(state.GiftReward)) }) else T("gift.wait", { t = Format.Time(giftLeft) }), if ready then T("gift.open") else Format.Time(giftLeft), if ready then C.Green else C.Gray, if ready
+		then function()
+			request("ClaimGift")
+		end
+		else nil)
+	if not ready then
+		local ends = workspace:GetServerTimeNow() + giftLeft
+		UI.LiveText(giftButton, ends, function(left)
+			return Format.Time(left)
+		end)
+		UI.LiveText(giftDesc, ends, function(left)
+			return T("gift.wait", { t = Format.Time(left) })
+		end)
+	end
+	UI.Card(giftsList, 2, UI.Icon("Estrela", {}), T("streak.title", { n = num(state.StreakDay, 1) }), T("streak.info"), if state.StreakCan then T("streak.claim") else T("streak.done"), if state.StreakCan then C.Green else C.Gray, if state.StreakCan
+		then function()
+			request("ClaimStreak")
+		end
+		else nil)
+	-- v6: prêmio por tempo jogado (escada). O servidor confere o tempo; aqui só a contagem.
+	local playStart = player:GetAttribute("PlayStart")
+	local playClaimed = num(player:GetAttribute("PlayClaimed"))
+	local step = Config.PlayRewards and Config.PlayRewards[playClaimed + 1]
+	if type(playStart) == "number" then
+		local title = T("play.title", { a = math.min(playClaimed + 1, #Config.PlayRewards), b = #Config.PlayRewards })
+		if step then
+			local ends = playStart + step.Minutes * 60
+			local left = ends - workspace:GetServerTimeNow()
+			local desc = if step.Turbo then T("play.descTurbo", { m = step.Minutes }) else T("play.desc", { m = step.Minutes })
+			local _, playButton = UI.Card(giftsList, 4, UI.Icon("Relogio", {}, "⏰"), title, desc, if left <= 0 then T("play.claim") else Format.Time(left), if left <= 0 then C.Green else C.Gray, function()
+				if ends - workspace:GetServerTimeNow() <= 0 then
+					request("ClaimPlay")
+				end
+			end)
+			if left > 0 then
+				UI.LiveText(playButton, ends, function(remaining)
+					return Format.Time(remaining)
+				end)
+			end
+		else
+			UI.Card(giftsList, 4, UI.Icon("Relogio", {}, "⏰"), T("play.titleDone"), T("play.done"), "✓", C.Gray, nil)
+		end
+	end
+	-- v6: convidar amigos (cada amigo no servidor já dá bônus de renda)
+	UI.Card(giftsList, 5, UI.Icon("Coracao", {}, "👋"), T("invite.title"), T("invite.desc", { n = math.floor(Config.FriendBonus * 100 + 0.5) }), T("invite.button"), C.Blue, function()
+		task.spawn(function()
+			local SocialService = game:GetService("SocialService")
+			local okCan, can = pcall(SocialService.CanSendGameInviteAsync, SocialService, player)
+			if okCan and can then
+				pcall(SocialService.PromptGameInvite, SocialService, player)
+			else
+				UI.Toast(T("invite.cant"), "info")
+			end
+		end)
+	end)
+	-- código (a mesma caixa fica; só refaz se o idioma mudou)
+	local row = giftsList:FindFirstChild("CodeRow")
+	if row and row:GetAttribute("Lang") ~= Lang.Current then
+		row:Destroy()
+		row = nil
+	end
+	if not row then
+		makeCodeRow()
+	end
 end
 
 -- LOJA (Robux) + lista dos bônus do jogador.
@@ -2202,12 +2296,25 @@ function Hud.Fly(amount: number)
 	UI.FlyCoins(gui, Hud.CoinIcon, amount, nil, coinText)
 end
 
+-- v6: o próximo degrau do prêmio por tempo jogado já pode ser pego?
+local function playReadyNow(): boolean
+	local step = Config.PlayRewards[num(player:GetAttribute("PlayClaimed")) + 1]
+	local start = player:GetAttribute("PlayStart")
+	return step ~= nil and type(start) == "number" and workspace:GetServerTimeNow() >= start + step.Minutes * 60
+end
+
 local function updateHud()
 	if not state then
 		return
 	end
 	local coins = num(state.Coins)
-	coinText.Text = short(coins)
+	-- v6: ganho grande "conta" até o número novo (0,6 s); renda pingando e gasto mudam na hora
+	if coins > lastCoins * 1.02 + 5 and lastCoins > 0 then
+		Hud.RollFrom, Hud.RollTo, Hud.RollAt = Hud.RollShown or lastCoins, coins, os.clock()
+	else
+		Hud.RollTo, Hud.RollShown = nil, nil
+		coinText.Text = short(coins)
+	end
 	-- o número "pula" quando o dinheiro sobe: forte quando sobe de uma vez (moedas do chão, prêmio), bem de
 	-- leve e no máximo uma vez por segundo quando é a renda dos gerentes pingando
 	if coins > lastCoins and lastCoins > 0 then
@@ -2240,7 +2347,7 @@ local function updateHud()
 	-- valor de um toque no VENDER: um ciclo da banca feito na mão (quem paga é o servidor; aqui é só o letreiro)
 	sellValue.Text = T("pop.reward", { n = short(num(bizOf(1).Payout) * num(state.Hand, 1)) })
 	petsBadge.Visible = hatchReady()
-	prizesBadge.Visible = num(state.GiftLeft) <= 0 or state.StreakCan == true or num(state.Spins) > 0
+	prizesBadge.Visible = num(state.GiftLeft) <= 0 or state.StreakCan == true or num(state.Spins) > 0 or playReadyNow()
 	rebirthBadge.Visible = state.CanRebirth == true or state.CanEvolve == true
 	-- comprar de longe
 	local nextButton = nextButtonOf()
@@ -2378,14 +2485,15 @@ local function everySecond()
 		local giftLeft = num(state.GiftLeft)
 		if giftLeft > 0 then
 			state.GiftLeft = giftLeft - 1
-			if UI.OpenPanel == "Gifts" then
-				UI.Refreshers.Gifts()
-			end
 		end
-		if UI.OpenPanel == "Pets" or (UI.OpenPanel == "Wheel" and not wheelSpinning) then
+		-- contagens regressivas dos painéis: só o texto muda; quando uma chega a zero, o painel é refeito 1 vez
+		if UI.TickLive() and UI.OpenPanel and not (UI.OpenPanel == "Wheel" and wheelSpinning) then
 			UI.RefreshOpen()
 		end
 		petsBadge.Visible = hatchReady()
+		if not prizesBadge.Visible and playReadyNow() then
+			prizesBadge.Visible = true
+		end
 	end
 	-- Ovo Gigante
 	local progress, giantState, crackAt = World.GiantInfo()
@@ -2405,6 +2513,28 @@ local function everySecond()
 		end
 	end
 end
+
+-- v6: o contador de moedas rolando até o valor novo (ver updateHud)
+RunService.RenderStepped:Connect(function()
+	local target = Hud.RollTo
+	if not target then
+		return
+	end
+	local t = math.clamp((os.clock() - Hud.RollAt) / 0.6, 0, 1)
+	local eased = 1 - (1 - t) ^ 3
+	local shown = Hud.RollFrom + (target - Hud.RollFrom) * eased
+	Hud.RollShown = shown
+	coinText.Text = short(math.floor(shown))
+	if t >= 1 then
+		Hud.RollTo, Hud.RollShown = nil, nil
+	end
+end)
+
+player:GetAttributeChangedSignal("PlayClaimed"):Connect(function()
+	if UI.OpenPanel == "Gifts" then
+		UI.RefreshOpen()
+	end
+end)
 
 task.spawn(function()
 	while true do
@@ -2701,9 +2831,41 @@ FX.buy = function(position, value, extra)
 	end
 end
 
+-- v6: comemoração das conquistas grandes: a câmera "respira" (campo de visão abre e volta) e o celular vibra
+local punching = false
+local function celebrate(strength: number)
+	local camera = workspace.CurrentCamera
+	if camera and not punching then
+		punching = true
+		local base = camera.FieldOfView
+		local out = TweenService:Create(camera, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { FieldOfView = base + 6 * strength })
+		out:Play()
+		out.Completed:Once(function()
+			local back = TweenService:Create(camera, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { FieldOfView = base })
+			back:Play()
+			back.Completed:Once(function()
+				punching = false
+			end)
+		end)
+	end
+	if isTouch then
+		task.spawn(function()
+			local HapticService = game:GetService("HapticService")
+			local motor = Enum.VibrationMotor.Large
+			local ok, supported = pcall(HapticService.IsMotorSupported, HapticService, Enum.UserInputType.Gamepad1, motor)
+			if ok and supported then
+				pcall(HapticService.SetMotor, HapticService, Enum.UserInputType.Gamepad1, motor, 0.6 * strength)
+				task.wait(0.15)
+				pcall(HapticService.SetMotor, HapticService, Enum.UserInputType.Gamepad1, motor, 0)
+			end
+		end)
+	end
+end
+
 FX.newbiz = function(position, value)
 	local def = Config.Businesses[tonumber(value) or 0]
 	if def then
+		celebrate(1)
 		UI.BigPopup(gui, T("pop.newbiz", { biz = T("biz." .. def.Id) }), def.Color, 3.2)
 		-- som de festa, um instante depois do som da compra (os dois chegam juntos do servidor)
 		task.delay(0.18, UI.Sound, "Premio", 0.85, 0.95)
@@ -2765,6 +2927,9 @@ end
 FX.rebirth = function(_position, value)
 	UI.BigPopup(gui, T("pop.rebirth", { n = short(num(value)) }), C.Purple, 3)
 	UI.Sound("Renascer", 0.85)
+	celebrate(1.6)
+	World.CoinBurst(nil, 30)
+	Hud.Fly(14)
 end
 
 FX.seal = function(_position, _value, extra)
