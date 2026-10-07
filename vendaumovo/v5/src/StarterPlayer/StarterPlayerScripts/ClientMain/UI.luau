@@ -694,9 +694,12 @@ function UI.BigPopup(gui: Instance, text: string, color: Color3, seconds: number
 	if bigPopup and bigPopup.Parent then
 		bigPopup:Destroy()
 	end
-	local l = UI.Label({ Name = "BigPopup", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.33, 0), Size = UDim2.new(0.1, 0, 0.02, 0), Text = text, TextColor3 = color, MaxText = 70, ZIndex = 30, Parent = gui })
+	-- v6: menor e mais alto (antes ocupava 70% da largura bem no meio da tela, em cima do personagem)
+	local l = UI.Label({ Name = "BigPopup", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.27, 0), Size = UDim2.new(0.1, 0, 0.02, 0), Text = text, TextColor3 = color, MaxText = 46, ZIndex = 30, Parent = gui })
+	new("UISizeConstraint", { MaxSize = Vector2.new(620, 96), Parent = l })
 	bigPopup = l
-	TweenService:Create(l, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Size = UDim2.new(0.7, 0, 0.16, 0) }):Play()
+	l.Active = false -- o texto nunca segura o toque (dá para girar a câmera por cima dele)
+	TweenService:Create(l, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Size = UDim2.new(0.5, 0, 0.1, 0) }):Play()
 	task.delay(seconds or 2.2, UI.Vanish, l)
 end
 

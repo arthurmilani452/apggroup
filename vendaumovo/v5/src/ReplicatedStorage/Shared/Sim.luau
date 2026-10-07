@@ -41,6 +41,7 @@ function Sim.NewData(C: any): any
 		VipDay = 0, -- dia (Sim.DayKey) em que o passe VIP deu o giro/presente diário pela última vez
 		Daily = { Day = 0, List = {} },
 		GiftSeconds = 0,
+		GroupChestAt = 0, -- v6: quando abriu o Baú do Grupo pela última vez (os.time)
 		Streak = { Day = 0, Count = 0 },
 		Codes = {},
 		Hunt = {}, -- [índice do ovo escondido] = true

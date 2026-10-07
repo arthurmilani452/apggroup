@@ -46,6 +46,7 @@ local function rebirth(player: Player)
 	Registry.Game.Push(player)
 	fx(player, "rebirth", gain, data.Rebirths)
 	Registry.Bonus.Badge(player, "Renasceu")
+	Registry.Bonus.RefreshTitle(player)
 	Registry.Remotes.NotifyAll("n.rebirth", { player = player.DisplayName, n = data.Rebirths }, "event")
 	task.spawn(Registry.Data.Save, player) -- renascer é importante: salva já
 end
@@ -72,6 +73,7 @@ local function evolve(player: Player)
 	local seal = Config.Seals[data.Seal]
 	fx(player, "seal", data.Seal, seal and seal.Id)
 	Registry.Bonus.Badge(player, "Selo")
+	Registry.Bonus.RefreshTitle(player)
 	Registry.Remotes.NotifyAll("n.seal", { player = player.DisplayName, seal = seal and seal.Id or "" }, "event")
 	task.spawn(Registry.Data.Save, player)
 end

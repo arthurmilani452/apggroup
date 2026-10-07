@@ -275,6 +275,9 @@ local function snapshot(player: Player, data: any): any
 	state.BasketCap = Sim.BasketCap(Config, data, ctx)
 	state.Stars = data.Stars
 	state.StarsTotal = data.StarsTotal
+	-- v6: Baú do Grupo (os.time em que libera de novo) e se o jogador está no grupo
+	state.InGroup = inGroup[player] == true
+	state.GroupChestAt = (tonumber(data.GroupChestAt) or 0) + Config.GroupChest.Every
 	state.StarsGain = Sim.StarsFor(Config, data)
 	state.CanRebirth = Sim.CanRebirth(Config, data)
 	state.Rebirths = data.Rebirths

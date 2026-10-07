@@ -1218,6 +1218,12 @@ local V6: { [string]: { [string]: string } } = {
 		["prod.ChocarJa.d"] = "O ovo que mais falta termina de chocar na hora",
 		["n.hatchNow"] = "Pronto! Pode pegar o pet na chocadeira",
 		["n.hatchNone"] = "Nenhum ovo chocando agora",
+		["rebirth.preview"] = "Bônus das estrelas: {from} → {to}",
+		["group.title"] = "Baú do Grupo",
+		["group.desc"] = "Presente grátis para quem está no grupo do jogo",
+		["group.open"] = "ABRIR",
+		["group.join"] = "Entre no grupo do jogo (na página do jogo) e ganhe o baú todo dia e +{n}% de renda",
+		["n.groupChestWait"] = "O baú ainda está fechado",
 	},
 	en = {
 		["play.title"] = "Playtime reward ({a}/{b})",
@@ -1236,6 +1242,12 @@ local V6: { [string]: { [string]: string } } = {
 		["prod.ChocarJa.d"] = "The egg with the most time left hatches right away",
 		["n.hatchNow"] = "Done! Grab your pet at the incubator",
 		["n.hatchNone"] = "No egg is hatching right now",
+		["rebirth.preview"] = "Star bonus: {from} → {to}",
+		["group.title"] = "Group Chest",
+		["group.desc"] = "Free gift for members of the game's group",
+		["group.open"] = "OPEN",
+		["group.join"] = "Join the game's group (on the game page) to get this chest every day and +{n}% income",
+		["n.groupChestWait"] = "The chest is still locked",
 	},
 }
 for lang, keys in V6 do

@@ -309,6 +309,8 @@ Config.Order = {
 }
 
 -- PREÇOS DOS BOTÕES (gerados por tests/gen_costs.luau). Pode mudar à mão; quem manda é esta tabela.
+-- v6: do Depósito em diante a espera entre compras cresce 4,2% por compra (antes 6,8%): o meio do jogo não
+-- trava mais (Omeleteria ~20 min, Laboratório ~37 min, Foguete ~60 min para o jogador de referência).
 -- tempo total do jogador de referência: 7:12:02  |  banca 0.0min  granja 0.5min  entrega 1.8min  fabrica 4.1min  deposito 9.7min  omeleteria 22.6min  lab 51.2min  foguete 106.7min
 -- ganho total da corrida: 20Qa  |  renda final: 9.2T/s
 Config.ButtonCost = {
@@ -348,61 +350,61 @@ Config.ButtonCost = {
 	G_tractor = 7e+06,
 	deposito_unlock = 7.4e+06,
 	deposito_celeiro2 = 1.3e+07,
-	deposito_frota = 2e+07,
-	deposito_silo = 3.5e+07,
-	deposito_gerente = 4.5e+07,
-	ave_dourado = 4.8e+07,
-	fabrica_motor = 1.1e+08,
-	entrega_gorjeta = 1.4e+08,
-	granja_galinheiro = 1.6e+08,
-	banca_promo = 2.2e+08,
-	G_incubator2 = 2.6e+08,
-	G_basket2 = 2.8e+08,
-	omeleteria_unlock = 3e+08,
-	omeleteria_cardapio = 5.6e+08,
-	omeleteria_fogao = 8.6e+08,
-	omeleteria_chef = 1.5e+09,
-	omeleteria_gerente = 1.9e+09,
-	ave_cristal = 2e+09,
-	G_fence = 4.5e+09,
-	deposito_gps = 7.3e+09,
-	fabrica_pintora = 9.2e+09,
-	entrega_van3 = 1.1e+10,
-	granja_racaoouro = 1.3e+10,
-	G_incubator3 = 1.8e+10,
-	lab_unlock = 1.9e+10,
-	lab_microscopio = 3.5e+10,
-	lab_computador = 5.3e+10,
-	lab_proveta = 8.9e+10,
-	lab_gerente = 1.2e+11,
-	ave_arcoiris = 1.2e+11,
-	G_windmill = 2.8e+11,
-	omeleteria_delivery = 5.9e+11,
-	deposito_celeiro4 = 7.5e+11,
-	fabrica_robo = 8.9e+11,
-	entrega_app = 1e+12,
-	foguete_unlock = 1.2e+12,
-	foguete_carga = 2.3e+12,
-	foguete_gema = 3.6e+12,
-	foguete_estacao = 6.2e+12,
-	ave_lunar = 1.2e+13,
-	lab_robos = 2.6e+13,
-	omeleteria_mesas = 3.2e+13,
-	deposito_turbo = 3.7e+13,
-	fabrica_embaladora = 4.3e+13,
-	G_basket3 = 4.9e+13,
-	ave_dragao = 5.3e+13,
-	foguete_reuso = 1.8e+14,
-	lab_patente = 3e+14,
-	foguete_gerente = 3.3e+14,
-	omeleteria_rodizio = 3.5e+14,
-	deposito_celeiro5 = 4.6e+14,
-	foguete_lunar = 6.5e+14,
-	lab_acelerador = 1.1e+15,
-	omeleteria_estrela = 1.7e+15,
-	foguete_dobra = 2.5e+15,
-	lab_superovo = 4.3e+15,
-	foguete_marte = 7.9e+15,
+	deposito_frota = 1.9e+07,
+	deposito_silo = 3.3e+07,
+	deposito_gerente = 4.1e+07,
+	ave_dourado = 4.2e+07,
+	fabrica_motor = 9.5e+07,
+	entrega_gorjeta = 1.2e+08,
+	granja_galinheiro = 1.3e+08,
+	banca_promo = 1.8e+08,
+	G_incubator2 = 2e+08,
+	G_basket2 = 2.1e+08,
+	omeleteria_unlock = 2.2e+08,
+	omeleteria_cardapio = 4.1e+08,
+	omeleteria_fogao = 6.1e+08,
+	omeleteria_chef = 1e+09,
+	omeleteria_gerente = 1.3e+09,
+	ave_cristal = 1.3e+09,
+	G_fence = 2.9e+09,
+	deposito_gps = 4.6e+09,
+	fabrica_pintora = 5.6e+09,
+	entrega_van3 = 6.6e+09,
+	granja_racaoouro = 7.6e+09,
+	G_incubator3 = 1e+10,
+	lab_unlock = 1.1e+10,
+	lab_microscopio = 1.9e+10,
+	lab_computador = 2.8e+10,
+	lab_proveta = 4.6e+10,
+	lab_gerente = 6e+10,
+	ave_arcoiris = 5.9e+10,
+	G_windmill = 1.3e+11,
+	omeleteria_delivery = 2.7e+11,
+	deposito_celeiro4 = 3.4e+11,
+	fabrica_robo = 3.9e+11,
+	entrega_app = 4.3e+11,
+	foguete_unlock = 5.1e+11,
+	foguete_carga = 9.5e+11,
+	foguete_gema = 1.4e+12,
+	foguete_estacao = 2.4e+12,
+	ave_lunar = 4.6e+12,
+	lab_robos = 9.7e+12,
+	omeleteria_mesas = 1.2e+13,
+	deposito_turbo = 1.3e+13,
+	fabrica_embaladora = 1.5e+13,
+	G_basket3 = 1.7e+13,
+	ave_dragao = 1.7e+13,
+	foguete_reuso = 5.8e+13,
+	lab_patente = 9.4e+13,
+	foguete_gerente = 1e+14,
+	omeleteria_rodizio = 1e+14,
+	deposito_celeiro5 = 1.3e+14,
+	foguete_lunar = 1.8e+14,
+	lab_acelerador = 3.1e+14,
+	omeleteria_estrela = 4.6e+14,
+	foguete_dobra = 6.6e+14,
+	lab_superovo = 1.1e+15,
+	foguete_marte = 2e+15,
 }
 
 Config.StartBasket = 3 -- ovos raros que cabem na cesta no começo
@@ -749,6 +751,22 @@ Config.PlayRewards = {
 	{ Minutes = 60, Seconds = 900, Min = 3000, Turbo = 600 },
 }
 
+-- v6: TÍTULO em cima da cabeça (todo mundo vê), pelo número de renascimentos. Com Selo, o título fica na
+-- cor do Selo. Rebirths = a partir de quantos renascimentos. Antes do 1º renascimento: sem título.
+Config.Titles = {
+	{ Rebirths = 1, Text = "Granjeiro" },
+	{ Rebirths = 3, Text = "Fazendeiro" },
+	{ Rebirths = 6, Text = "Coronel do Ovo" },
+	{ Rebirths = 10, Text = "Barão do Ovo" },
+	{ Rebirths = 20, Text = "Magnata da Gema" },
+	{ Rebirths = 35, Text = "Lenda da Granja" },
+	{ Rebirths = 60, Text = "Imperador do Ovo" },
+}
+
+-- v6: BAÚ DO GRUPO. Quem está no grupo (Config.GroupId) abre de graça a cada Every segundos: Seconds de renda
+-- (no mínimo Min). Quem não está vê o convite para entrar no grupo.
+Config.GroupChest = { Every = 20 * 3600, Seconds = 600, Min = 500 }
+
 -- v6: EMBLEMAS (badges). Crie em create.roblox.com > seu jogo > Emblemas e cole o número. 0 = desligado.
 Config.Badges = {
 	Bemvindo = 0, -- entrou no jogo
@@ -913,6 +931,7 @@ function Sim.NewData(C: any): any
 		VipDay = 0, -- dia (Sim.DayKey) em que o passe VIP deu o giro/presente diário pela última vez
 		Daily = { Day = 0, List = {} },
 		GiftSeconds = 0,
+		GroupChestAt = 0, -- v6: quando abriu o Baú do Grupo pela última vez (os.time)
 		Streak = { Day = 0, Count = 0 },
 		Codes = {},
 		Hunt = {}, -- [índice do ovo escondido] = true
@@ -4171,6 +4190,12 @@ local V6: { [string]: { [string]: string } } = {
 		["prod.ChocarJa.d"] = "O ovo que mais falta termina de chocar na hora",
 		["n.hatchNow"] = "Pronto! Pode pegar o pet na chocadeira",
 		["n.hatchNone"] = "Nenhum ovo chocando agora",
+		["rebirth.preview"] = "Bônus das estrelas: {from} → {to}",
+		["group.title"] = "Baú do Grupo",
+		["group.desc"] = "Presente grátis para quem está no grupo do jogo",
+		["group.open"] = "ABRIR",
+		["group.join"] = "Entre no grupo do jogo (na página do jogo) e ganhe o baú todo dia e +{n}% de renda",
+		["n.groupChestWait"] = "O baú ainda está fechado",
 	},
 	en = {
 		["play.title"] = "Playtime reward ({a}/{b})",
@@ -4189,6 +4214,12 @@ local V6: { [string]: { [string]: string } } = {
 		["prod.ChocarJa.d"] = "The egg with the most time left hatches right away",
 		["n.hatchNow"] = "Done! Grab your pet at the incubator",
 		["n.hatchNone"] = "No egg is hatching right now",
+		["rebirth.preview"] = "Star bonus: {from} → {to}",
+		["group.title"] = "Group Chest",
+		["group.desc"] = "Free gift for members of the game's group",
+		["group.open"] = "OPEN",
+		["group.join"] = "Join the game's group (on the game page) to get this chest every day and +{n}% income",
+		["n.groupChestWait"] = "The chest is still locked",
 	},
 }
 for lang, keys in V6 do
@@ -20501,6 +20532,8 @@ return {
 	o atributo PlayStart guarda a hora em que o jogador entrou (workspace:GetServerTimeNow) e PlayClaimed
 	quantos degraus já pegou. A tela só mostra a contagem; quem confere o tempo é o servidor.
 	Emblemas: Config.Badges (Id = 0 fica desligado). Dar emblema nunca trava o jogo (pcall).
+	Título em cima da cabeça: Config.Titles, pelo número de renascimentos (criado no servidor: todos veem).
+	Baú do grupo: Config.GroupChest, de graça para quem está no grupo, uma vez a cada Every segundos (salvo).
 ]]
 
 local BadgeService = game:GetService("BadgeService")
@@ -20540,6 +20573,70 @@ function Bonus.Badge(player: Player, key: string)
 	end)
 end
 
+-- Título em cima da cabeça. Fica acima da etiqueta do VIP quando ela existe.
+function Bonus.RefreshTitle(player: Player)
+	local data = Registry.Game.Data(player)
+	local character = player.Character
+	local head = character and (character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart"))
+	if not data or not head then
+		return
+	end
+	local title = nil
+	for _, def in Config.Titles do
+		if (tonumber(data.Rebirths) or 0) >= def.Rebirths then
+			title = def
+		end
+	end
+	local gui = head:FindFirstChild("TitleTag") :: BillboardGui?
+	if not title then
+		if gui then
+			gui:Destroy()
+		end
+		return
+	end
+	if not gui then
+		local newGui = Instance.new("BillboardGui")
+		newGui.Name = "TitleTag"
+		newGui.Size = UDim2.fromScale(5, 0.85)
+		newGui.MaxDistance = 90
+		newGui.LightInfluence = 0
+		newGui.Adornee = head
+		local label = Instance.new("TextLabel")
+		label.Name = "Text"
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.FredokaOne
+		label.TextScaled = true
+		label.TextStrokeColor3 = Color3.fromRGB(70, 38, 15)
+		label.TextStrokeTransparency = 0
+		label.Parent = newGui
+		newGui.Parent = head
+		gui = newGui
+	end
+	local tag = gui :: BillboardGui
+	tag.StudsOffsetWorldSpace = Vector3.new(0, if player:GetAttribute("VIP") then 4.15 else 3.2, 0)
+	local seal = Config.Seals[tonumber(data.Seal) or 0]
+	local label = tag:FindFirstChild("Text") :: TextLabel
+	label.Text = ("%s · %d"):format(title.Text, data.Rebirths)
+	label.TextColor3 = if seal then seal.Color else Color3.fromRGB(255, 250, 230)
+end
+
+local function claimGroupChest(player: Player)
+	local data = Registry.Game.Data(player)
+	if not data or not Registry.Game.Ctx(player).Group then
+		return
+	end
+	local now = os.time()
+	local last = tonumber(data.GroupChestAt) or 0
+	if now - last < Config.GroupChest.Every then
+		Registry.Remotes.NotifyPlayer(player, "n.groupChestWait", nil, "error")
+		return
+	end
+	data.GroupChestAt = now
+	local reward = Registry.Game.Reward(player, Config.GroupChest.Seconds, Config.GroupChest.Min, false)
+	Registry.Remotes.Fx:FireClient(player, "reward", nil, reward, "group")
+end
+
 local function claimPlay(player: Player)
 	local data = Registry.Game.Data(player)
 	local start = player:GetAttribute("PlayStart")
@@ -20571,6 +20668,23 @@ function Bonus.Init()
 		player:SetAttribute("PlayStart", workspace:GetServerTimeNow())
 		player:SetAttribute("PlayClaimed", 0)
 		Bonus.Badge(player, "Bemvindo")
+		-- título: a cada personagem novo (espera o save carregar) e quando o VIP muda de lugar
+		player.CharacterAdded:Connect(function(character)
+			character:WaitForChild("Head", 10)
+			for _ = 1, 30 do
+				if Registry.Game.Data(player) then
+					break
+				end
+				task.wait(1)
+			end
+			Bonus.RefreshTitle(player)
+		end)
+		player:GetAttributeChangedSignal("VIP"):Connect(function()
+			Bonus.RefreshTitle(player)
+		end)
+		if player.Character then
+			task.spawn(Bonus.RefreshTitle, player)
+		end
 	end
 	for _, player in Players:GetPlayers() do
 		joined(player)
@@ -20580,6 +20694,7 @@ function Bonus.Init()
 		given[player] = nil
 	end)
 	Registry.Remotes.On("ClaimPlay", claimPlay, 1)
+	Registry.Remotes.On("ClaimGroupChest", claimGroupChest, 2)
 end
 
 return Bonus
@@ -21287,6 +21402,9 @@ local function snapshot(player: Player, data: any): any
 	state.BasketCap = Sim.BasketCap(Config, data, ctx)
 	state.Stars = data.Stars
 	state.StarsTotal = data.StarsTotal
+	-- v6: Baú do Grupo (os.time em que libera de novo) e se o jogador está no grupo
+	state.InGroup = inGroup[player] == true
+	state.GroupChestAt = (tonumber(data.GroupChestAt) or 0) + Config.GroupChest.Every
 	state.StarsGain = Sim.StarsFor(Config, data)
 	state.CanRebirth = Sim.CanRebirth(Config, data)
 	state.Rebirths = data.Rebirths
@@ -23770,6 +23888,7 @@ local function rebirth(player: Player)
 	Registry.Game.Push(player)
 	fx(player, "rebirth", gain, data.Rebirths)
 	Registry.Bonus.Badge(player, "Renasceu")
+	Registry.Bonus.RefreshTitle(player)
 	Registry.Remotes.NotifyAll("n.rebirth", { player = player.DisplayName, n = data.Rebirths }, "event")
 	task.spawn(Registry.Data.Save, player) -- renascer é importante: salva já
 end
@@ -23796,6 +23915,7 @@ local function evolve(player: Player)
 	local seal = Config.Seals[data.Seal]
 	fx(player, "seal", data.Seal, seal and seal.Id)
 	Registry.Bonus.Badge(player, "Selo")
+	Registry.Bonus.RefreshTitle(player)
 	Registry.Remotes.NotifyAll("n.seal", { player = player.DisplayName, seal = seal and seal.Id or "" }, "event")
 	task.spawn(Registry.Data.Save, player)
 end
@@ -27231,7 +27351,9 @@ UI.Refreshers.Rebirth = function()
 	end
 	local info = new("Frame", { Size = UDim2.new(1, -10, 0, 236), BackgroundColor3 = C.Cream, LayoutOrder = 1, ZIndex = 6, Parent = rebirthList }, { UI.Corner(0.1), UI.Stroke(C.Brown, 2) })
 	UI.Label({ Position = UDim2.new(0.05, 0, 0.04, 0), Size = UDim2.new(0.9, 0, 0.17, 0), Text = T("rebirth.gain", { n = short(num(state.StarsGain)) }), Dark = true, ZIndex = 7, Parent = info })
-	UI.Label({ Position = UDim2.new(0.05, 0, 0.22, 0), Size = UDim2.new(0.9, 0, 0.12, 0), Text = T("rebirth.now", { mult = Format.Mult(num(tbl(state.CashParts).Stars, 1)) }), Dark = true, TextColor3 = C.Purple, MaxText = 22, ZIndex = 7, Parent = info })
+	UI.Label({ Position = UDim2.new(0.05, 0, 0.22, 0), Size = UDim2.new(0.9, 0, 0.12, 0), Text = if num(state.StarsGain) > 0
+		then T("rebirth.preview", { from = Format.Mult(num(tbl(state.CashParts).Stars, 1)), to = Format.Mult(1 + Config.StarBonus * (num(state.StarsTotal) + num(state.StarsGain))) })
+		else T("rebirth.now", { mult = Format.Mult(num(tbl(state.CashParts).Stars, 1)) }), Dark = true, TextColor3 = C.Purple, MaxText = 22, ZIndex = 7, Parent = info })
 	UI.Label({ Position = UDim2.new(0.05, 0, 0.36, 0), Size = UDim2.new(0.9, 0, 0.3, 0), Text = T("rebirth.info"), Dark = true, TextColor3 = C.Brown, Font = UI.Font2, TextWrapped = true, MaxText = 18, ZIndex = 7, Parent = info })
 	local armed = os.clock() - rebirthArmed < 6
 	UI.Button({ Position = UDim2.new(0.25, 0, 1, -72), Size = UDim2.new(0.5, 0, 0, 62), Text = if armed then T("rebirth.confirm") else T("rebirth.do"), BackgroundColor3 = if not state.CanRebirth then C.Gray elseif armed then C.Red else C.Blue, ZIndex = 7, Parent = info }, function()
@@ -27530,6 +27652,25 @@ UI.Refreshers.Gifts = function()
 			UI.Card(giftsList, 4, UI.Icon("Relogio", {}, "⏰"), T("play.titleDone"), T("play.done"), "✓", C.Gray, nil)
 		end
 	end
+	-- v6: Baú do Grupo (de graça para quem está no grupo; quem não está vê o convite)
+	if Config.GroupId > 0 then
+		if state.InGroup then
+			local ends = num(state.GroupChestAt)
+			local left = ends - workspace:GetServerTimeNow()
+			local _, chestButton = UI.Card(giftsList, 6, UI.Icon("Presente", {}, "🎁"), T("group.title"), T("group.desc"), if left <= 0 then T("group.open") else Format.Time(left), if left <= 0 then C.Green else C.Gray, function()
+				if num(state.GroupChestAt) - workspace:GetServerTimeNow() <= 0 then
+					request("ClaimGroupChest")
+				end
+			end)
+			if left > 0 then
+				UI.LiveText(chestButton, ends, function(remaining)
+					return Format.Time(remaining)
+				end)
+			end
+		else
+			UI.Card(giftsList, 6, UI.Icon("Presente", {}, "🎁"), T("group.title"), T("group.join", { n = math.floor(Config.GroupBonus * 100 + 0.5) }), "", C.Gray, nil)
+		end
+	end
 	-- v6: convidar amigos (cada amigo no servidor já dá bônus de renda)
 	UI.Card(giftsList, 5, UI.Icon("Coracao", {}, "👋"), T("invite.title"), T("invite.desc", { n = math.floor(Config.FriendBonus * 100 + 0.5) }), T("invite.button"), C.Blue, function()
 		task.spawn(function()
@@ -27777,8 +27918,21 @@ local function popup(name: string, color: Color3, width: number, height: number)
 		ZIndex = 40,
 		Parent = gui,
 	}, { UI.Corner(0.08), UI.Stroke(color, 5) })
+	-- v6: no celular a janela fica menor (o meio da tela é onde a pessoa vê o personagem e gira a câmera)
+	if isTouch then
+		new("UIScale", { Scale = 0.78, Parent = f })
+	end
 	UI.Pop(f, 0.8)
 	return f
+end
+
+-- v6: janela que aparece SOZINHA no meio do jogo (encomenda, corrida): no celular vai para o alto da tela,
+-- fora do caminho do personagem, do controle e do botão de pular
+local function popupOutOfTheWay(f: Frame)
+	if isTouch then
+		f.AnchorPoint = Vector2.new(0.5, 0)
+		f.Position = UDim2.new(0.5, 0, 0, 96)
+	end
 end
 
 local offlineShown = false
@@ -27820,6 +27974,7 @@ end
 
 local function showOrder(value: number, timeout: number, who: number)
 	local f = popup("Order", C.Orange, 560, 320)
+	popupOutOfTheWay(f)
 	UI.Label({ Position = UDim2.new(0.05, 0, 0.04, 0), Size = UDim2.new(0.9, 0, 0.18, 0), Text = "📞 " .. T("order.title"), Dark = true, ZIndex = 41, Parent = f })
 	UI.Label({ Position = UDim2.new(0.05, 0, 0.23, 0), Size = UDim2.new(0.9, 0, 0.17, 0), Text = T("order.body", { who = T("order.who" .. who) }), Dark = true, TextColor3 = C.Brown, Font = UI.Font2, TextWrapped = true, MaxText = 20, ZIndex = 41, Parent = f })
 	UI.Label({ Position = UDim2.new(0.05, 0, 0.4, 0), Size = UDim2.new(0.9, 0, 0.2, 0), Text = "💰 " .. short(value), TextColor3 = C.Yellow, MaxText = 44, ZIndex = 41, Parent = f })
@@ -27849,6 +28004,7 @@ local RACER_COLORS = { C.White, C.Orange, C.Cream, C.Yellow }
 local function showRacePick(seconds: number)
 	local f = popup("RacePick", C.Blue, 560, 220)
 	f.Position = UDim2.new(0.5, 0, 0.38, 0)
+	popupOutOfTheWay(f)
 	UI.Label({ Position = UDim2.new(0.04, 0, 0.06, 0), Size = UDim2.new(0.92, 0, 0.3, 0), Text = T("race.pick", { t = math.floor(seconds) }), Dark = true, ZIndex = 41, Parent = f })
 	for lane = 1, 4 do
 		local line = Config.Lines[lane]
@@ -28043,11 +28199,15 @@ function Hud.Fly(amount: number)
 	UI.FlyCoins(gui, Hud.CoinIcon, amount, nil, coinText)
 end
 
--- v6: o próximo degrau do prêmio por tempo jogado já pode ser pego?
+-- v6: o próximo degrau do prêmio por tempo jogado (ou o Baú do Grupo) já pode ser pego?
 local function playReadyNow(): boolean
+	local now = workspace:GetServerTimeNow()
+	if state and state.InGroup and Config.GroupId > 0 and num(state.GroupChestAt) <= now then
+		return true
+	end
 	local step = Config.PlayRewards[num(player:GetAttribute("PlayClaimed")) + 1]
 	local start = player:GetAttribute("PlayStart")
-	return step ~= nil and type(start) == "number" and workspace:GetServerTimeNow() >= start + step.Minutes * 60
+	return step ~= nil and type(start) == "number" and now >= start + step.Minutes * 60
 end
 
 local function updateHud()
@@ -28366,8 +28526,15 @@ end)
 -- ---------------------------------------------------------------------------
 local FX: { [string]: (position: Vector3?, value: any, extra: any) -> () } = {}
 
+-- v6: prêmio do dia a dia (missão, presente, curtida, tempo jogado...) vira um aviso pequeno no canto;
+-- o texto grande fica só para compra, renda offline e VIP
+local BIG_REWARDS = { robux = true, offline = true, vip = true }
 local function rewardPopup(value: number, source: any)
-	UI.BigPopup(gui, T("pop.reward", { n = short(value) }), C.Yellow, 1.8)
+	if BIG_REWARDS[source] then
+		UI.BigPopup(gui, T("pop.reward", { n = short(value) }), C.Yellow, 1.8)
+	else
+		UI.Toast(T("pop.reward", { n = short(value) }), "success")
+	end
 	World.CoinBurst(nil, 12)
 	Hud.Fly(8)
 	UI.Sound("Premio", 0.7, 1, 0.05)
@@ -29607,9 +29774,12 @@ function UI.BigPopup(gui: Instance, text: string, color: Color3, seconds: number
 	if bigPopup and bigPopup.Parent then
 		bigPopup:Destroy()
 	end
-	local l = UI.Label({ Name = "BigPopup", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.33, 0), Size = UDim2.new(0.1, 0, 0.02, 0), Text = text, TextColor3 = color, MaxText = 70, ZIndex = 30, Parent = gui })
+	-- v6: menor e mais alto (antes ocupava 70% da largura bem no meio da tela, em cima do personagem)
+	local l = UI.Label({ Name = "BigPopup", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.27, 0), Size = UDim2.new(0.1, 0, 0.02, 0), Text = text, TextColor3 = color, MaxText = 46, ZIndex = 30, Parent = gui })
+	new("UISizeConstraint", { MaxSize = Vector2.new(620, 96), Parent = l })
 	bigPopup = l
-	TweenService:Create(l, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Size = UDim2.new(0.7, 0, 0.16, 0) }):Play()
+	l.Active = false -- o texto nunca segura o toque (dá para girar a câmera por cima dele)
+	TweenService:Create(l, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Size = UDim2.new(0.5, 0, 0.1, 0) }):Play()
 	task.delay(seconds or 2.2, UI.Vanish, l)
 end
 

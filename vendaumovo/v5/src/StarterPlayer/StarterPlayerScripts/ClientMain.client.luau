@@ -1484,7 +1484,9 @@ UI.Refreshers.Rebirth = function()
 	end
 	local info = new("Frame", { Size = UDim2.new(1, -10, 0, 236), BackgroundColor3 = C.Cream, LayoutOrder = 1, ZIndex = 6, Parent = rebirthList }, { UI.Corner(0.1), UI.Stroke(C.Brown, 2) })
 	UI.Label({ Position = UDim2.new(0.05, 0, 0.04, 0), Size = UDim2.new(0.9, 0, 0.17, 0), Text = T("rebirth.gain", { n = short(num(state.StarsGain)) }), Dark = true, ZIndex = 7, Parent = info })
-	UI.Label({ Position = UDim2.new(0.05, 0, 0.22, 0), Size = UDim2.new(0.9, 0, 0.12, 0), Text = T("rebirth.now", { mult = Format.Mult(num(tbl(state.CashParts).Stars, 1)) }), Dark = true, TextColor3 = C.Purple, MaxText = 22, ZIndex = 7, Parent = info })
+	UI.Label({ Position = UDim2.new(0.05, 0, 0.22, 0), Size = UDim2.new(0.9, 0, 0.12, 0), Text = if num(state.StarsGain) > 0
+		then T("rebirth.preview", { from = Format.Mult(num(tbl(state.CashParts).Stars, 1)), to = Format.Mult(1 + Config.StarBonus * (num(state.StarsTotal) + num(state.StarsGain))) })
+		else T("rebirth.now", { mult = Format.Mult(num(tbl(state.CashParts).Stars, 1)) }), Dark = true, TextColor3 = C.Purple, MaxText = 22, ZIndex = 7, Parent = info })
 	UI.Label({ Position = UDim2.new(0.05, 0, 0.36, 0), Size = UDim2.new(0.9, 0, 0.3, 0), Text = T("rebirth.info"), Dark = true, TextColor3 = C.Brown, Font = UI.Font2, TextWrapped = true, MaxText = 18, ZIndex = 7, Parent = info })
 	local armed = os.clock() - rebirthArmed < 6
 	UI.Button({ Position = UDim2.new(0.25, 0, 1, -72), Size = UDim2.new(0.5, 0, 0, 62), Text = if armed then T("rebirth.confirm") else T("rebirth.do"), BackgroundColor3 = if not state.CanRebirth then C.Gray elseif armed then C.Red else C.Blue, ZIndex = 7, Parent = info }, function()
@@ -1783,6 +1785,25 @@ UI.Refreshers.Gifts = function()
 			UI.Card(giftsList, 4, UI.Icon("Relogio", {}, "⏰"), T("play.titleDone"), T("play.done"), "✓", C.Gray, nil)
 		end
 	end
+	-- v6: Baú do Grupo (de graça para quem está no grupo; quem não está vê o convite)
+	if Config.GroupId > 0 then
+		if state.InGroup then
+			local ends = num(state.GroupChestAt)
+			local left = ends - workspace:GetServerTimeNow()
+			local _, chestButton = UI.Card(giftsList, 6, UI.Icon("Presente", {}, "🎁"), T("group.title"), T("group.desc"), if left <= 0 then T("group.open") else Format.Time(left), if left <= 0 then C.Green else C.Gray, function()
+				if num(state.GroupChestAt) - workspace:GetServerTimeNow() <= 0 then
+					request("ClaimGroupChest")
+				end
+			end)
+			if left > 0 then
+				UI.LiveText(chestButton, ends, function(remaining)
+					return Format.Time(remaining)
+				end)
+			end
+		else
+			UI.Card(giftsList, 6, UI.Icon("Presente", {}, "🎁"), T("group.title"), T("group.join", { n = math.floor(Config.GroupBonus * 100 + 0.5) }), "", C.Gray, nil)
+		end
+	end
 	-- v6: convidar amigos (cada amigo no servidor já dá bônus de renda)
 	UI.Card(giftsList, 5, UI.Icon("Coracao", {}, "👋"), T("invite.title"), T("invite.desc", { n = math.floor(Config.FriendBonus * 100 + 0.5) }), T("invite.button"), C.Blue, function()
 		task.spawn(function()
@@ -2030,8 +2051,21 @@ local function popup(name: string, color: Color3, width: number, height: number)
 		ZIndex = 40,
 		Parent = gui,
 	}, { UI.Corner(0.08), UI.Stroke(color, 5) })
+	-- v6: no celular a janela fica menor (o meio da tela é onde a pessoa vê o personagem e gira a câmera)
+	if isTouch then
+		new("UIScale", { Scale = 0.78, Parent = f })
+	end
 	UI.Pop(f, 0.8)
 	return f
+end
+
+-- v6: janela que aparece SOZINHA no meio do jogo (encomenda, corrida): no celular vai para o alto da tela,
+-- fora do caminho do personagem, do controle e do botão de pular
+local function popupOutOfTheWay(f: Frame)
+	if isTouch then
+		f.AnchorPoint = Vector2.new(0.5, 0)
+		f.Position = UDim2.new(0.5, 0, 0, 96)
+	end
 end
 
 local offlineShown = false
@@ -2073,6 +2107,7 @@ end
 
 local function showOrder(value: number, timeout: number, who: number)
 	local f = popup("Order", C.Orange, 560, 320)
+	popupOutOfTheWay(f)
 	UI.Label({ Position = UDim2.new(0.05, 0, 0.04, 0), Size = UDim2.new(0.9, 0, 0.18, 0), Text = "📞 " .. T("order.title"), Dark = true, ZIndex = 41, Parent = f })
 	UI.Label({ Position = UDim2.new(0.05, 0, 0.23, 0), Size = UDim2.new(0.9, 0, 0.17, 0), Text = T("order.body", { who = T("order.who" .. who) }), Dark = true, TextColor3 = C.Brown, Font = UI.Font2, TextWrapped = true, MaxText = 20, ZIndex = 41, Parent = f })
 	UI.Label({ Position = UDim2.new(0.05, 0, 0.4, 0), Size = UDim2.new(0.9, 0, 0.2, 0), Text = "💰 " .. short(value), TextColor3 = C.Yellow, MaxText = 44, ZIndex = 41, Parent = f })
@@ -2102,6 +2137,7 @@ local RACER_COLORS = { C.White, C.Orange, C.Cream, C.Yellow }
 local function showRacePick(seconds: number)
 	local f = popup("RacePick", C.Blue, 560, 220)
 	f.Position = UDim2.new(0.5, 0, 0.38, 0)
+	popupOutOfTheWay(f)
 	UI.Label({ Position = UDim2.new(0.04, 0, 0.06, 0), Size = UDim2.new(0.92, 0, 0.3, 0), Text = T("race.pick", { t = math.floor(seconds) }), Dark = true, ZIndex = 41, Parent = f })
 	for lane = 1, 4 do
 		local line = Config.Lines[lane]
@@ -2296,11 +2332,15 @@ function Hud.Fly(amount: number)
 	UI.FlyCoins(gui, Hud.CoinIcon, amount, nil, coinText)
 end
 
--- v6: o próximo degrau do prêmio por tempo jogado já pode ser pego?
+-- v6: o próximo degrau do prêmio por tempo jogado (ou o Baú do Grupo) já pode ser pego?
 local function playReadyNow(): boolean
+	local now = workspace:GetServerTimeNow()
+	if state and state.InGroup and Config.GroupId > 0 and num(state.GroupChestAt) <= now then
+		return true
+	end
 	local step = Config.PlayRewards[num(player:GetAttribute("PlayClaimed")) + 1]
 	local start = player:GetAttribute("PlayStart")
-	return step ~= nil and type(start) == "number" and workspace:GetServerTimeNow() >= start + step.Minutes * 60
+	return step ~= nil and type(start) == "number" and now >= start + step.Minutes * 60
 end
 
 local function updateHud()
@@ -2619,8 +2659,15 @@ end)
 -- ---------------------------------------------------------------------------
 local FX: { [string]: (position: Vector3?, value: any, extra: any) -> () } = {}
 
+-- v6: prêmio do dia a dia (missão, presente, curtida, tempo jogado...) vira um aviso pequeno no canto;
+-- o texto grande fica só para compra, renda offline e VIP
+local BIG_REWARDS = { robux = true, offline = true, vip = true }
 local function rewardPopup(value: number, source: any)
-	UI.BigPopup(gui, T("pop.reward", { n = short(value) }), C.Yellow, 1.8)
+	if BIG_REWARDS[source] then
+		UI.BigPopup(gui, T("pop.reward", { n = short(value) }), C.Yellow, 1.8)
+	else
+		UI.Toast(T("pop.reward", { n = short(value) }), "success")
+	end
 	World.CoinBurst(nil, 12)
 	Hud.Fly(8)
 	UI.Sound("Premio", 0.7, 1, 0.05)

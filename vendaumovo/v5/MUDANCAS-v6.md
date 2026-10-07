@@ -42,3 +42,15 @@ Arquivo novo: `place/VendaUmOvo-v6.rbxlx`. Ele é o seu v5 com os scripts trocad
 4. **Modelos 3D.** Os 21 modelos do Higgsfield estão em `higgsfield/`. Veja `higgsfield/COMO-IMPORTAR.md`, que tem os nomes e tamanhos.
 
 No Studio a loja mostra todos os itens, mesmo sem Id, para você ver como fica. No jogo publicado, item sem Id não aparece.
+
+## Segunda rodada da v6
+
+- **Meio do jogo sem travar.** Do Depósito em diante as compras ficaram mais baratas. Na simulação, a Omeleteria abriu aos 26 min (antes 29), o Laboratório já na 1ª corrida aos 50 min, e o Foguete aos 106 min (antes 196). O começo, que já estava bom, ficou igual.
+- **Painel de renascer mostra o ganho antes:** "Bônus das estrelas: x1,3 → x1,9".
+- **Título em cima da cabeça**, que todos veem, pelo número de renascimentos: Granjeiro, Fazendeiro, Coronel do Ovo, Barão do Ovo, Magnata da Gema, Lenda da Granja e Imperador do Ovo. Com Selo, o título fica na cor do Selo. Os nomes ficam em `Config.Titles`.
+- **Baú do Grupo:** quem está no grupo do jogo abre de graça a cada 20 h, na aba Prêmios. Quem não está vê o convite para entrar. Regras em `Config.GroupChest`.
+- **Menos coisa no meio da tela, pensando no celular:**
+  - Os textos grandes ("Negócio novo!", "Renasceu!") ficaram menores, mais no alto, e não seguram o toque.
+  - Prêmio do dia a dia (missão, presente, curtida, tempo jogado) virou um aviso pequeno no alto, em vez do texto gigante.
+  - No celular, as janelas que aparecem sozinhas (encomenda e corrida) vão para o alto da tela e ficam menores.
+  - As outras janelas também encolhem um pouco no celular.
