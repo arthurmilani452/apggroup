@@ -112,30 +112,42 @@ local function claimGroupChest(player: Player)
 	Registry.Remotes.Fx:FireClient(player, "reward", nil, reward, "group")
 end
 
+-- Pega TODAS as caixas de tempo que já abriram (quem volta depois de 30 min pega 5 de uma vez)
 local function claimPlay(player: Player)
 	local data = Registry.Game.Data(player)
 	local start = player:GetAttribute("PlayStart")
 	if not data or type(start) ~= "number" then
 		return
 	end
-	local index = (tonumber(player:GetAttribute("PlayClaimed")) or 0) + 1
-	local step = Config.PlayRewards[index]
-	if not step then
-		return
+	local played = workspace:GetServerTimeNow() - start
+	local claimed = tonumber(player:GetAttribute("PlayClaimed")) or 0
+	local coins, spins, turbo = 0, 0, 0
+	while true do
+		local step = Config.PlayRewards[claimed + 1]
+		if not step or played < step.Minutes * 60 - 1 then
+			break
+		end
+		claimed += 1
+		coins += Registry.Game.Reward(player, step.Seconds, step.Min, false)
+		spins += step.Spins or 0
+		turbo += step.Turbo or 0
 	end
-	if workspace:GetServerTimeNow() - start < step.Minutes * 60 - 1 then
+	if claimed == (tonumber(player:GetAttribute("PlayClaimed")) or 0) then
 		Registry.Remotes.NotifyPlayer(player, "n.playNotYet", nil, "error")
 		return
 	end
-	player:SetAttribute("PlayClaimed", index)
-	local reward = Registry.Game.Reward(player, step.Seconds, step.Min, false)
-	if step.Turbo then
-		local now = os.time()
-		data.Boosts.Turbo = math.max(now, tonumber(data.Boosts.Turbo) or 0) + step.Turbo
-		Registry.Remotes.NotifyPlayer(player, "n.playTurbo", { n = math.floor(step.Turbo / 60) }, "success")
-		Registry.Game.Push(player)
+	player:SetAttribute("PlayClaimed", claimed)
+	if spins > 0 then
+		Sim.AddSpins(Config, data, spins)
+		Registry.Remotes.NotifyPlayer(player, "n.playSpins", { n = spins }, "success")
 	end
-	Registry.Remotes.Fx:FireClient(player, "reward", nil, reward, "play")
+	if turbo > 0 then
+		local now = os.time()
+		data.Boosts.Turbo = math.max(now, tonumber(data.Boosts.Turbo) or 0) + turbo
+		Registry.Remotes.NotifyPlayer(player, "n.playTurbo", { n = math.floor(turbo / 60) }, "success")
+	end
+	Registry.Game.Push(player)
+	Registry.Remotes.Fx:FireClient(player, "reward", nil, coins, "play")
 end
 
 function Bonus.Init()

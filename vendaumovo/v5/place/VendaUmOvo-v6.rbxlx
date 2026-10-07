@@ -742,14 +742,18 @@ Config.Products = {
 	{ Key = "ChocarJa", Id = 0, Kind = "hatch", Seconds = 600, Min = 300, Icon = "Relogio", Emoji = "🐣", Robux = 15 },
 }
 
--- v6: PRÊMIO POR TEMPO JOGADO nesta visita (zera ao sair). Minutes desde que entrou; Seconds/Min de renda;
--- Turbo = segundos de Turbo grátis. Regras no servidor: ServerScriptService/Game/Bonus.
+-- v6: PRESENTES POR TEMPO JOGADO nesta visita (zera ao sair): as 8 caixas da aba Presentes.
+-- Minutes desde que entrou; Seconds/Min de renda; Spins = giros da roleta; Turbo = segundos de Turbo grátis.
+-- Regras no servidor: ServerScriptService/Game/Bonus.
 Config.PlayRewards = {
 	{ Minutes = 5, Seconds = 60, Min = 100 },
 	{ Minutes = 10, Seconds = 120, Min = 250 },
-	{ Minutes = 20, Seconds = 240, Min = 600 },
-	{ Minutes = 35, Seconds = 420, Min = 1200 },
-	{ Minutes = 60, Seconds = 900, Min = 3000, Turbo = 600 },
+	{ Minutes = 15, Seconds = 180, Min = 400 },
+	{ Minutes = 20, Seconds = 240, Min = 600, Spins = 1 },
+	{ Minutes = 30, Seconds = 360, Min = 1000 },
+	{ Minutes = 40, Seconds = 480, Min = 1500 },
+	{ Minutes = 50, Seconds = 600, Min = 2200, Spins = 1 },
+	{ Minutes = 60, Seconds = 900, Min = 3000, Turbo = 600, Spins = 2 },
 }
 
 -- v6: TÍTULO em cima da cabeça (todo mundo vê), pelo número de renascimentos. Com Selo, o título fica na
@@ -4248,20 +4252,20 @@ local V6: { [string]: { [string]: string } } = {
 		["play.descTurbo"] = "Jogue {m} min: moedas e 10 min de Turbo",
 		["play.claim"] = "PEGAR",
 		["play.done"] = "Você pegou todos hoje. Volte depois!",
-		["n.playNotYet"] = "Ainda não deu o tempo",
+		["n.playNotYet"] = "Calma, ainda não deu o tempo",
 		["n.playTurbo"] = "Turbo ligado por {n} min",
-		["invite.title"] = "Chame os amigos",
-		["invite.desc"] = "Cada amigo no servidor dá +{n}% de renda",
+		["invite.title"] = "Chama a galera",
+		["invite.desc"] = "+{n}% de renda por amigo aqui",
 		["invite.button"] = "CONVIDAR",
 		["invite.cant"] = "Não deu para abrir o convite agora",
 		["prod.ChocarJa"] = "Chocar Já",
-		["prod.ChocarJa.d"] = "O ovo que mais falta termina de chocar na hora",
-		["n.hatchNow"] = "Pronto! Pode pegar o pet na chocadeira",
+		["prod.ChocarJa.d"] = "O ovo mais demorado nasce na hora",
+		["n.hatchNow"] = "Nasceu! Corre na chocadeira",
 		["n.hatchNone"] = "Nenhum ovo chocando agora",
 		["rebirth.preview"] = "Bônus das estrelas: {from} → {to}",
 		["tab.achievements"] = "Conquistas",
 		["ach.title"] = "Conquistas",
-		["ach.info"] = "Metas para a vida toda: não zeram ao renascer",
+		["ach.info"] = "Não zera quando você renasce",
 		["ach.goal"] = "{a} de {b}  ·  vale ⭐ {n}",
 		["ach.complete"] = "Completa!",
 		["ach.claim"] = "PEGAR",
@@ -4277,13 +4281,20 @@ local V6: { [string]: { [string]: string } } = {
 		["ach.roleta"] = "Gira-gira",
 		["ach.querido"] = "Granja querida",
 		["settings.light"] = "Modo leve",
-		["settings.light.d"] = "Menos efeitos para o celular não travar",
+		["settings.light.d"] = "Pra celular que trava",
 		["like.title"] = "Tá curtindo a granja?",
-		["like.desc"] = "Deixa um 👍 na página do jogo, ajuda muito!",
+		["tab.playtime"] = "Grátis",
+		["tab.gifts"] = "Diário",
+		["play.panel"] = "Presentes Grátis",
+		["play.clock"] = "⏱ Jogando há {t}",
+		["play.min"] = "{m} min",
+		["play.chipReady"] = "PEGAR!",
+		["n.playSpins"] = "+{n} giro na roleta",
+		["like.desc"] = "Deixa um 👍 lá na página, ajuda demais",
 		["group.title"] = "Baú do Grupo",
-		["group.desc"] = "Presente grátis para quem está no grupo do jogo",
+		["group.desc"] = "Só pra quem é do grupo",
 		["group.open"] = "ABRIR",
-		["group.join"] = "Entre no grupo do jogo (na página do jogo) e ganhe o baú todo dia e +{n}% de renda",
+		["group.join"] = "Entra no grupo (página do jogo): baú todo dia e +{n}% de renda",
 		["n.groupChestWait"] = "O baú ainda está fechado",
 	},
 	en = {
@@ -4324,6 +4335,13 @@ local V6: { [string]: { [string]: string } } = {
 		["settings.light"] = "Light mode",
 		["settings.light.d"] = "Fewer effects so phones don't lag",
 		["like.title"] = "Enjoying the farm?",
+		["tab.playtime"] = "Free",
+		["tab.gifts"] = "Daily",
+		["play.panel"] = "Free Gifts",
+		["play.clock"] = "⏱ Playing for {t}",
+		["play.min"] = "{m} min",
+		["play.chipReady"] = "CLAIM!",
+		["n.playSpins"] = "+{n} wheel spin",
 		["like.desc"] = "Leave a 👍 on the game page, it really helps!",
 		["group.title"] = "Group Chest",
 		["group.desc"] = "Free gift for members of the game's group",
@@ -20750,30 +20768,42 @@ local function claimGroupChest(player: Player)
 	Registry.Remotes.Fx:FireClient(player, "reward", nil, reward, "group")
 end
 
+-- Pega TODAS as caixas de tempo que já abriram (quem volta depois de 30 min pega 5 de uma vez)
 local function claimPlay(player: Player)
 	local data = Registry.Game.Data(player)
 	local start = player:GetAttribute("PlayStart")
 	if not data or type(start) ~= "number" then
 		return
 	end
-	local index = (tonumber(player:GetAttribute("PlayClaimed")) or 0) + 1
-	local step = Config.PlayRewards[index]
-	if not step then
-		return
+	local played = workspace:GetServerTimeNow() - start
+	local claimed = tonumber(player:GetAttribute("PlayClaimed")) or 0
+	local coins, spins, turbo = 0, 0, 0
+	while true do
+		local step = Config.PlayRewards[claimed + 1]
+		if not step or played < step.Minutes * 60 - 1 then
+			break
+		end
+		claimed += 1
+		coins += Registry.Game.Reward(player, step.Seconds, step.Min, false)
+		spins += step.Spins or 0
+		turbo += step.Turbo or 0
 	end
-	if workspace:GetServerTimeNow() - start < step.Minutes * 60 - 1 then
+	if claimed == (tonumber(player:GetAttribute("PlayClaimed")) or 0) then
 		Registry.Remotes.NotifyPlayer(player, "n.playNotYet", nil, "error")
 		return
 	end
-	player:SetAttribute("PlayClaimed", index)
-	local reward = Registry.Game.Reward(player, step.Seconds, step.Min, false)
-	if step.Turbo then
-		local now = os.time()
-		data.Boosts.Turbo = math.max(now, tonumber(data.Boosts.Turbo) or 0) + step.Turbo
-		Registry.Remotes.NotifyPlayer(player, "n.playTurbo", { n = math.floor(step.Turbo / 60) }, "success")
-		Registry.Game.Push(player)
+	player:SetAttribute("PlayClaimed", claimed)
+	if spins > 0 then
+		Sim.AddSpins(Config, data, spins)
+		Registry.Remotes.NotifyPlayer(player, "n.playSpins", { n = spins }, "success")
 	end
-	Registry.Remotes.Fx:FireClient(player, "reward", nil, reward, "play")
+	if turbo > 0 then
+		local now = os.time()
+		data.Boosts.Turbo = math.max(now, tonumber(data.Boosts.Turbo) or 0) + turbo
+		Registry.Remotes.NotifyPlayer(player, "n.playTurbo", { n = math.floor(turbo / 60) }, "success")
+	end
+	Registry.Game.Push(player)
+	Registry.Remotes.Fx:FireClient(player, "reward", nil, coins, "play")
 end
 
 function Bonus.Init()
@@ -20837,7 +20867,177 @@ function Bonus.Init()
 end
 
 return Bonus
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RNEW900002"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RNEW900002"><Properties><string name="Name">Instalar3D</string><ProtectedString name="Source"><![CDATA[--[[
+	Instalar3D (v6): coloca no jogo os modelos 3D do Higgsfield, sozinho. Só roda no Studio.
+
+	Como usar:
+	  1. Arquivo > Importar 3D e escolha os .glb da pasta higgsfield/modelos (dá para escolher vários).
+	     O importador deixa cada um no Workspace com o nome do arquivo (Celeiro_1, Moinho...).
+	  2. Na barra de comando do Studio (Exibir > Barra de Comando), cole e aperte Enter:
+	         require(game.ServerScriptService.Game.Instalar3D)()
+	  3. Pronto. Para cada modelo com nome conhecido, ele:
+	       • ancora as peças e ajusta o tamanho para caber no lugar do modelo antigo;
+	       • gira 90° se ele estiver "de lado" em relação ao antigo;
+	       • cria a peça Root (base, centro) que o jogo usa para posicionar;
+	       • guarda o modelo antigo em ServerStorage > Assets_Antigos (para voltar, é só arrastar de volta);
+	       • põe o novo em ReplicatedStorage > Assets com o mesmo nome.
+	  Dá para desfazer tudo com Ctrl+Z.
+
+	A Roleta fica de fora: a parte que gira tem nome próprio no modelo antigo. Para trocar mesmo assim:
+	         require(game.ServerScriptService.Game.Instalar3D)({ Roleta = true })
+]]
+
+local ChangeHistoryService = game:GetService("ChangeHistoryService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local ServerStorage = game:GetService("ServerStorage")
+
+-- tamanho do lugar de cada modelo (largura x altura x profundidade, em studs), medido nos modelos antigos
+local SIZES: { [string]: Vector3 } = {
+	Celeiro_1 = Vector3.new(36.2, 13.6, 31.1),
+	Celeiro_2 = Vector3.new(35.7, 12.4, 27.8),
+	Celeiro_3 = Vector3.new(39, 13, 31.5),
+	Celeiro_4 = Vector3.new(46, 26.6, 14.4),
+	Celeiro_5 = Vector3.new(36.1, 23.1, 33.3),
+	Chocadeira = Vector3.new(6, 6.5, 6.1),
+	Esteira = Vector3.new(3.4, 2.5, 4),
+	Garagem = Vector3.new(12.8, 9, 15.6),
+	Lampiao = Vector3.new(1.9, 9, 3.8),
+	Maquina_Carimbo = Vector3.new(9.1, 9.5, 6),
+	Maquina_Embaladora = Vector3.new(10, 9, 8),
+	Maquina_Lavadora = Vector3.new(9.2, 9, 7),
+	Maquina_Pintora = Vector3.new(9.1, 9.5, 7.1),
+	Moinho = Vector3.new(24.6, 32.6, 15.5),
+	Ovo_Dourado = Vector3.new(1.2, 1.5, 1.1),
+	Pet_Ovinho = Vector3.new(2.3, 2.5, 2),
+	Pinheiro = Vector3.new(8.4, 15, 8.4),
+	Placa_Neon = Vector3.new(4.9, 10, 1.8),
+	Plataforma_Foguete = Vector3.new(18, 20, 18),
+	Portal = Vector3.new(23.2, 13.7, 2.9),
+	Roleta = Vector3.new(9, 13, 4.6),
+}
+
+local function findImported(name: string): Instance?
+	for _, place in { workspace, ServerStorage, ReplicatedStorage } do
+		local folder = place:FindFirstChild("Higgsfield")
+		local found = (folder and folder:FindFirstChild(name)) or place:FindFirstChild(name)
+		if found and (found:IsA("Model") or found:IsA("BasePart")) and not found:IsDescendantOf(ReplicatedStorage:FindFirstChild("Assets") or game) then
+			return found
+		end
+	end
+	return nil
+end
+
+local function install(name: string, imported: Instance, target: Vector3, assets: Instance, backup: Instance): string
+	local model: Model
+	if imported:IsA("Model") then
+		model = imported
+	else
+		model = Instance.new("Model")
+		model.Name = name
+		model.Parent = imported.Parent
+		imported.Parent = model
+	end
+	-- um Root antigo (de outra tentativa) atrapalharia a medida
+	local oldRoot = model:FindFirstChild("Root")
+	if oldRoot then
+		oldRoot:Destroy()
+	end
+	model.PrimaryPart = nil
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Anchored = true
+			part.CanTouch = false
+			part.CanQuery = false
+		end
+	end
+	local _, size = model:GetBoundingBox()
+	-- de lado? (largo onde o antigo é fundo e vice-versa): gira 90°
+	if (size.X > size.Z * 1.25 and target.Z > target.X * 1.25) or (size.Z > size.X * 1.25 and target.X > target.Z * 1.25) then
+		model:PivotTo(model:GetPivot() * CFrame.Angles(0, math.rad(90), 0))
+		_, size = model:GetBoundingBox()
+	end
+	-- maior tamanho que ainda cabe no lugar do antigo
+	local factor = math.min(target.X / size.X, target.Y / size.Y, target.Z / size.Z)
+	if factor > 0 and factor ~= math.huge then
+		model:ScaleTo(model:GetScale() * factor)
+	end
+	-- Root no centro da base, olhando para -Z
+	local box, finalSize = model:GetBoundingBox()
+	local root = Instance.new("Part")
+	root.Name = "Root"
+	root.Size = Vector3.new(0.2, 0.2, 0.2)
+	root.Transparency = 1
+	root.Anchored = true
+	root.CanCollide = false
+	root.CanTouch = false
+	root.CanQuery = false
+	root.CastShadow = false
+	root.CFrame = CFrame.new(box.Position - Vector3.new(0, finalSize.Y / 2, 0))
+	root.Parent = model
+	model.PrimaryPart = root
+	model.Name = name
+	-- o antigo vai para o backup
+	local old = assets:FindFirstChild(name)
+	if old then
+		local previous = backup:FindFirstChild(name)
+		if previous then
+			previous:Destroy()
+		end
+		old.Parent = backup
+	end
+	model:PivotTo(CFrame.new(0, 0, 0))
+	model.Parent = assets
+	return ("%s: ok (%.1f x %.1f x %.1f)"):format(name, finalSize.X, finalSize.Y, finalSize.Z)
+end
+
+return function(options: { [string]: boolean }?)
+	if RunService:IsRunning() then
+		warn("[Instalar3D] use no Studio com o jogo PARADO (barra de comando), não durante o Play")
+		return
+	end
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	if not assets then
+		warn("[Instalar3D] não achei ReplicatedStorage > Assets")
+		return
+	end
+	local backup = ServerStorage:FindFirstChild("Assets_Antigos")
+	if not backup then
+		backup = Instance.new("Folder")
+		backup.Name = "Assets_Antigos"
+		backup.Parent = ServerStorage
+	end
+	local okRec, recording = pcall(ChangeHistoryService.TryBeginRecording, ChangeHistoryService, "Instalar modelos 3D")
+	if not okRec then
+		recording = nil
+	end
+	local done, missing = {}, {}
+	for name, target in SIZES do
+		if name == "Roleta" and not (options and options.Roleta) then
+			continue
+		end
+		local imported = findImported(name)
+		if imported then
+			local ok, result = pcall(install, name, imported, target, assets, backup :: Instance)
+			table.insert(done, if ok then result else (name .. ": ERRO " .. tostring(result)))
+		else
+			table.insert(missing, name)
+		end
+	end
+	if recording then
+		pcall(ChangeHistoryService.FinishRecording, ChangeHistoryService, recording, Enum.FinishRecordingOperation.Commit)
+	end
+	table.sort(done)
+	table.sort(missing)
+	print(("[Instalar3D] instalados %d:"):format(#done))
+	for _, line in done do
+		print("   " .. line)
+	end
+	if #missing > 0 then
+		print("[Instalar3D] não achei no Workspace (importe e rode de novo): " .. table.concat(missing, ", "))
+	end
+end
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RNEW900003"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[--[[
 	Guard (v6): anti-teleporte para os prêmios "por chegar perto".
 	O personagem é controlado pelo celular/PC do jogador, então um hack consegue teletransportar o boneco.
 	A cada 0,2 s o servidor compara onde cada um estava e onde está: um salto maior do que dá para andar
@@ -21554,6 +21754,12 @@ local function snapshot(player: Player, data: any): any
 	state.Achievements = achievements
 	state.FavoriteAsked = data.FavoriteAsked == true
 	state.LikeAsked = data.LikeAsked == true
+	-- v6: quanto cada caixa de tempo daria agora (a aba Presentes mostra o número certo)
+	local playCoins = {}
+	for i, step in Config.PlayRewards do
+		playCoins[i] = Sim.Reward(Config, data, ctx, step.Seconds, step.Min)
+	end
+	state.PlayCoins = playCoins
 	state.CanRebirth = Sim.CanRebirth(Config, data)
 	state.Rebirths = data.Rebirths
 	state.Seal = data.Seal
@@ -26473,7 +26679,7 @@ local GROUPS = {
 	Biz = { "Biz" },
 	Pets = { "Pets", "Album" },
 	Rebirth = { "Rebirth", "Talents", "Achievements" },
-	Prizes = { "Wheel", "Missions", "Gifts" },
+	Prizes = { "Playtime", "Wheel", "Missions", "Gifts" },
 	Shop = { "Shop" },
 }
 local lastTab: { [string]: string } = {}
@@ -26520,6 +26726,21 @@ local function badge(button: Instance): Frame
 end
 local petsBadge = badge(petsButton)
 local prizesBadge = badge(prizesButton)
+-- v6: relógio do próximo presente de tempo, pendurado no botão de Prêmios ("2:31" ou "PEGAR!")
+local playChip = UI.Label({ Name = "PlayChip", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(1, 6, 0.5, 0), Size = UDim2.new(0.95, 0, 0.34, 0), BackgroundTransparency = 0, BackgroundColor3 = C.DarkBrown, Text = "", MaxText = 18, ZIndex = 4, Visible = false, Parent = prizesButton })
+UI.Corner(0.5).Parent = playChip
+function Hud.PlayChip()
+	local step = Config.PlayRewards[num(player:GetAttribute("PlayClaimed")) + 1]
+	local start = player:GetAttribute("PlayStart")
+	if not step or type(start) ~= "number" then
+		playChip.Visible = false
+		return
+	end
+	local left = start + step.Minutes * 60 - workspace:GetServerTimeNow()
+	playChip.Visible = true
+	playChip.Text = if left <= 0 then T("play.chipReady") else Format.Time(left)
+	playChip.BackgroundColor3 = if left <= 0 then C.Green else C.DarkBrown
+end
 local rebirthBadge = badge(rebirthButton)
 
 -- comprar de longe (talento/passe): logo acima do contador de moedas (quem põe no lugar é Hud.Bottom)
@@ -27405,7 +27626,7 @@ V5.Build()
 -- ---------------------------------------------------------------------------
 -- Painéis (com abas quando o grupo tem mais de um)
 -- ---------------------------------------------------------------------------
-local TAB_KEYS = { Pets = "tab.pets", Album = "tab.album", Rebirth = "tab.rebirth", Talents = "tab.talents", Achievements = "tab.achievements", Wheel = "tab.wheel", Missions = "tab.missions", Gifts = "tab.gifts" }
+local TAB_KEYS = { Pets = "tab.pets", Album = "tab.album", Rebirth = "tab.rebirth", Talents = "tab.talents", Achievements = "tab.achievements", Playtime = "tab.playtime", Wheel = "tab.wheel", Missions = "tab.missions", Gifts = "tab.gifts" }
 local tabButtons: { { Button: TextButton, Key: string } } = {}
 
 local function groupOf(name: string): (string?, { string }?)
@@ -27915,6 +28136,89 @@ UI.Refreshers.Missions = function()
 end
 
 -- PRESENTES: presente por tempo, sequência de dias e códigos
+-- v6: PRESENTES GRÁTIS por tempo jogado: 8 caixas em grade (5 min a 1 hora). Cada caixa mostra o que dá e
+-- o relógio dela; as prontas pulam e um toque pega todas. Zera quando o jogador sai do jogo.
+local playList = makePanel("Playtime", "play.panel", C.Green)
+local playClock: TextLabel? = nil
+local GIFT_COLORS = {
+	Color3.fromRGB(235, 70, 60),
+	Color3.fromRGB(70, 160, 255),
+	Color3.fromRGB(255, 170, 40),
+	Color3.fromRGB(170, 90, 230),
+	Color3.fromRGB(60, 190, 110),
+	Color3.fromRGB(255, 110, 190),
+	Color3.fromRGB(60, 200, 190),
+	Color3.fromRGB(255, 205, 50),
+}
+
+local function playedSeconds(): number
+	local start = player:GetAttribute("PlayStart")
+	return if type(start) == "number" then math.max(0, workspace:GetServerTimeNow() - start) else 0
+end
+
+UI.Refreshers.Playtime = function()
+	UI.Clear(playList)
+	if not state then
+		return
+	end
+	local played = playedSeconds()
+	local claimed = num(player:GetAttribute("PlayClaimed"))
+	local coins = tbl(state.PlayCoins)
+	-- faixa de cima: há quanto tempo está jogando
+	local clockBar = new("Frame", { Size = UDim2.new(1, -10, 0, 54), BackgroundColor3 = C.DarkBrown, BackgroundTransparency = 0.15, LayoutOrder = 0, ZIndex = 6, Parent = playList }, { UI.Corner(0.35) })
+	playClock = UI.Label({ Size = UDim2.new(1, -20, 0.8, 0), Position = UDim2.new(0, 10, 0.1, 0), Text = T("play.clock", { t = Format.Time(played) }), MaxText = 26, ZIndex = 7, Parent = clockBar })
+	-- 4 colunas; a altura de cada caixa acompanha a largura (no celular estreito elas só ficam menores)
+	local grid = new("Frame", { Size = UDim2.new(1, -10, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 1, ZIndex = 6, Parent = playList })
+	local gridLayout = new("UIGridLayout", { CellSize = UDim2.new(0.25, -8, 1, 0), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center, Parent = grid })
+	new("UIAspectRatioConstraint", { AspectRatio = 0.82, Parent = gridLayout })
+	for i, step in Config.PlayRewards do
+		local ends = num(player:GetAttribute("PlayStart")) + step.Minutes * 60
+		local got = i <= claimed
+		local ready = not got and played >= step.Minutes * 60
+		local color = GIFT_COLORS[(i - 1) % #GIFT_COLORS + 1]
+		local tile = new("TextButton", {
+			Text = "",
+			AutoButtonColor = ready,
+			BackgroundColor3 = if got then C.Gray elseif ready then C.Green else C.Cream,
+			LayoutOrder = i,
+			ZIndex = 7,
+			Parent = grid,
+		}, { UI.Corner(0.14), UI.Stroke(if ready then C.White else C.DarkBrown, if ready then 4 else 3), UI.Shine() })
+		-- tempo da caixa (alto)
+		UI.Label({ Position = UDim2.new(0.05, 0, 0.03, 0), Size = UDim2.new(0.9, 0, 0.17, 0), Text = T("play.min", { m = step.Minutes }), Dark = not ready, MaxText = 20, ZIndex = 8, Parent = tile })
+		-- a caixa
+		local box = UI.Icon("Presente", { Position = UDim2.new(0.18, 0, 0.2, 0), Size = UDim2.new(0.64, 0, 0.42, 0), ZIndex = 8, Parent = tile, ImageColor3 = if got then Color3.fromRGB(150, 150, 150) else Color3.new(1, 1, 1) }, "🎁")
+		if not got and box:IsA("ImageLabel") then
+			box.ImageColor3 = color:Lerp(Color3.new(1, 1, 1), 0.45)
+		end
+		-- o que dá
+		local extra = if step.Turbo then " +⚡" elseif step.Spins then " +🎡" else ""
+		UI.Label({ Position = UDim2.new(0.05, 0, 0.62, 0), Size = UDim2.new(0.9, 0, 0.15, 0), Text = "💰" .. short(num(coins[i])) .. extra, Dark = not ready, TextColor3 = if ready then C.White elseif got then C.Brown else C.DarkBrown, Font = UI.Font2, MaxText = 18, ZIndex = 8, Parent = tile })
+		-- relógio / PEGAR / ✓
+		local foot = UI.Label({
+			Position = UDim2.new(0.08, 0, 0.79, 0),
+			Size = UDim2.new(0.84, 0, 0.17, 0),
+			Text = if got then "✓" elseif ready then T("play.claim") else Format.Time(ends - workspace:GetServerTimeNow()),
+			TextColor3 = if ready then C.Yellow elseif got then C.DarkGreen else C.Red,
+			MaxText = 22,
+			ZIndex = 8,
+			Parent = tile,
+		})
+		if not got and not ready then
+			UI.LiveText(foot, ends, function(remaining)
+				return Format.Time(remaining)
+			end)
+		end
+		if ready then
+			UI.Pop(tile, 0.85)
+			tile.Activated:Connect(function()
+				UI.Sound("Clique", 0.4)
+				request("ClaimPlay")
+			end)
+		end
+	end
+end
+
 local giftsList = makePanel("Gifts", "gifts.title", C.Red)
 local codeText = ""
 -- caixa do código: criada uma vez (refazer a cada segundo fechava o teclado do celular no meio da digitação)
@@ -27976,30 +28280,6 @@ UI.Refreshers.Gifts = function()
 			request("ClaimStreak")
 		end
 		else nil)
-	-- v6: prêmio por tempo jogado (escada). O servidor confere o tempo; aqui só a contagem.
-	local playStart = player:GetAttribute("PlayStart")
-	local playClaimed = num(player:GetAttribute("PlayClaimed"))
-	local step = Config.PlayRewards and Config.PlayRewards[playClaimed + 1]
-	if type(playStart) == "number" then
-		local title = T("play.title", { a = math.min(playClaimed + 1, #Config.PlayRewards), b = #Config.PlayRewards })
-		if step then
-			local ends = playStart + step.Minutes * 60
-			local left = ends - workspace:GetServerTimeNow()
-			local desc = if step.Turbo then T("play.descTurbo", { m = step.Minutes }) else T("play.desc", { m = step.Minutes })
-			local _, playButton = UI.Card(giftsList, 4, UI.Icon("Relogio", {}, "⏰"), title, desc, if left <= 0 then T("play.claim") else Format.Time(left), if left <= 0 then C.Green else C.Gray, function()
-				if ends - workspace:GetServerTimeNow() <= 0 then
-					request("ClaimPlay")
-				end
-			end)
-			if left > 0 then
-				UI.LiveText(playButton, ends, function(remaining)
-					return Format.Time(remaining)
-				end)
-			end
-		else
-			UI.Card(giftsList, 4, UI.Icon("Relogio", {}, "⏰"), T("play.titleDone"), T("play.done"), "✓", C.Gray, nil)
-		end
-	end
 	-- v6: Baú do Grupo (de graça para quem está no grupo; quem não está vê o convite)
 	if Config.GroupId > 0 then
 		if state.InGroup then
@@ -28757,6 +29037,10 @@ local function everySecond()
 		if not prizesBadge.Visible and playReadyNow() then
 			prizesBadge.Visible = true
 		end
+		if playClock and playClock.Parent and UI.OpenPanel == "Playtime" then
+			playClock.Text = T("play.clock", { t = Format.Time(playedSeconds()) })
+		end
+		Hud.PlayChip()
 	end
 	-- Ovo Gigante
 	local progress, giantState, crackAt = World.GiantInfo()
@@ -28859,7 +29143,8 @@ task.spawn(function()
 end)
 
 player:GetAttributeChangedSignal("PlayClaimed"):Connect(function()
-	if UI.OpenPanel == "Gifts" then
+	Hud.PlayChip()
+	if UI.OpenPanel == "Playtime" then
 		UI.RefreshOpen()
 	end
 end)
@@ -29590,8 +29875,17 @@ function UI.TextStroke(thickness: number?): UIStroke
 end
 
 -- Brilho de botão: claro em cima, um pouco mais escuro embaixo (dá volume sem precisar de imagem)
+-- v6: brilho de "bala de goma": claro em cima, uma faixa de luz e escuro embaixo (botão com volume)
 function UI.Shine(): UIGradient
-	return new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C.White, Color3.fromRGB(200, 200, 200)) })
+	return new("UIGradient", {
+		Rotation = 90,
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, C.White),
+			ColorSequenceKeypoint.new(0.45, Color3.fromRGB(235, 235, 235)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(205, 205, 205)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(165, 165, 165)),
+		}),
+	})
 end
 
 -- Texto. MaxText = tamanho máximo da letra (o texto encolhe para caber). Dark = letra marrom sem contorno.
@@ -29685,7 +29979,7 @@ function UI.Button(props: { [string]: any }, onClick: () -> ()): TextButton
 			base[k] = v
 		end
 	end
-	local b = new("TextButton", base, { UI.Corner(0.3), UI.Stroke(C.DarkBrown, 3), UI.TextStroke(), UI.Shine() })
+	local b = new("TextButton", base, { UI.Corner(0.3), UI.Stroke(C.DarkBrown, 3.5), UI.TextStroke(2), UI.Shine() })
 	new("UITextSizeConstraint", { MaxTextSize = maxText, MinTextSize = UI.MinText, Parent = b })
 	b.Activated:Connect(function()
 		UI.Sound("Clique", 0.35)
@@ -30035,7 +30329,13 @@ function UI.MakePanel(gui: Instance, name: string, color: Color3): (ScrollingFra
 		Visible = false,
 		ZIndex = 5,
 		Parent = gui,
-	}, { UI.Corner(0.06), UI.Stroke(C.DarkBrown, 4), new("UISizeConstraint", { MaxSize = Vector2.new(1000, 600), MinSize = Vector2.new(300, 250) }) })
+	}, {
+		UI.Corner(0.06),
+		UI.Stroke(C.DarkBrown, 5),
+		new("UISizeConstraint", { MaxSize = Vector2.new(1000, 600), MinSize = Vector2.new(300, 250) }),
+		-- v6: fundo com um degradê quente (antes era uma cor lisa)
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 250, 225), Color3.fromRGB(245, 215, 160)) }),
+	})
 	local header = new("Frame", { Name = "Header", Size = UDim2.new(1, 0, 0, 68), BackgroundColor3 = color, ZIndex = 5, Parent = panel }, { UI.Corner(0.3), UI.Stroke(C.DarkBrown, 3), UI.Shine() })
 	local title = UI.Label({ Name = "Title", Position = UDim2.new(0, 22, 0.12, 0), Size = UDim2.new(1, -110, 0.76, 0), Text = name, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6, Parent = header })
 	UI.Button({ Name = "Close", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(66, 60), Text = "X", BackgroundColor3 = C.Red, ZIndex = 6, Parent = header }, function()
@@ -30086,11 +30386,22 @@ end
 
 -- Cartão padrão: ícone | título + descrição | botão (onClick nil = botão apagado)
 function UI.Card(list: Instance, order: number, iconObj: GuiObject, title: string, desc: string, buttonText: string, buttonColor: Color3, onClick: (() -> ())?): Frame
-	local f = new("Frame", { Size = UDim2.new(1, -10, 0, 88), BackgroundColor3 = C.Cream, LayoutOrder = order, ZIndex = 6, Parent = list }, { UI.Corner(0.2), UI.Stroke(C.Brown, 2) })
-	iconObj.Position = UDim2.new(0, 8, 0.1, 0)
-	iconObj.Size = UDim2.new(0, 66, 0.8, 0)
-	iconObj.ZIndex = 7
-	iconObj.Parent = f
+	-- v6: cartão com volume (degradê + borda grossa) e o ícone dentro de um "selo" redondo na cor do botão
+	local f = new("Frame", { Size = UDim2.new(1, -10, 0, 88), BackgroundColor3 = C.Cream, LayoutOrder = order, ZIndex = 6, Parent = list }, {
+		UI.Corner(0.2),
+		UI.Stroke(C.DarkBrown, 2.5),
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C.White, Color3.fromRGB(238, 228, 205)) }),
+	})
+	local slot = new("Frame", { Position = UDim2.new(0, 8, 0.09, 0), Size = UDim2.new(0, 70, 0.82, 0), BackgroundColor3 = buttonColor:Lerp(C.White, 0.55), ZIndex = 7, Parent = f }, {
+		UI.Corner(1),
+		UI.Stroke(buttonColor:Lerp(C.DarkBrown, 0.35), 3),
+		new("UIAspectRatioConstraint", { AspectRatio = 1 }),
+	})
+	iconObj.AnchorPoint = Vector2.new(0.5, 0.5)
+	iconObj.Position = UDim2.fromScale(0.5, 0.5)
+	iconObj.Size = UDim2.fromScale(0.78, 0.78)
+	iconObj.ZIndex = 8
+	iconObj.Parent = slot
 	UI.Label({ Position = UDim2.new(0, 84, 0.08, 0), Size = UDim2.new(0.64, -84, 0.44, 0), Text = title, TextXAlignment = Enum.TextXAlignment.Left, Dark = true, MaxText = 26, ZIndex = 7, Parent = f })
 	local d = UI.Label({ Position = UDim2.new(0, 84, 0.52, 0), Size = UDim2.new(0.64, -84, 0.38, 0), Text = desc, TextXAlignment = Enum.TextXAlignment.Left, Dark = true, TextColor3 = C.Brown, MaxText = 18, Font = UI.Font2, ZIndex = 7, Parent = f })
 	local b = UI.Button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.new(0.33, 0, 0, 64), Text = buttonText, BackgroundColor3 = buttonColor, MaxText = 24, ZIndex = 7, Parent = f }, function()

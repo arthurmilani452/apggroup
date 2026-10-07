@@ -66,3 +66,13 @@ No Studio a loja mostra todos os itens, mesmo sem Id, para você ver como fica. 
 - **Favoritar:** depois de 15 min jogando, o próprio Roblox pergunta uma vez se a pessoa quer favoritar o jogo. O tempo fica em `Config.FavoriteAfter`.
 - **Lembrete de curtir:** depois de 25 min aparece uma vez um cartão pequeno no meio da tela, "Tá curtindo a granja? Deixa um 👍 na página do jogo". Some em 10 s, não segura o toque e tem X para fechar. O tempo fica em `Config.LikeReminderAfter`.
   - O Roblox não deixa o jogo abrir o botão de curtir, e é proibido dar prêmio em troca de curtida ou favorito. Por isso é só um lembrete, sem recompensa.
+
+## Quarta rodada da v6
+
+- **Presentes Grátis:** é uma aba nova, a primeira em Prêmios, com 8 caixas de presente: 5, 10, 15, 20, 30, 40, 50 e 60 min de jogo. Cada caixa mostra o tempo, quanto dá e o relógio dela. Na de 20 e na de 50 tem giro de roleta, e na de 1 hora tem Turbo e 2 giros. Um toque pega todas as que já abriram. Ao lado do botão de Prêmios fica um relógio contando para a próxima, que vira "PEGAR!" quando abre. O antigo cartão de tempo saiu da aba Diário.
+- **Menus com cara de jogo, não de IA:**
+  - botões com brilho e volume, e borda mais grossa;
+  - painéis com fundo em degradê;
+  - nos cartões, o ícone fica dentro de um selo redondo na cor do botão;
+  - os textos novos ficaram curtos e do jeito que a gente fala.
+- **Modelos 3D do Higgsfield:** agora há um instalador automático. É só importar os `.glb` no Studio e rodar uma linha na barra de comando, como está em `higgsfield/COMO-IMPORTAR.md`.

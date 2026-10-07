@@ -309,7 +309,7 @@ local GROUPS = {
 	Biz = { "Biz" },
 	Pets = { "Pets", "Album" },
 	Rebirth = { "Rebirth", "Talents", "Achievements" },
-	Prizes = { "Wheel", "Missions", "Gifts" },
+	Prizes = { "Playtime", "Wheel", "Missions", "Gifts" },
 	Shop = { "Shop" },
 }
 local lastTab: { [string]: string } = {}
@@ -356,6 +356,21 @@ local function badge(button: Instance): Frame
 end
 local petsBadge = badge(petsButton)
 local prizesBadge = badge(prizesButton)
+-- v6: relógio do próximo presente de tempo, pendurado no botão de Prêmios ("2:31" ou "PEGAR!")
+local playChip = UI.Label({ Name = "PlayChip", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(1, 6, 0.5, 0), Size = UDim2.new(0.95, 0, 0.34, 0), BackgroundTransparency = 0, BackgroundColor3 = C.DarkBrown, Text = "", MaxText = 18, ZIndex = 4, Visible = false, Parent = prizesButton })
+UI.Corner(0.5).Parent = playChip
+function Hud.PlayChip()
+	local step = Config.PlayRewards[num(player:GetAttribute("PlayClaimed")) + 1]
+	local start = player:GetAttribute("PlayStart")
+	if not step or type(start) ~= "number" then
+		playChip.Visible = false
+		return
+	end
+	local left = start + step.Minutes * 60 - workspace:GetServerTimeNow()
+	playChip.Visible = true
+	playChip.Text = if left <= 0 then T("play.chipReady") else Format.Time(left)
+	playChip.BackgroundColor3 = if left <= 0 then C.Green else C.DarkBrown
+end
 local rebirthBadge = badge(rebirthButton)
 
 -- comprar de longe (talento/passe): logo acima do contador de moedas (quem põe no lugar é Hud.Bottom)
@@ -1241,7 +1256,7 @@ V5.Build()
 -- ---------------------------------------------------------------------------
 -- Painéis (com abas quando o grupo tem mais de um)
 -- ---------------------------------------------------------------------------
-local TAB_KEYS = { Pets = "tab.pets", Album = "tab.album", Rebirth = "tab.rebirth", Talents = "tab.talents", Achievements = "tab.achievements", Wheel = "tab.wheel", Missions = "tab.missions", Gifts = "tab.gifts" }
+local TAB_KEYS = { Pets = "tab.pets", Album = "tab.album", Rebirth = "tab.rebirth", Talents = "tab.talents", Achievements = "tab.achievements", Playtime = "tab.playtime", Wheel = "tab.wheel", Missions = "tab.missions", Gifts = "tab.gifts" }
 local tabButtons: { { Button: TextButton, Key: string } } = {}
 
 local function groupOf(name: string): (string?, { string }?)
@@ -1751,6 +1766,89 @@ UI.Refreshers.Missions = function()
 end
 
 -- PRESENTES: presente por tempo, sequência de dias e códigos
+-- v6: PRESENTES GRÁTIS por tempo jogado: 8 caixas em grade (5 min a 1 hora). Cada caixa mostra o que dá e
+-- o relógio dela; as prontas pulam e um toque pega todas. Zera quando o jogador sai do jogo.
+local playList = makePanel("Playtime", "play.panel", C.Green)
+local playClock: TextLabel? = nil
+local GIFT_COLORS = {
+	Color3.fromRGB(235, 70, 60),
+	Color3.fromRGB(70, 160, 255),
+	Color3.fromRGB(255, 170, 40),
+	Color3.fromRGB(170, 90, 230),
+	Color3.fromRGB(60, 190, 110),
+	Color3.fromRGB(255, 110, 190),
+	Color3.fromRGB(60, 200, 190),
+	Color3.fromRGB(255, 205, 50),
+}
+
+local function playedSeconds(): number
+	local start = player:GetAttribute("PlayStart")
+	return if type(start) == "number" then math.max(0, workspace:GetServerTimeNow() - start) else 0
+end
+
+UI.Refreshers.Playtime = function()
+	UI.Clear(playList)
+	if not state then
+		return
+	end
+	local played = playedSeconds()
+	local claimed = num(player:GetAttribute("PlayClaimed"))
+	local coins = tbl(state.PlayCoins)
+	-- faixa de cima: há quanto tempo está jogando
+	local clockBar = new("Frame", { Size = UDim2.new(1, -10, 0, 54), BackgroundColor3 = C.DarkBrown, BackgroundTransparency = 0.15, LayoutOrder = 0, ZIndex = 6, Parent = playList }, { UI.Corner(0.35) })
+	playClock = UI.Label({ Size = UDim2.new(1, -20, 0.8, 0), Position = UDim2.new(0, 10, 0.1, 0), Text = T("play.clock", { t = Format.Time(played) }), MaxText = 26, ZIndex = 7, Parent = clockBar })
+	-- 4 colunas; a altura de cada caixa acompanha a largura (no celular estreito elas só ficam menores)
+	local grid = new("Frame", { Size = UDim2.new(1, -10, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 1, ZIndex = 6, Parent = playList })
+	local gridLayout = new("UIGridLayout", { CellSize = UDim2.new(0.25, -8, 1, 0), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center, Parent = grid })
+	new("UIAspectRatioConstraint", { AspectRatio = 0.82, Parent = gridLayout })
+	for i, step in Config.PlayRewards do
+		local ends = num(player:GetAttribute("PlayStart")) + step.Minutes * 60
+		local got = i <= claimed
+		local ready = not got and played >= step.Minutes * 60
+		local color = GIFT_COLORS[(i - 1) % #GIFT_COLORS + 1]
+		local tile = new("TextButton", {
+			Text = "",
+			AutoButtonColor = ready,
+			BackgroundColor3 = if got then C.Gray elseif ready then C.Green else C.Cream,
+			LayoutOrder = i,
+			ZIndex = 7,
+			Parent = grid,
+		}, { UI.Corner(0.14), UI.Stroke(if ready then C.White else C.DarkBrown, if ready then 4 else 3), UI.Shine() })
+		-- tempo da caixa (alto)
+		UI.Label({ Position = UDim2.new(0.05, 0, 0.03, 0), Size = UDim2.new(0.9, 0, 0.17, 0), Text = T("play.min", { m = step.Minutes }), Dark = not ready, MaxText = 20, ZIndex = 8, Parent = tile })
+		-- a caixa
+		local box = UI.Icon("Presente", { Position = UDim2.new(0.18, 0, 0.2, 0), Size = UDim2.new(0.64, 0, 0.42, 0), ZIndex = 8, Parent = tile, ImageColor3 = if got then Color3.fromRGB(150, 150, 150) else Color3.new(1, 1, 1) }, "🎁")
+		if not got and box:IsA("ImageLabel") then
+			box.ImageColor3 = color:Lerp(Color3.new(1, 1, 1), 0.45)
+		end
+		-- o que dá
+		local extra = if step.Turbo then " +⚡" elseif step.Spins then " +🎡" else ""
+		UI.Label({ Position = UDim2.new(0.05, 0, 0.62, 0), Size = UDim2.new(0.9, 0, 0.15, 0), Text = "💰" .. short(num(coins[i])) .. extra, Dark = not ready, TextColor3 = if ready then C.White elseif got then C.Brown else C.DarkBrown, Font = UI.Font2, MaxText = 18, ZIndex = 8, Parent = tile })
+		-- relógio / PEGAR / ✓
+		local foot = UI.Label({
+			Position = UDim2.new(0.08, 0, 0.79, 0),
+			Size = UDim2.new(0.84, 0, 0.17, 0),
+			Text = if got then "✓" elseif ready then T("play.claim") else Format.Time(ends - workspace:GetServerTimeNow()),
+			TextColor3 = if ready then C.Yellow elseif got then C.DarkGreen else C.Red,
+			MaxText = 22,
+			ZIndex = 8,
+			Parent = tile,
+		})
+		if not got and not ready then
+			UI.LiveText(foot, ends, function(remaining)
+				return Format.Time(remaining)
+			end)
+		end
+		if ready then
+			UI.Pop(tile, 0.85)
+			tile.Activated:Connect(function()
+				UI.Sound("Clique", 0.4)
+				request("ClaimPlay")
+			end)
+		end
+	end
+end
+
 local giftsList = makePanel("Gifts", "gifts.title", C.Red)
 local codeText = ""
 -- caixa do código: criada uma vez (refazer a cada segundo fechava o teclado do celular no meio da digitação)
@@ -1812,30 +1910,6 @@ UI.Refreshers.Gifts = function()
 			request("ClaimStreak")
 		end
 		else nil)
-	-- v6: prêmio por tempo jogado (escada). O servidor confere o tempo; aqui só a contagem.
-	local playStart = player:GetAttribute("PlayStart")
-	local playClaimed = num(player:GetAttribute("PlayClaimed"))
-	local step = Config.PlayRewards and Config.PlayRewards[playClaimed + 1]
-	if type(playStart) == "number" then
-		local title = T("play.title", { a = math.min(playClaimed + 1, #Config.PlayRewards), b = #Config.PlayRewards })
-		if step then
-			local ends = playStart + step.Minutes * 60
-			local left = ends - workspace:GetServerTimeNow()
-			local desc = if step.Turbo then T("play.descTurbo", { m = step.Minutes }) else T("play.desc", { m = step.Minutes })
-			local _, playButton = UI.Card(giftsList, 4, UI.Icon("Relogio", {}, "⏰"), title, desc, if left <= 0 then T("play.claim") else Format.Time(left), if left <= 0 then C.Green else C.Gray, function()
-				if ends - workspace:GetServerTimeNow() <= 0 then
-					request("ClaimPlay")
-				end
-			end)
-			if left > 0 then
-				UI.LiveText(playButton, ends, function(remaining)
-					return Format.Time(remaining)
-				end)
-			end
-		else
-			UI.Card(giftsList, 4, UI.Icon("Relogio", {}, "⏰"), T("play.titleDone"), T("play.done"), "✓", C.Gray, nil)
-		end
-	end
 	-- v6: Baú do Grupo (de graça para quem está no grupo; quem não está vê o convite)
 	if Config.GroupId > 0 then
 		if state.InGroup then
@@ -2593,6 +2667,10 @@ local function everySecond()
 		if not prizesBadge.Visible and playReadyNow() then
 			prizesBadge.Visible = true
 		end
+		if playClock and playClock.Parent and UI.OpenPanel == "Playtime" then
+			playClock.Text = T("play.clock", { t = Format.Time(playedSeconds()) })
+		end
+		Hud.PlayChip()
 	end
 	-- Ovo Gigante
 	local progress, giantState, crackAt = World.GiantInfo()
@@ -2695,7 +2773,8 @@ task.spawn(function()
 end)
 
 player:GetAttributeChangedSignal("PlayClaimed"):Connect(function()
-	if UI.OpenPanel == "Gifts" then
+	Hud.PlayChip()
+	if UI.OpenPanel == "Playtime" then
 		UI.RefreshOpen()
 	end
 end)

@@ -9,19 +9,28 @@ A rede desta sessão não deixou baixar os arquivos daqui. No seu PC, faça uma 
 - Abra o `baixar-modelos.html` no navegador e clique em cada modelo.
 - Ou rode `python baixar.py` dentro desta pasta: os 21 `.glb` caem na pasta `modelos/`.
 
-## 2. Importar no Studio (um por vez)
+## 2. Colocar no jogo (automático)
 
-1. Abra o `VendaUmOvo-v6.rbxlx`.
-2. Vá em **Arquivo > Importar 3D** e escolha o `.glb`.
-3. Na janela de importação, deixe **Anchored** ligado e clique em Importar.
-4. Ajuste o tamanho (ferramenta Escala ou `Model:ScaleTo`) até ficar perto do tamanho da tabela abaixo.
-5. Gire o modelo para a frente dele ficar para **-Z**: é para onde o modelo antigo "olha".
-6. Renomeie com o **mesmo nome** da tabela.
-7. Coloque em **ReplicatedStorage > Assets** e apague o modelo antigo de mesmo nome.
+1. Abra o `VendaUmOvo-v6.rbxlx` no Studio.
+2. Vá em **Arquivo > Importar 3D** e escolha todos os `.glb` da pasta `modelos/` (dá para selecionar vários). Clique em Importar. Eles aparecem no Workspace com o nome do arquivo.
+3. Abra a barra de comando (**Exibir > Barra de Comando**), cole a linha abaixo e aperte Enter:
 
-Não precisa criar a peça "Root": se o modelo não tiver, o jogo cria uma na base dele sozinho.
+```
+require(game.ServerScriptService.Game.Instalar3D)()
+```
 
-Antes de importar, guarde uma cópia do arquivo. Se algum modelo ficar ruim, é só voltar o antigo.
+O instalador faz sozinho o que antes era na mão:
+- ancora as peças;
+- ajusta o tamanho para caber no lugar do modelo antigo;
+- gira o modelo se ele vier de lado;
+- cria a peça Root;
+- troca o modelo em **ReplicatedStorage > Assets**.
+
+Os modelos antigos vão para **ServerStorage > Assets_Antigos**. Se algum ficar feio, é só arrastar o antigo de volta para Assets. Ctrl+Z também desfaz.
+
+A **Roleta** fica de fora de propósito: ela tem uma parte que gira. Para trocar mesmo assim, use `require(game.ServerScriptService.Game.Instalar3D)({ Roleta = true })`.
+
+Se preferir fazer na mão, use os tamanhos da tabela abaixo: o nome tem que ser igual e a frente do modelo para -Z.
 
 ## Tamanhos (largura x altura x profundidade, em studs)
 

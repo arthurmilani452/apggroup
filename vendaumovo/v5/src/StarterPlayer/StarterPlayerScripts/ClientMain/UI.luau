@@ -89,8 +89,17 @@ function UI.TextStroke(thickness: number?): UIStroke
 end
 
 -- Brilho de botão: claro em cima, um pouco mais escuro embaixo (dá volume sem precisar de imagem)
+-- v6: brilho de "bala de goma": claro em cima, uma faixa de luz e escuro embaixo (botão com volume)
 function UI.Shine(): UIGradient
-	return new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C.White, Color3.fromRGB(200, 200, 200)) })
+	return new("UIGradient", {
+		Rotation = 90,
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, C.White),
+			ColorSequenceKeypoint.new(0.45, Color3.fromRGB(235, 235, 235)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(205, 205, 205)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(165, 165, 165)),
+		}),
+	})
 end
 
 -- Texto. MaxText = tamanho máximo da letra (o texto encolhe para caber). Dark = letra marrom sem contorno.
@@ -184,7 +193,7 @@ function UI.Button(props: { [string]: any }, onClick: () -> ()): TextButton
 			base[k] = v
 		end
 	end
-	local b = new("TextButton", base, { UI.Corner(0.3), UI.Stroke(C.DarkBrown, 3), UI.TextStroke(), UI.Shine() })
+	local b = new("TextButton", base, { UI.Corner(0.3), UI.Stroke(C.DarkBrown, 3.5), UI.TextStroke(2), UI.Shine() })
 	new("UITextSizeConstraint", { MaxTextSize = maxText, MinTextSize = UI.MinText, Parent = b })
 	b.Activated:Connect(function()
 		UI.Sound("Clique", 0.35)
@@ -534,7 +543,13 @@ function UI.MakePanel(gui: Instance, name: string, color: Color3): (ScrollingFra
 		Visible = false,
 		ZIndex = 5,
 		Parent = gui,
-	}, { UI.Corner(0.06), UI.Stroke(C.DarkBrown, 4), new("UISizeConstraint", { MaxSize = Vector2.new(1000, 600), MinSize = Vector2.new(300, 250) }) })
+	}, {
+		UI.Corner(0.06),
+		UI.Stroke(C.DarkBrown, 5),
+		new("UISizeConstraint", { MaxSize = Vector2.new(1000, 600), MinSize = Vector2.new(300, 250) }),
+		-- v6: fundo com um degradê quente (antes era uma cor lisa)
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 250, 225), Color3.fromRGB(245, 215, 160)) }),
+	})
 	local header = new("Frame", { Name = "Header", Size = UDim2.new(1, 0, 0, 68), BackgroundColor3 = color, ZIndex = 5, Parent = panel }, { UI.Corner(0.3), UI.Stroke(C.DarkBrown, 3), UI.Shine() })
 	local title = UI.Label({ Name = "Title", Position = UDim2.new(0, 22, 0.12, 0), Size = UDim2.new(1, -110, 0.76, 0), Text = name, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6, Parent = header })
 	UI.Button({ Name = "Close", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(66, 60), Text = "X", BackgroundColor3 = C.Red, ZIndex = 6, Parent = header }, function()
@@ -585,11 +600,22 @@ end
 
 -- Cartão padrão: ícone | título + descrição | botão (onClick nil = botão apagado)
 function UI.Card(list: Instance, order: number, iconObj: GuiObject, title: string, desc: string, buttonText: string, buttonColor: Color3, onClick: (() -> ())?): Frame
-	local f = new("Frame", { Size = UDim2.new(1, -10, 0, 88), BackgroundColor3 = C.Cream, LayoutOrder = order, ZIndex = 6, Parent = list }, { UI.Corner(0.2), UI.Stroke(C.Brown, 2) })
-	iconObj.Position = UDim2.new(0, 8, 0.1, 0)
-	iconObj.Size = UDim2.new(0, 66, 0.8, 0)
-	iconObj.ZIndex = 7
-	iconObj.Parent = f
+	-- v6: cartão com volume (degradê + borda grossa) e o ícone dentro de um "selo" redondo na cor do botão
+	local f = new("Frame", { Size = UDim2.new(1, -10, 0, 88), BackgroundColor3 = C.Cream, LayoutOrder = order, ZIndex = 6, Parent = list }, {
+		UI.Corner(0.2),
+		UI.Stroke(C.DarkBrown, 2.5),
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C.White, Color3.fromRGB(238, 228, 205)) }),
+	})
+	local slot = new("Frame", { Position = UDim2.new(0, 8, 0.09, 0), Size = UDim2.new(0, 70, 0.82, 0), BackgroundColor3 = buttonColor:Lerp(C.White, 0.55), ZIndex = 7, Parent = f }, {
+		UI.Corner(1),
+		UI.Stroke(buttonColor:Lerp(C.DarkBrown, 0.35), 3),
+		new("UIAspectRatioConstraint", { AspectRatio = 1 }),
+	})
+	iconObj.AnchorPoint = Vector2.new(0.5, 0.5)
+	iconObj.Position = UDim2.fromScale(0.5, 0.5)
+	iconObj.Size = UDim2.fromScale(0.78, 0.78)
+	iconObj.ZIndex = 8
+	iconObj.Parent = slot
 	UI.Label({ Position = UDim2.new(0, 84, 0.08, 0), Size = UDim2.new(0.64, -84, 0.44, 0), Text = title, TextXAlignment = Enum.TextXAlignment.Left, Dark = true, MaxText = 26, ZIndex = 7, Parent = f })
 	local d = UI.Label({ Position = UDim2.new(0, 84, 0.52, 0), Size = UDim2.new(0.64, -84, 0.38, 0), Text = desc, TextXAlignment = Enum.TextXAlignment.Left, Dark = true, TextColor3 = C.Brown, MaxText = 18, Font = UI.Font2, ZIndex = 7, Parent = f })
 	local b = UI.Button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.new(0.33, 0, 0, 64), Text = buttonText, BackgroundColor3 = buttonColor, MaxText = 24, ZIndex = 7, Parent = f }, function()

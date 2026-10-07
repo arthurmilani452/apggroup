@@ -288,6 +288,12 @@ local function snapshot(player: Player, data: any): any
 	state.Achievements = achievements
 	state.FavoriteAsked = data.FavoriteAsked == true
 	state.LikeAsked = data.LikeAsked == true
+	-- v6: quanto cada caixa de tempo daria agora (a aba Presentes mostra o número certo)
+	local playCoins = {}
+	for i, step in Config.PlayRewards do
+		playCoins[i] = Sim.Reward(Config, data, ctx, step.Seconds, step.Min)
+	end
+	state.PlayCoins = playCoins
 	state.CanRebirth = Sim.CanRebirth(Config, data)
 	state.Rebirths = data.Rebirths
 	state.Seal = data.Seal

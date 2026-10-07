@@ -680,14 +680,18 @@ Config.Products = {
 	{ Key = "ChocarJa", Id = 0, Kind = "hatch", Seconds = 600, Min = 300, Icon = "Relogio", Emoji = "🐣", Robux = 15 },
 }
 
--- v6: PRÊMIO POR TEMPO JOGADO nesta visita (zera ao sair). Minutes desde que entrou; Seconds/Min de renda;
--- Turbo = segundos de Turbo grátis. Regras no servidor: ServerScriptService/Game/Bonus.
+-- v6: PRESENTES POR TEMPO JOGADO nesta visita (zera ao sair): as 8 caixas da aba Presentes.
+-- Minutes desde que entrou; Seconds/Min de renda; Spins = giros da roleta; Turbo = segundos de Turbo grátis.
+-- Regras no servidor: ServerScriptService/Game/Bonus.
 Config.PlayRewards = {
 	{ Minutes = 5, Seconds = 60, Min = 100 },
 	{ Minutes = 10, Seconds = 120, Min = 250 },
-	{ Minutes = 20, Seconds = 240, Min = 600 },
-	{ Minutes = 35, Seconds = 420, Min = 1200 },
-	{ Minutes = 60, Seconds = 900, Min = 3000, Turbo = 600 },
+	{ Minutes = 15, Seconds = 180, Min = 400 },
+	{ Minutes = 20, Seconds = 240, Min = 600, Spins = 1 },
+	{ Minutes = 30, Seconds = 360, Min = 1000 },
+	{ Minutes = 40, Seconds = 480, Min = 1500 },
+	{ Minutes = 50, Seconds = 600, Min = 2200, Spins = 1 },
+	{ Minutes = 60, Seconds = 900, Min = 3000, Turbo = 600, Spins = 2 },
 }
 
 -- v6: TÍTULO em cima da cabeça (todo mundo vê), pelo número de renascimentos. Com Selo, o título fica na
