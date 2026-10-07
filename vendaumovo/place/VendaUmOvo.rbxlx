@@ -8071,6 +8071,7 @@ type Customer = {
 	Owner: Player,
 	Alive: boolean,
 	Walk: AnimationTrack?,
+	Start: number, -- ângulo na estrada onde nasceu
 }
 
 local queues: { [any]: { Customer } } = {}
@@ -8119,6 +8120,8 @@ local function fallbackRig(): Model
 	limb("Right Arm", Vector3.new(1, 2, 1), Vector3.new(1.5, 0, 0))
 	local humanoid = Instance.new("Humanoid")
 	humanoid.HipHeight = 2
+	humanoid.RequiresNeck = false -- sem junta de pescoço; sem isso o Roblox acha que o boneco morreu
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
 	humanoid.Parent = model
 	model.PrimaryPart = root
 	return model
@@ -8316,7 +8319,7 @@ local function run(c: Customer)
 	local plot = c.Plot
 	local angle = plotAngle(plot)
 	local queue = queues[plot]
-	walkRoad(c, plotAngle(plot) + (if math.random() < 0.5 then -1 else 1) * math.rad(math.random(14, 28)), angle)
+	walkRoad(c, c.Start, angle)
 	local joined = os.clock()
 	local lastTarget: Vector3? = nil
 	local issued = 0
@@ -8386,7 +8389,7 @@ local function spawnCustomer(plot: any, owner: Player)
 	pcall(function()
 		root:SetNetworkOwner(nil)
 	end)
-	local c: Customer = { Model = model, Humanoid = humanoid, Root = root, Plot = plot, Owner = owner, Alive = true, Walk = nil }
+	local c: Customer = { Model = model, Humanoid = humanoid, Root = root, Plot = plot, Owner = owner, Alive = true, Walk = nil, Start = startAngle }
 	pcall(function()
 		local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
 		animator.Parent = humanoid
@@ -8542,23 +8545,24 @@ local function claimStreak(player: Player)
 	Registry.Economy.Push(player)
 end
 
--- Códigos: cada conta usa uma vez; tentativas erradas têm limite (ninguém fica chutando)
-local attempts: { [Player]: { number } } = {}
+-- Códigos: cada conta usa uma vez; tentativas erradas têm limite (ninguém fica chutando).
+-- Guardado por UserId e por hora do servidor: sair e voltar não zera as tentativas.
+local attempts: { [number]: { number } } = {}
 
 local function redeemCode(player: Player, text: any)
 	local data = Registry.Economy.Data(player)
 	if not data or type(text) ~= "string" or #text > 40 then
 		return
 	end
-	local now = os.clock()
-	local list = attempts[player] or {}
+	local now = os.time()
+	local list = attempts[player.UserId] or {}
 	local recent = {}
 	for _, t in list do
 		if now - t < Config.CodeWindow then
 			table.insert(recent, t)
 		end
 	end
-	attempts[player] = recent
+	attempts[player.UserId] = recent
 	if #recent >= Config.CodeAttempts then
 		Registry.Remotes.NotifyPlayer(player, "Muitas tentativas. Espera um minuto.", nil, "error")
 		return
@@ -8628,9 +8632,6 @@ function Daily.Init()
 	Registry.Remotes.On("ClaimStreak", claimStreak)
 	Registry.Remotes.On("RedeemCode", redeemCode)
 	Registry.Remotes.On("SetMusic", setMusic)
-	Players.PlayerRemoving:Connect(function(player)
-		attempts[player] = nil
-	end)
 
 	-- conta o tempo de jogo (no servidor) e troca as missões na virada do dia
 	task.spawn(function()
@@ -9107,7 +9108,7 @@ return Economy
 	A cada Config.GoldenRain.Interval, avisa o servidor todo e, por alguns segundos, caem ovos dourados
 	em volta do centro da ilha. Quem encostar leva o ovo para a cesta.
 	O servidor cria cada ovo e confere quem pegou (dono da cesta, distância, limite por jogador por chuva).
-	O fim da chuva fica no atributo workspace.GoldenRainEnd (a tela mostra a contagem).
+	Atributos para a tela: workspace.GoldenRainStart (aviso: quando começa) e workspace.GoldenRainEnd (quando acaba).
 ]]
 
 local Players = game:GetService("Players")
@@ -9130,7 +9131,9 @@ local function randomSpot(): Vector3
 		local a = math.random() * math.pi * 2
 		local r = math.sqrt(math.random()) * R.Radius
 		local x, z = math.cos(a) * r, math.sin(a) * r
-		if not (x > -38 and x < 38 and z > -2 and z < 50) then
+		local onBarn = x > -38 and x < 38 and z > -2 and z < 50
+		local onCoop = x > -52 and x < -32 and z > 6 and z < 30 -- galinheiro do lado do celeiro
+		if not onBarn and not onCoop then
 			return Vector3.new(x, 0, z)
 		end
 	end
@@ -9215,9 +9218,11 @@ local function dropEgg()
 end
 
 local function rain()
-	workspace:SetAttribute("GoldenRainEnd", workspace:GetServerTimeNow() + R.Warning + R.Duration)
+	workspace:SetAttribute("GoldenRainStart", workspace:GetServerTimeNow() + R.Warning)
 	Registry.Remotes.NotifyAll(("Chuva de ovos dourados em %ds no cercadinho do centro!"):format(R.Warning), nil, "event")
 	task.wait(R.Warning)
+	workspace:SetAttribute("GoldenRainStart", 0)
+	workspace:SetAttribute("GoldenRainEnd", workspace:GetServerTimeNow() + R.Duration)
 	taken = {}
 	Registry.Remotes.Fx:FireAllClients("sound", nil, "ChuvaDourada")
 	Registry.Remotes.NotifyAll("Começou! Corre pro centro da ilha!", nil, "event")
@@ -9239,14 +9244,17 @@ function Events.Init()
 	folder.Name = "ChuvaDourada"
 	folder.Parent = workspace
 	workspace:SetAttribute("GoldenRainEnd", 0)
+	workspace:SetAttribute("GoldenRainStart", 0)
 	task.spawn(function()
 		while true do
-			task.wait(math.max(R.Interval - R.Warning, 30))
+			-- uma chuva a cada Interval: espera o resto do ciclo (aviso + chuva já contam)
+			task.wait(math.max(R.Interval - R.Warning - R.Duration, 30))
 			local ok, err = pcall(rain)
 			if not ok then
 				warn("[Events] chuva:", err)
-				workspace:SetAttribute("GoldenRainEnd", 0)
 			end
+			workspace:SetAttribute("GoldenRainEnd", 0)
+			workspace:SetAttribute("GoldenRainStart", 0)
 		end
 	end)
 	Players.PlayerRemoving:Connect(function(player)
@@ -11386,9 +11394,12 @@ task.spawn(function()
 					table.insert(parts, (if key == "Sorte" then "Sorte x3  " else "Venda x2  ") .. Format.Time(left))
 				end
 			end
+			local rainStart = workspace:GetAttribute("GoldenRainStart")
 			local rainEnd = workspace:GetAttribute("GoldenRainEnd")
-			if type(rainEnd) == "number" and rainEnd > now then
-				table.insert(parts, 1, "Chuva dourada " .. Format.Time(rainEnd - now))
+			if type(rainStart) == "number" and rainStart > now then
+				table.insert(parts, 1, "Chuva dourada começa em " .. Format.Time(rainStart - now))
+			elseif type(rainEnd) == "number" and rainEnd > now then
+				table.insert(parts, 1, "Chuva dourada! " .. Format.Time(rainEnd - now))
 			end
 			boostBar.Text = table.concat(parts, "    ")
 			if state.GiftLeft > 0 then
@@ -11570,7 +11581,11 @@ task.spawn(function()
 		task.wait(1)
 		if music and state then
 			if state.Music and not music.IsPlaying then
-				music:Play()
+				if music.TimePosition > 0 then
+					music:Resume() -- continua de onde parou
+				else
+					music:Play()
+				end
 			elseif not state.Music and music.IsPlaying then
 				music:Pause()
 			end

@@ -81,23 +81,24 @@ local function claimStreak(player: Player)
 	Registry.Economy.Push(player)
 end
 
--- Códigos: cada conta usa uma vez; tentativas erradas têm limite (ninguém fica chutando)
-local attempts: { [Player]: { number } } = {}
+-- Códigos: cada conta usa uma vez; tentativas erradas têm limite (ninguém fica chutando).
+-- Guardado por UserId e por hora do servidor: sair e voltar não zera as tentativas.
+local attempts: { [number]: { number } } = {}
 
 local function redeemCode(player: Player, text: any)
 	local data = Registry.Economy.Data(player)
 	if not data or type(text) ~= "string" or #text > 40 then
 		return
 	end
-	local now = os.clock()
-	local list = attempts[player] or {}
+	local now = os.time()
+	local list = attempts[player.UserId] or {}
 	local recent = {}
 	for _, t in list do
 		if now - t < Config.CodeWindow then
 			table.insert(recent, t)
 		end
 	end
-	attempts[player] = recent
+	attempts[player.UserId] = recent
 	if #recent >= Config.CodeAttempts then
 		Registry.Remotes.NotifyPlayer(player, "Muitas tentativas. Espera um minuto.", nil, "error")
 		return
@@ -167,9 +168,6 @@ function Daily.Init()
 	Registry.Remotes.On("ClaimStreak", claimStreak)
 	Registry.Remotes.On("RedeemCode", redeemCode)
 	Registry.Remotes.On("SetMusic", setMusic)
-	Players.PlayerRemoving:Connect(function(player)
-		attempts[player] = nil
-	end)
 
 	-- conta o tempo de jogo (no servidor) e troca as missões na virada do dia
 	task.spawn(function()

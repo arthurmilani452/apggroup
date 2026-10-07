@@ -686,9 +686,12 @@ task.spawn(function()
 					table.insert(parts, (if key == "Sorte" then "Sorte x3  " else "Venda x2  ") .. Format.Time(left))
 				end
 			end
+			local rainStart = workspace:GetAttribute("GoldenRainStart")
 			local rainEnd = workspace:GetAttribute("GoldenRainEnd")
-			if type(rainEnd) == "number" and rainEnd > now then
-				table.insert(parts, 1, "Chuva dourada " .. Format.Time(rainEnd - now))
+			if type(rainStart) == "number" and rainStart > now then
+				table.insert(parts, 1, "Chuva dourada começa em " .. Format.Time(rainStart - now))
+			elseif type(rainEnd) == "number" and rainEnd > now then
+				table.insert(parts, 1, "Chuva dourada! " .. Format.Time(rainEnd - now))
 			end
 			boostBar.Text = table.concat(parts, "    ")
 			if state.GiftLeft > 0 then
@@ -870,7 +873,11 @@ task.spawn(function()
 		task.wait(1)
 		if music and state then
 			if state.Music and not music.IsPlaying then
-				music:Play()
+				if music.TimePosition > 0 then
+					music:Resume() -- continua de onde parou
+				else
+					music:Play()
+				end
 			elseif not state.Music and music.IsPlaying then
 				music:Pause()
 			end

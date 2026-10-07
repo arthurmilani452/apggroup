@@ -3,7 +3,7 @@
 	A cada Config.GoldenRain.Interval, avisa o servidor todo e, por alguns segundos, caem ovos dourados
 	em volta do centro da ilha. Quem encostar leva o ovo para a cesta.
 	O servidor cria cada ovo e confere quem pegou (dono da cesta, distância, limite por jogador por chuva).
-	O fim da chuva fica no atributo workspace.GoldenRainEnd (a tela mostra a contagem).
+	Atributos para a tela: workspace.GoldenRainStart (aviso: quando começa) e workspace.GoldenRainEnd (quando acaba).
 ]]
 
 local Players = game:GetService("Players")
@@ -26,7 +26,9 @@ local function randomSpot(): Vector3
 		local a = math.random() * math.pi * 2
 		local r = math.sqrt(math.random()) * R.Radius
 		local x, z = math.cos(a) * r, math.sin(a) * r
-		if not (x > -38 and x < 38 and z > -2 and z < 50) then
+		local onBarn = x > -38 and x < 38 and z > -2 and z < 50
+		local onCoop = x > -52 and x < -32 and z > 6 and z < 30 -- galinheiro do lado do celeiro
+		if not onBarn and not onCoop then
 			return Vector3.new(x, 0, z)
 		end
 	end
@@ -111,9 +113,11 @@ local function dropEgg()
 end
 
 local function rain()
-	workspace:SetAttribute("GoldenRainEnd", workspace:GetServerTimeNow() + R.Warning + R.Duration)
+	workspace:SetAttribute("GoldenRainStart", workspace:GetServerTimeNow() + R.Warning)
 	Registry.Remotes.NotifyAll(("Chuva de ovos dourados em %ds no cercadinho do centro!"):format(R.Warning), nil, "event")
 	task.wait(R.Warning)
+	workspace:SetAttribute("GoldenRainStart", 0)
+	workspace:SetAttribute("GoldenRainEnd", workspace:GetServerTimeNow() + R.Duration)
 	taken = {}
 	Registry.Remotes.Fx:FireAllClients("sound", nil, "ChuvaDourada")
 	Registry.Remotes.NotifyAll("Começou! Corre pro centro da ilha!", nil, "event")
@@ -135,14 +139,17 @@ function Events.Init()
 	folder.Name = "ChuvaDourada"
 	folder.Parent = workspace
 	workspace:SetAttribute("GoldenRainEnd", 0)
+	workspace:SetAttribute("GoldenRainStart", 0)
 	task.spawn(function()
 		while true do
-			task.wait(math.max(R.Interval - R.Warning, 30))
+			-- uma chuva a cada Interval: espera o resto do ciclo (aviso + chuva já contam)
+			task.wait(math.max(R.Interval - R.Warning - R.Duration, 30))
 			local ok, err = pcall(rain)
 			if not ok then
 				warn("[Events] chuva:", err)
-				workspace:SetAttribute("GoldenRainEnd", 0)
 			end
+			workspace:SetAttribute("GoldenRainEnd", 0)
+			workspace:SetAttribute("GoldenRainStart", 0)
 		end
 	end)
 	Players.PlayerRemoving:Connect(function(player)

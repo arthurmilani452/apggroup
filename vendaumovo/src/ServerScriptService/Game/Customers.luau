@@ -27,6 +27,7 @@ type Customer = {
 	Owner: Player,
 	Alive: boolean,
 	Walk: AnimationTrack?,
+	Start: number, -- ângulo na estrada onde nasceu
 }
 
 local queues: { [any]: { Customer } } = {}
@@ -75,6 +76,8 @@ local function fallbackRig(): Model
 	limb("Right Arm", Vector3.new(1, 2, 1), Vector3.new(1.5, 0, 0))
 	local humanoid = Instance.new("Humanoid")
 	humanoid.HipHeight = 2
+	humanoid.RequiresNeck = false -- sem junta de pescoço; sem isso o Roblox acha que o boneco morreu
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
 	humanoid.Parent = model
 	model.PrimaryPart = root
 	return model
@@ -272,7 +275,7 @@ local function run(c: Customer)
 	local plot = c.Plot
 	local angle = plotAngle(plot)
 	local queue = queues[plot]
-	walkRoad(c, plotAngle(plot) + (if math.random() < 0.5 then -1 else 1) * math.rad(math.random(14, 28)), angle)
+	walkRoad(c, c.Start, angle)
 	local joined = os.clock()
 	local lastTarget: Vector3? = nil
 	local issued = 0
@@ -342,7 +345,7 @@ local function spawnCustomer(plot: any, owner: Player)
 	pcall(function()
 		root:SetNetworkOwner(nil)
 	end)
-	local c: Customer = { Model = model, Humanoid = humanoid, Root = root, Plot = plot, Owner = owner, Alive = true, Walk = nil }
+	local c: Customer = { Model = model, Humanoid = humanoid, Root = root, Plot = plot, Owner = owner, Alive = true, Walk = nil, Start = startAngle }
 	pcall(function()
 		local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
 		animator.Parent = humanoid
