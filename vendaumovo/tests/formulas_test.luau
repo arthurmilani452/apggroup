@@ -121,6 +121,51 @@ do
 	check(id2 == "branco" and not rare2, "chave normal")
 end
 
+-- Ganho offline: nada se ficou pouco tempo, para em 2 h, cresce com mais aves
+do
+	local d = freshData()
+	local e0, c0 = Formulas.OfflineEarnings(Config, d, nil, Config.Offline.MinSeconds - 1, NOW)
+	check(e0 == 0 and c0 == 0, "offline: pouco tempo não dá nada")
+	local e1, c1 = Formulas.OfflineEarnings(Config, d, nil, 3600, NOW)
+	check(e1 == math.floor(3600 / Config.HenById.comum.LayTime * Config.Offline.Rate), "offline: 1 h de uma galinha comum")
+	check(c1 == e1 * Config.EggById.branco.Value, "offline: valor dos ovos brancos")
+	local eMax = Formulas.OfflineEarnings(Config, d, nil, Config.Offline.MaxSeconds, NOW)
+	local eHuge = Formulas.OfflineEarnings(Config, d, nil, 10 ^ 9, NOW)
+	check(eHuge == eMax, "offline: para no máximo (mudar o relógio não adianta)")
+	d.Hens = { "comum", "comum", "comum", "comum", "comum", "comum" } -- mais aves que ninhos
+	local eCap = Formulas.OfflineEarnings(Config, d, nil, 3600, NOW)
+	check(eCap == e1 * Formulas.UpgradeValue(Config, d, "Ninhos"), "offline: só conta aves que cabem nos ninhos")
+end
+
+-- Sequência diária
+do
+	check(Formulas.StreakNext({ Day = 0, Last = 0 }, 100) == 1, "sequência: primeiro dia")
+	check(Formulas.StreakNext({ Day = 3, Last = 99 }, 100) == 4, "sequência: dia seguido soma")
+	check(Formulas.StreakNext({ Day = 7, Last = 99 }, 100) == 1, "sequência: depois do 7 recomeça")
+	check(Formulas.StreakNext({ Day = 5, Last = 97 }, 100) == 1, "sequência: pulou dia, volta pro 1")
+	check(Formulas.StreakNext({ Day = 2, Last = 100 }, 100) == nil, "sequência: já pegou hoje")
+	local d = freshData()
+	check(Formulas.StreakReward(Config, d, 7) > Formulas.StreakReward(Config, d, 1), "sequência: dia 7 vale mais")
+end
+
+-- Códigos
+do
+	check(Formulas.NormalizeCode("  ovo-100 ") == "OVO100", "código: limpa e põe em maiúsculas")
+	check(Formulas.FindCode(Config, "ovo100") ~= nil, "código: acha OVO100")
+	check(Formulas.FindCode(Config, "NAOEXISTE") == nil, "código: inexistente")
+	local entry = Formulas.FindCode(Config, "OVO100")
+	check(Formulas.CodeReward(Config, freshData(), entry) == entry.Min, "código: prêmio mínimo no começo")
+end
+
+-- Clientes: decoração atrai mais, cesta vazia atrai menos
+do
+	local d = freshData()
+	local base = Formulas.CustomerRate(Config, d, 5)
+	d.Upgrades.Decoracao = 3
+	check(Formulas.CustomerRate(Config, d, 5) > base, "clientes: decoração atrai mais")
+	check(Formulas.CustomerRate(Config, d, 0) < Formulas.CustomerRate(Config, d, 5), "clientes: cesta vazia atrai menos")
+end
+
 -- Formatação
 check(Format.Short(950) == "950", "950")
 check(Format.Short(1250) == "1.2K", "1.2K deu " .. Format.Short(1250))

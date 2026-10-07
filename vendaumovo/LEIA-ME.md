@@ -25,6 +25,16 @@ Tycoon de granja para todas as idades, numa ilha flutuante. Cada jogador ganha u
 
 Seta amarela no começo: aponta o ninho com ovo ou a banca, até a pessoa juntar 2.000 moedas.
 
+### O que acontece sozinho
+- **Clientes na banca:** gente anda pela estrada asfaltada, faz fila na sua banca e leva de 1 a 3 ovos da sua cesta. O dinheiro cai na hora, mesmo se você estiver longe. Quanto mais Decoração, mais clientes. Cesta vazia, quase ninguém para.
+- **Ganho offline:** voltou depois de pelo menos 2 minutos? Suas aves botaram enquanto você estava fora (metade do normal, até 2 horas) e os ovos já foram vendidos.
+- **Chuva de ovos dourados:** a cada 20 minutos o servidor avisa, e por 90 segundos caem ovos dourados no cercadinho do centro. Encostou, pegou (até 12 por chuva, se couber na cesta).
+
+### Todo dia
+- **Sequência:** no painel Missões, pegue o prêmio do dia. Dias seguidos sobem até o dia 7 (que dá Sorte x3 por 15 min). Pulou um dia, volta para o 1.
+- **Missões do dia** e o **presente** a cada 10 minutos jogando.
+- **Códigos:** caixa no fim do painel Missões.
+
 ### Ovos (do mais barato ao mais raro)
 Branco (1) → Caipira (4) → Pata (15) → Codorna (50) → Dourado (250) → Cristal (1.200) → Arco-íris (6.000) → Lunar (35.000) → **Dragão (250.000, lendário)**.
 Cada ave bota um tipo. **4% dos ovos saem raros**: brilham, tocam um som e valem 5x. Ovo de dragão raro aparece para o servidor todo.
@@ -37,6 +47,12 @@ Cada ave bota um tipo. **4% dos ovos saem raros**: brilham, tocam um som e valem
 
 ## Ajustar o jogo
 Tudo fica em **`ReplicatedStorage > Shared > Config`**: preços, tempos, chance de ovo raro, melhorias, rebirth, missões, presente, game passes, produtos e todos os IDs de imagem, textura e som.
+
+## Códigos
+Em `Config.Codes`: `Code` (em maiúsculas), `Eggs` (o prêmio vale esse tanto de ovos da melhor ave da pessoa, então cresce junto com ela), `Min` (prêmio mínimo) e `Expires` (`os.time()` de quando vence; `0` = nunca). Cada conta usa cada código uma vez. Errar 5 vezes em 1 minuto bloqueia por um tempo. Já vem com `OVO100`, `GRANJA` e `LANCAMENTO`.
+
+## Sons e música
+Cole os IDs da Creator Store em `Config.Sounds`: `Coletar`, `Vender`, `OvoRaro`, `Comprar`, `Rebirth`, `Cliente`, `Cacarejo`, `ChuvaDourada` e `Musica` (toca em loop; volume em `Config.MusicVolume`). O botão ♪ no canto liga e desliga a música, e a escolha fica salva no progresso da pessoa. Sem ID, o botão some.
 
 ## Vender Robux
 O jogo já vem pronto para vender. Falta só criar os itens no Creator Hub e colar os IDs no Config.

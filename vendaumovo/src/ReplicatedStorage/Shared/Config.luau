@@ -55,7 +55,12 @@ Config.Sounds = {
 	OvoRaro = "",
 	Comprar = "",
 	Rebirth = "",
+	Cliente = "", -- cliente comprou na banca
+	Cacarejo = "", -- de vez em quando, perto das aves
+	ChuvaDourada = "", -- começo da chuva de ovos dourados
+	Musica = "", -- música de fundo (em loop, volume baixo)
 }
+Config.MusicVolume = 0.25
 
 -- ---------------------------------------------------------------------------
 -- OVOS e AVES. Asset = nome do Model em ReplicatedStorage > Assets (troque o Model, mantenha o nome).
@@ -177,6 +182,72 @@ Config.Products = {
 }
 Config.LuckBoostMult = 3
 Config.TurboBoostMult = 2
+
+-- ---------------------------------------------------------------------------
+-- CLIENTES NA BANCA: NPCs andam pela estrada e compram ovos da cesta do dono da granja
+-- ---------------------------------------------------------------------------
+Config.Customers = {
+	MaxAlive = 30, -- no servidor todo (leve para celular)
+	BaseRate = 2.5, -- clientes por minuto em cada granja com dono...
+	DecorBonus = 1.0, -- ... mais isto por nível de Decoração
+	EmptyRateMult = 0.3, -- cesta vazia: vem bem menos gente
+	QueueSize = 4,
+	BuyMin = 1, -- ovos que cada cliente leva
+	BuyMax = 3,
+	WalkSpeed = 13,
+	ServeTime = 1.4,
+	Patience = 35, -- desiste da fila depois disso
+	MaxLife = 100,
+}
+
+-- ---------------------------------------------------------------------------
+-- GANHO OFFLINE: quem volta recebe pelo que as aves botaram enquanto estava fora
+-- ---------------------------------------------------------------------------
+Config.Offline = {
+	MinSeconds = 120, -- fora menos que isso: nada
+	MaxSeconds = 7200, -- conta no máximo 2 horas
+	Rate = 0.5, -- metade da produção normal
+}
+
+-- ---------------------------------------------------------------------------
+-- SEQUÊNCIA DIÁRIA: entrou em dias seguidos, ganha mais (dia 1 a 7, depois recomeça)
+-- Prêmio = valor de "Eggs" ovos da melhor ave (com rebirth), mínimo "Min". Dia 7 ainda dá um boost.
+-- ---------------------------------------------------------------------------
+Config.Streak = {
+	Eggs = { 40, 60, 90, 130, 180, 250, 400 },
+	Min = { 50, 75, 110, 160, 220, 300, 500 },
+	Day7Boost = "Sorte",
+	Day7Seconds = 900,
+}
+
+-- ---------------------------------------------------------------------------
+-- CÓDIGOS (divulgue no TikTok/YouTube). Code em maiúsculas; Expires = os.time() de quando acaba (0 = nunca).
+-- Prêmio = valor de "Eggs" ovos da melhor ave (com rebirth), mínimo "Min". Cada conta usa uma vez.
+-- ---------------------------------------------------------------------------
+Config.Codes = {
+	{ Code = "OVO100", Eggs = 100, Min = 100, Expires = 0 },
+	{ Code = "GRANJA", Eggs = 200, Min = 250, Expires = 0 },
+	{ Code = "LANCAMENTO", Eggs = 400, Min = 500, Expires = 0 },
+}
+Config.CodeAttempts = 5 -- tentativas erradas permitidas...
+Config.CodeWindow = 60 -- ... a cada este tanto de segundos
+
+-- ---------------------------------------------------------------------------
+-- EVENTO: CHUVA DE OVOS DOURADOS no cercadinho do centro
+-- ---------------------------------------------------------------------------
+Config.GoldenRain = {
+	Interval = 1200, -- a cada 20 min
+	Warning = 30, -- aviso antes de começar
+	Duration = 90,
+	SpawnEvery = 0.6,
+	MaxAlive = 40,
+	EggLife = 20, -- ovo some se ninguém pegar
+	MaxPerPlayer = 12, -- por chuva
+	Egg = "dourado",
+	RareChance = 0.1,
+	Radius = 50, -- tamanho da área (em volta do centro da ilha)
+	PickDistance = 9,
+}
 
 -- ---------------------------------------------------------------------------
 -- Segurança e distâncias (o servidor confere tudo)

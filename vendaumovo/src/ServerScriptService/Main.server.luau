@@ -44,9 +44,11 @@ Registry.Shop = require(GameFolder.Shop)
 Registry.Daily = require(GameFolder.Daily)
 Registry.Store = require(GameFolder.Store)
 Registry.Leaderboard = require(GameFolder.Leaderboard)
+Registry.Customers = require(GameFolder.Customers)
+Registry.Events = require(GameFolder.Events)
 
 -- Cada sistema liga sozinho; se um der erro, os outros continuam
-for _, name in { "Economy", "Plots", "Farm", "Shop", "Daily", "Store", "Leaderboard" } do
+for _, name in { "Economy", "Plots", "Farm", "Shop", "Daily", "Store", "Leaderboard", "Customers", "Events" } do
 	local ok, err = pcall(Registry[name].Init)
 	if not ok then
 		warn("[Main] " .. name .. ".Init falhou:", err)
@@ -59,6 +61,16 @@ local function onCharacter(player: Player, character: Model)
 		return
 	end
 	Registry.Economy.ApplySpeed(player)
+	-- clientes NPC não esbarram nos jogadores (não bloqueiam a fila nem o caminho)
+	local function setGroup(part: Instance)
+		if part:IsA("BasePart") then
+			part.CollisionGroup = "Players"
+		end
+	end
+	for _, d in character:GetDescendants() do
+		setGroup(d)
+	end
+	character.DescendantAdded:Connect(setGroup)
 	-- renasce sozinho depois de cair/morrer
 	humanoid.Died:Connect(function()
 		task.wait(3)
@@ -100,6 +112,7 @@ local function onPlayerAdded(player: Player)
 		return
 	end
 	Registry.Daily.Check(player)
+	Registry.Daily.Offline(player)
 	task.spawn(Registry.Store.CheckPasses, player)
 	Registry.Economy.Push(player)
 	player:LoadCharacter()
@@ -109,6 +122,7 @@ local function onPlayerRemoving(player: Player)
 	pcall(Registry.Leaderboard.Write, player)
 	pcall(Registry.Plots.Release, player)
 	Registry.Remotes.RemovePlayer(player)
+	pcall(Registry.Daily.Touch, player)
 	Registry.Data.Save(player, true)
 	Registry.Data.Remove(player)
 end
@@ -125,6 +139,7 @@ task.spawn(function()
 	while true do
 		task.wait(60)
 		for _, player in Players:GetPlayers() do
+			pcall(Registry.Daily.Touch, player)
 			task.spawn(Registry.Data.Save, player)
 		end
 	end
@@ -137,6 +152,7 @@ game:BindToClose(function()
 		pending += 1
 		task.spawn(function()
 			pcall(Registry.Leaderboard.Write, player)
+			pcall(Registry.Daily.Touch, player)
 			Registry.Data.Save(player, true)
 			pending -= 1
 		end)

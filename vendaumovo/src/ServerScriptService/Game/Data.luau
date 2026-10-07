@@ -58,7 +58,11 @@ local function defaultData()
 		Receipts = {}, -- últimas compras de produtos já entregues (nunca entrega duas vezes)
 		Daily = { Day = 0, List = {} },
 		GiftSeconds = 0,
-		Stats = { Collected = 0, Sold = 0, Rare = 0, SellTrips = 0, HensBought = 0 },
+		LastSeen = 0, -- os.time() do servidor no último save (ganho offline)
+		Streak = { Day = 0, Last = 0 },
+		Codes = {}, -- códigos já usados
+		Settings = { Music = true },
+		Stats = { Collected = 0, Sold = 0, Rare = 0, SellTrips = 0, HensBought = 0, Customers = 0, GoldenEggs = 0 },
 		SaveSeq = 0,
 	}
 end
@@ -75,7 +79,7 @@ local function deepCopy(value: any): any
 end
 
 -- Tabelas que ganham chaves novas quando o jogo cresce (melhoria nova, estatística nova...)
-local NESTED = { Upgrades = true, Stats = true }
+local NESTED = { Upgrades = true, Stats = true, Settings = true }
 
 -- Completa o que faltar (versões antigas do save), sem mexer em listas que já existem
 local function reconcile(data: any)

@@ -288,7 +288,7 @@ end
 
 local function clearList(list: ScrollingFrame)
 	for _, child in list:GetChildren() do
-		if child:IsA("GuiObject") then
+		if child:IsA("GuiObject") and not child:GetAttribute("Keep") then
 			child:Destroy()
 		end
 	end
@@ -413,11 +413,49 @@ local MISSION_TEXT = {}
 for _, m in Config.Missions do
 	MISSION_TEXT[m.Id] = m.Text
 end
+local function makeCodeRow()
+	local codeRow = new("Frame", { Name = "Codes", Size = UDim2.new(1, -10, 0, 64), BackgroundColor3 = C.Cream, LayoutOrder = 60, Parent = missionsList }, { corner(0.2), stroke(C.Brown, 2) })
+	codeRow:SetAttribute("Keep", true)
+	local box = new("TextBox", {
+		Position = UDim2.new(0, 10, 0.15, 0),
+		Size = UDim2.new(0.6, -10, 0.7, 0),
+		BackgroundColor3 = C.White,
+		PlaceholderText = "Digite um código",
+		Text = "",
+		ClearTextOnFocus = false,
+		Font = FONT,
+		TextScaled = true,
+		TextColor3 = C.DarkBrown,
+		Parent = codeRow,
+	}, { corner(0.3), stroke(C.Brown, 2), new("UITextSizeConstraint", { MaxTextSize = 26 }) })
+	button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.new(0.36, 0, 0.7, 0), Text = "Usar código", BackgroundColor3 = C.Blue, MaxText = 24, Parent = codeRow }, function()
+		if box.Text ~= "" then
+			request("RedeemCode", box.Text)
+			box.Text = ""
+		end
+	end)
+end
+
 refreshers.Missions = function()
 	clearList(missionsList)
 	if not state then
 		return
 	end
+	-- sequência de dias
+	local streakTitle, streakDesc, streakButton, streakColor, streakAction
+	if state.StreakDay then
+		streakTitle = ("Sequência: dia %d de 7"):format(state.StreakDay)
+		streakDesc = ("Hoje vale %s moedas%s"):format(Format.Short(state.StreakReward), if state.StreakDay == 7 then " + Sorte x3" else "")
+		streakButton, streakColor = "Pegar", C.Green
+		streakAction = function()
+			request("ClaimStreak")
+		end
+	else
+		streakTitle = ("Sequência: dia %d de 7"):format(math.max(state.StreakLast or 1, 1))
+		streakDesc = "Volta amanhã pra continuar (pulou um dia, recomeça)"
+		streakButton, streakColor = "Amanhã", C.Gray
+	end
+	card(missionsList, 0, icon("Presente", nil, {}), streakTitle, streakDesc, streakButton, streakColor, streakAction)
 	for i, mission in state.Daily do
 		local text = string.gsub(MISSION_TEXT[mission.Id] or mission.Id, "{n}", Format.Short(mission.Target))
 		local done = mission.Progress >= mission.Target
@@ -445,6 +483,10 @@ refreshers.Missions = function()
 		LayoutOrder = 50,
 		Parent = missionsList,
 	})
+	-- códigos (a caixa é criada uma vez só: a tela atualiza o tempo todo e não pode apagar o que você digita)
+	if not missionsList:FindFirstChild("Codes") then
+		makeCodeRow()
+	end
 end
 
 -- PRESENTE
@@ -597,6 +639,12 @@ Remotes:WaitForChild("Fx").OnClientEvent:Connect(function(kind: string, position
 		bigPopup("+" .. Format.Short(value) .. " moedas", C.Green)
 	elseif kind == "sound" then
 		playSound(tostring(value))
+	elseif kind == "customer" then
+		playSound("Cliente")
+	elseif kind == "offline" and type(value) == "table" then
+		local minutes = math.floor((value.Seconds or 0) / 60)
+		bigPopup(("Enquanto você estava fora (%d min)\nsuas aves botaram %s ovos: +%s moedas"):format(minutes, Format.Short(value.Eggs or 0), Format.Short(value.Coins or 0)), C.Yellow)
+		playSound("Vender")
 	end
 end)
 
@@ -637,6 +685,10 @@ task.spawn(function()
 				if left > 0 then
 					table.insert(parts, (if key == "Sorte" then "Sorte x3  " else "Venda x2  ") .. Format.Time(left))
 				end
+			end
+			local rainEnd = workspace:GetAttribute("GoldenRainEnd")
+			if type(rainEnd) == "number" and rainEnd > now then
+				table.insert(parts, 1, "Chuva dourada " .. Format.Time(rainEnd - now))
 			end
 			boostBar.Text = table.concat(parts, "    ")
 			if state.GiftLeft > 0 then
@@ -787,6 +839,72 @@ RunService.RenderStepped:Connect(function()
 	for hen in bases do
 		if not hen.Parent then
 			bases[hen] = nil
+		end
+	end
+end)
+
+-- ---------------------------------------------------------------------------
+-- Música (liga/desliga fica salvo no seu progresso) e cacarejos perto das aves
+-- ---------------------------------------------------------------------------
+local music: Sound? = nil
+if Config.Sounds.Musica ~= "" then
+	music = new("Sound", { Name = "Musica", SoundId = Config.Sounds.Musica, Looped = true, Volume = Config.MusicVolume, Parent = SoundService })
+end
+local musicButton = button({
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -10, 0, 8),
+	Size = UDim2.new(0, 56, 0, 56),
+	Text = "♪",
+	BackgroundColor3 = C.Purple,
+	MaxText = 30,
+	Parent = gui,
+}, function()
+	if state then
+		request("SetMusic", not state.Music)
+	end
+end)
+musicButton.Visible = music ~= nil
+
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if music and state then
+			if state.Music and not music.IsPlaying then
+				music:Play()
+			elseif not state.Music and music.IsPlaying then
+				music:Pause()
+			end
+			musicButton.BackgroundColor3 = if state.Music then C.Purple else C.Gray
+		end
+	end
+end)
+
+task.spawn(function()
+	if Config.Sounds.Cacarejo == "" then
+		return
+	end
+	while true do
+		task.wait(6 + math.random() * 8)
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then
+			local near = {}
+			for _, hen in CollectionService:GetTagged("VUOHen") do
+				if hen:IsA("Model") and (hen:GetPivot().Position - root.Position).Magnitude < 60 then
+					table.insert(near, hen)
+				end
+			end
+			if #near > 0 then
+				local hen = near[math.random(1, #near)]
+				local anchor = hen:FindFirstChildWhichIsA("BasePart")
+				if anchor then
+					local s = new("Sound", { SoundId = Config.Sounds.Cacarejo, Volume = 0.5, RollOffMaxDistance = 60, PlaybackSpeed = 0.9 + math.random() * 0.3, Parent = anchor })
+					s:Play()
+					s.Ended:Connect(function()
+						s:Destroy()
+					end)
+				end
+			end
 		end
 	end
 end)

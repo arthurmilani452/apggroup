@@ -143,6 +143,10 @@ local function snapshot(player: Player, data: any): any
 		Passes = passes,
 		Boosts = boosts,
 		TotalEarned = data.TotalEarned,
+		StreakDay = Formulas.StreakNext(data.Streak, Formulas.DayKey(now)), -- nil = já pegou hoje
+		StreakLast = data.Streak.Day,
+		StreakReward = Formulas.StreakReward(Config, data, Formulas.StreakNext(data.Streak, Formulas.DayKey(now)) or 1),
+		Music = data.Settings.Music,
 		Plot = if plot then plot.Index else 0,
 	}
 end

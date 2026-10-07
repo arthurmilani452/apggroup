@@ -124,8 +124,80 @@ function Formulas.GiftReward(C: any, data: any, owned: { [string]: boolean }?, n
 end
 
 function Formulas.ProductCoins(C: any, product: any, data: any): number
-	local value = Formulas.BestEggValue(C, data) * product.Eggs * (1 + C.RebirthBonus * (tonumber(data.Rebirths) or 0))
+	local value = Formulas.BestEggValue(C, data) * product.Eggs * Formulas.RebirthMult(C, data)
 	return math.max(product.Min, math.floor(value))
+end
+
+-- Multiplicador "de base" (rebirth): usado por prêmios que crescem com o jogador
+function Formulas.RebirthMult(C: any, data: any): number
+	return 1 + C.RebirthBonus * (tonumber(data.Rebirths) or 0)
+end
+
+-- Ganho offline: quantos ovos as aves botaram fora do jogo e quanto isso vale (já vendido)
+function Formulas.OfflineEarnings(C: any, data: any, owned: { [string]: boolean }?, seconds: number, now: number): (number, number)
+	if seconds < C.Offline.MinSeconds then
+		return 0, 0
+	end
+	local t = math.min(seconds, C.Offline.MaxSeconds)
+	local eggs, value = 0, 0
+	local cap = Formulas.UpgradeValue(C, data, "Ninhos")
+	for i, henId in data.Hens do
+		local hen = C.HenById[henId]
+		if hen and i <= cap then
+			local n = math.floor(t / Formulas.LayTime(C, data, henId) * C.Offline.Rate)
+			eggs += n
+			value += n * C.EggById[hen.Egg].Value
+		end
+	end
+	return eggs, math.floor(value * Formulas.Multiplier(C, data, owned, now) + 0.5)
+end
+
+-- Sequência diária. streak = { Day = último dia pego (1-7), Last = DayKey do último prêmio }
+-- Devolve o dia que pode pegar hoje (1-7), ou nil se já pegou hoje.
+function Formulas.StreakNext(streak: any, today: number): number?
+	local last = tonumber(streak and streak.Last) or 0
+	if last == today then
+		return nil
+	end
+	local day = tonumber(streak and streak.Day) or 0
+	if last == today - 1 then
+		return day % 7 + 1
+	end
+	return 1
+end
+
+function Formulas.StreakReward(C: any, data: any, day: number): number
+	local eggs = C.Streak.Eggs[day] or C.Streak.Eggs[1]
+	local min = C.Streak.Min[day] or C.Streak.Min[1]
+	return math.max(min, math.floor(Formulas.BestEggValue(C, data) * eggs * Formulas.RebirthMult(C, data)))
+end
+
+-- Códigos: só letras e números, em maiúsculas
+function Formulas.NormalizeCode(text: string): string
+	return string.upper((string.gsub(text, "[^%w]", "")))
+end
+
+function Formulas.FindCode(C: any, text: string): any?
+	local code = Formulas.NormalizeCode(text)
+	for _, entry in C.Codes do
+		if entry.Code == code then
+			return entry
+		end
+	end
+	return nil
+end
+
+function Formulas.CodeReward(C: any, data: any, entry: any): number
+	return math.max(entry.Min, math.floor(Formulas.BestEggValue(C, data) * entry.Eggs * Formulas.RebirthMult(C, data)))
+end
+
+-- Clientes por minuto numa granja
+function Formulas.CustomerRate(C: any, data: any, basketCount: number): number
+	local rate = C.Customers.BaseRate + C.Customers.DecorBonus * Formulas.UpgradeLevel(data, "Decoracao")
+	if basketCount <= 0 then
+		rate *= C.Customers.EmptyRateMult
+	end
+	return rate
 end
 
 -- Missões do dia: sempre as mesmas para o mesmo dia (sorteio com a semente do dia)
