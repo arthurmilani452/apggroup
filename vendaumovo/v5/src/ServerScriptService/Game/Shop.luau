@@ -196,6 +196,21 @@ function Shop.Like(player: Player, plot: any)
 	Registry.Game.Push(owner)
 end
 
+-- v6: conquistas
+local function claimAchievement(player: Player, id: any)
+	local data = Registry.Game.Data(player)
+	if not data or type(id) ~= "string" or #id > 30 then
+		return
+	end
+	local stars = Sim.ClaimAchievement(Config, data, id)
+	if stars > 0 then
+		Registry.Game.ApplySpeed(player)
+		Registry.Game.Push(player)
+		fx(player, "sound", "Premio")
+		notify(player, "n.achievement", { n = stars }, "success")
+	end
+end
+
 local function teleport(player: Player, where: any)
 	local character = player.Character
 	local root = Registry.Plots.RootOf(player)
@@ -266,7 +281,7 @@ local function spin(player: Player)
 	Registry.Game.Push(player)
 end
 
-local ALLOWED_SETTINGS = { Lang = "string", Music = "boolean", Sfx = "boolean", Arrow = "boolean", Tutorial = "number" }
+local ALLOWED_SETTINGS = { Lang = "string", Music = "boolean", Sfx = "boolean", Arrow = "boolean", Light = "boolean", Tutorial = "number" }
 
 local function setSetting(player: Player, key: any, value: any)
 	local data = Registry.Game.Data(player)
@@ -298,6 +313,19 @@ function Shop.Init()
 	on("UnequipPet", unequipPet)
 	on("EquipBest", equipBest)
 	on("Spin", spin)
+	on("ClaimAchievement", claimAchievement)
+	on("FavoriteAsked", function(player: Player)
+		local data = Registry.Game.Data(player)
+		if data then
+			data.FavoriteAsked = true
+		end
+	end, 5)
+	on("LikeAsked", function(player: Player)
+		local data = Registry.Game.Data(player)
+		if data then
+			data.LikeAsked = true
+		end
+	end, 5)
 	on("Setting", setSetting)
 	on("Refresh", function(player: Player)
 		Registry.Game.Push(player)

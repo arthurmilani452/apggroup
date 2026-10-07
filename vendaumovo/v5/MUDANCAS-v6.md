@@ -54,3 +54,15 @@ No Studio a loja mostra todos os itens, mesmo sem Id, para você ver como fica. 
   - Prêmio do dia a dia (missão, presente, curtida, tempo jogado) virou um aviso pequeno no alto, em vez do texto gigante.
   - No celular, as janelas que aparecem sozinhas (encomenda e corrida) vão para o alto da tela e ficam menores.
   - As outras janelas também encolhem um pouco no celular.
+
+## Terceira rodada da v6
+
+- **Conquistas:** é uma aba nova ao lado de Renascer e Talentos, com 10 metas para a vida toda (vender, comprar, ovos raros, mutantes, chocar, renascer, baús, obby, roleta e curtidas). Cada degrau dá estrelas, e elas não zeram ao renascer. O botão de Renascer acende quando tem conquista para pegar. As metas e os prêmios ficam em `Config.Achievements`.
+- **Placares na praça:** ao lado do TOP 10 de moedas que já existia, o jogo cria sozinho mais duas placas, viradas para o meio da praça:
+  - à esquerda, o **TOP 10 de Renascimentos** de todos os servidores;
+  - à direita, os **Mais ricos agora** neste servidor, pela renda por segundo e atualizado a cada 10 s.
+- **💰 no título:** quem tem a maior renda do servidor (com 2 ou mais jogadores) ganha o 💰 em dourado em cima da cabeça.
+- **Modo leve** em Configurações, para celular fraco: tira partículas, deixa as aves paradas e esconde os pets dos outros. Fica salvo.
+- **Favoritar:** depois de 15 min jogando, o próprio Roblox pergunta uma vez se a pessoa quer favoritar o jogo. O tempo fica em `Config.FavoriteAfter`.
+- **Lembrete de curtir:** depois de 25 min aparece uma vez um cartão pequeno no meio da tela, "Tá curtindo a granja? Deixa um 👍 na página do jogo". Some em 10 s, não segura o toque e tem X para fechar. O tempo fica em `Config.LikeReminderAfter`.
+  - O Roblox não deixa o jogo abrir o botão de curtir, e é proibido dar prêmio em troca de curtida ou favorito. Por isso é só um lembrete, sem recompensa.

@@ -40,6 +40,45 @@ local UI = require(script.Parent:WaitForChild("UI"))
 local World = {}
 
 World.ArrowOn = true
+-- v6: Modo leve (Configurações): sem partículas, aves paradas e sem pets dos outros. Para celular fraco.
+World.Light = false
+local lightConn: RBXScriptConnection? = nil
+
+local function lightFx(object: Instance, on: boolean)
+	if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") then
+		if on then
+			if object:GetAttribute("LightWas") == nil then
+				object:SetAttribute("LightWas", (object :: any).Enabled)
+			end
+			(object :: any).Enabled = false
+		elseif object:GetAttribute("LightWas") ~= nil then
+			(object :: any).Enabled = object:GetAttribute("LightWas")
+			object:SetAttribute("LightWas", nil)
+		end
+	end
+end
+
+function World.SetLight(on: boolean)
+	if World.Light == on then
+		return
+	end
+	World.Light = on
+	for _, object in workspace:GetDescendants() do
+		lightFx(object, on)
+	end
+	if lightConn then
+		lightConn:Disconnect()
+		lightConn = nil
+	end
+	if on then
+		lightConn = workspace.DescendantAdded:Connect(function(object)
+			task.defer(lightFx, object, true)
+		end)
+	end
+	if World.ResetPets then
+		World.ResetPets()
+	end
+end
 World.OnWheel = nil :: (() -> ())? -- a tela liga aqui: abrir a roleta
 
 local player = Players.LocalPlayer
@@ -4219,6 +4258,9 @@ do
 	-- frame (cada ave pula a 30 quadros por segundo, que o olho não percebe).
 	local henFrame = 0
 	function stepHens(t: number)
+		if World.Light then
+			return
+		end
 		henFrame += 1
 		local half = henFrame % 2
 		local i = 0
@@ -4389,6 +4431,13 @@ do
 		end
 	end
 
+	-- Modo leve ligou/desligou: refaz os pets na próxima volta (com ou sem os dos outros)
+	function World.ResetPets()
+		for owner in petSets do
+			clearPets(owner)
+		end
+	end
+
 	function stepPets(dt: number, t: number)
 		for _, owner in Players:GetPlayers() do
 			local text = owner:GetAttribute("Pets")
@@ -4413,7 +4462,7 @@ do
 				for entry in string.gmatch(text, "[^,]+") do
 					local key, level = string.match(entry, "^(.-)=(%d+)$")
 					local isOwn = owner == Players.LocalPlayer
-					if key and #set.Pets < (if isOwn then 8 else 3) then -- dos outros, só os 3 primeiros (leve no celular)
+					if key and #set.Pets < (if isOwn then 8 elseif World.Light then 0 else 3) then -- dos outros, só os 3 primeiros (leve no celular)
 						local model = makePet(key, tonumber(level) or 1, isOwn)
 						if model then
 							table.insert(set.Pets, { Model = model, Position = nil, Look = Vector3.new(0, 0, -1) })

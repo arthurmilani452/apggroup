@@ -24,6 +24,7 @@ end }
 Config.Version = 4
 Config.DataStoreName = "VendaUmOvo_v4"
 Config.LeaderboardStore = "VendaUmOvo_Top_v4"
+Config.RebirthStore = "VendaUmOvo_Renasc_v1" -- v6: placar global de renascimentos
 Config.MaxPlayers = 8
 Config.GroupId = 869887016 -- grupo Critter Club Studios (0 = sem bônus de grupo)
 Config.GroupBonus = 0.10 -- +10% para quem está no grupo
@@ -704,6 +705,30 @@ Config.Titles = {
 -- v6: BAÚ DO GRUPO. Quem está no grupo (Config.GroupId) abre de graça a cada Every segundos: Seconds de renda
 -- (no mínimo Min). Quem não está vê o convite para entrar no grupo.
 Config.GroupChest = { Every = 20 * 3600, Seconds = 600, Min = 500 }
+
+-- v6: CONQUISTAS. Metas da vida inteira (não zeram ao renascer). Stat = contador em data.Stats (ou
+-- "Rebirths" / "Likes", que ficam direto no save). Goals = degraus; Stars = estrelas de cada degrau.
+-- Estrela de conquista vale igual às outras (+2% de renda cada e serve para os talentos).
+Config.Achievements = {
+	{ Id = "vendedor", Stat = "Worked", Goals = { 100, 1000, 10000, 100000 }, Stars = { 3, 8, 20, 50 } },
+	{ Id = "comprador", Stat = "Buttons", Goals = { 25, 100, 300, 1000 }, Stars = { 3, 8, 20, 50 } },
+	{ Id = "raros", Stat = "Sold", Goals = { 10, 100, 1000, 10000 }, Stars = { 3, 8, 20, 50 } },
+	{ Id = "mutantes", Stat = "Mutants", Goals = { 5, 50, 500 }, Stars = { 5, 15, 40 } },
+	{ Id = "chocadeira", Stat = "Hatched", Goals = { 1, 10, 50, 200 }, Stars = { 2, 6, 15, 40 } },
+	{ Id = "renascido", Stat = "Rebirths", Goals = { 1, 5, 15, 40 }, Stars = { 5, 15, 40, 100 } },
+	{ Id = "baus", Stat = "Chests", Goals = { 1, 10, 50 }, Stars = { 3, 10, 30 } },
+	{ Id = "obby", Stat = "Obby", Goals = { 1, 10, 50 }, Stars = { 3, 10, 30 } },
+	{ Id = "roleta", Stat = "Spun", Goals = { 5, 50, 250 }, Stars = { 3, 10, 30 } },
+	{ Id = "querido", Stat = "Likes", Goals = { 5, 50, 250 }, Stars = { 3, 10, 30 } },
+}
+
+-- v6: PEDIDO DE FAVORITO. Depois de tantos segundos jogando nesta visita, a janela do Roblox pergunta
+-- (uma vez só por jogador: fica no save) se ele quer favoritar o jogo. 0 = desligado.
+Config.FavoriteAfter = 900
+-- v6: LEMBRETE DE CURTIR. Depois de tantos segundos nesta visita aparece UMA vez na vida um cartão pequeno
+-- no meio da tela pedindo o 👍 na página do jogo. O Roblox não deixa abrir o botão de curtir pelo jogo nem
+-- dar prêmio em troca de curtida: é só o lembrete (some sozinho em 10 s). 0 = desligado.
+Config.LikeReminderAfter = 1500
 
 -- v6: EMBLEMAS (badges). Crie em create.roblox.com > seu jogo > Emblemas e cole o número. 0 = desligado.
 Config.Badges = {

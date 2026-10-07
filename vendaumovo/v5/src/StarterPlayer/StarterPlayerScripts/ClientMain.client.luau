@@ -308,7 +308,7 @@ end
 local GROUPS = {
 	Biz = { "Biz" },
 	Pets = { "Pets", "Album" },
-	Rebirth = { "Rebirth", "Talents" },
+	Rebirth = { "Rebirth", "Talents", "Achievements" },
 	Prizes = { "Wheel", "Missions", "Gifts" },
 	Shop = { "Shop" },
 }
@@ -1241,7 +1241,7 @@ V5.Build()
 -- ---------------------------------------------------------------------------
 -- Painéis (com abas quando o grupo tem mais de um)
 -- ---------------------------------------------------------------------------
-local TAB_KEYS = { Pets = "tab.pets", Album = "tab.album", Rebirth = "tab.rebirth", Talents = "tab.talents", Wheel = "tab.wheel", Missions = "tab.missions", Gifts = "tab.gifts" }
+local TAB_KEYS = { Pets = "tab.pets", Album = "tab.album", Rebirth = "tab.rebirth", Talents = "tab.talents", Achievements = "tab.achievements", Wheel = "tab.wheel", Missions = "tab.missions", Gifts = "tab.gifts" }
 local tabButtons: { { Button: TextButton, Key: string } } = {}
 
 local function groupOf(name: string): (string?, { string }?)
@@ -1526,6 +1526,57 @@ UI.Refreshers.Rebirth = function()
 	else
 		UI.Label({ Position = UDim2.new(0.05, 0, 0.55, 0), Size = UDim2.new(0.9, 0, 0.3, 0), Text = T("seal.maxed"), Dark = true, ZIndex = 7, Parent = box })
 	end
+end
+
+-- v6: CONQUISTAS (metas da vida inteira; cada degrau dá estrelas)
+local achievementsList = makePanel("Achievements", "ach.title", C.Purple)
+UI.Refreshers.Achievements = function()
+	UI.Clear(achievementsList)
+	if not state then
+		return
+	end
+	UI.Note(achievementsList, 0, T("ach.info"), 30)
+	local list = {}
+	for i, a in tbl(state.Achievements) do
+		if type(a) == "table" then
+			local ready = num(a.Goal) > 0 and num(a.Value) >= num(a.Goal)
+			-- prontas primeiro, depois as em andamento, as completas no fim
+			local rank = if ready then 0 elseif num(a.Done) < num(a.Max) then 1 else 2
+			table.insert(list, { A = a, Ready = ready, Rank = rank, I = i })
+		end
+	end
+	table.sort(list, function(x, y)
+		if x.Rank ~= y.Rank then
+			return x.Rank < y.Rank
+		end
+		return x.I < y.I
+	end)
+	for order, item in list do
+		local a = item.A
+		local id = tostring(a.Id)
+		local done, max, goal, value = num(a.Done), num(a.Max), num(a.Goal), num(a.Value)
+		local title = T("ach." .. id) .. ("  %d/%d"):format(done, max)
+		local desc = if done >= max then T("ach.complete") else T("ach.goal", { a = short(math.min(value, goal)), b = short(goal), n = num(a.Stars) })
+		local buttonText = if item.Ready then T("ach.claim") elseif done >= max then "✓" else ("%d%%"):format(math.floor(math.clamp(value / math.max(goal, 1), 0, 1) * 100))
+		local f = UI.Card(achievementsList, order, UI.Icon("Trofeu", {}), title, desc, buttonText, if item.Ready then C.Green else C.Gray, if item.Ready
+			then function()
+				request("ClaimAchievement", id)
+			end
+			else nil)
+		if done < max then
+			local bar = new("Frame", { Position = UDim2.new(0, 84, 0.9, 0), Size = UDim2.new(0.64, -84, 0.06, 0), BackgroundColor3 = C.Gray, BorderSizePixel = 0, ZIndex = 7, Parent = f })
+			new("Frame", { Size = UDim2.new(math.clamp(value / math.max(goal, 1), 0, 1), 0, 1, 0), BackgroundColor3 = C.Purple, BorderSizePixel = 0, ZIndex = 7, Parent = bar })
+		end
+	end
+end
+
+local function achievementReady(): boolean
+	for _, a in tbl(state and state.Achievements) do
+		if type(a) == "table" and num(a.Goal) > 0 and num(a.Value) >= num(a.Goal) then
+			return true
+		end
+	end
+	return false
 end
 
 -- TALENTOS
@@ -2026,8 +2077,13 @@ UI.Refreshers.Settings = function()
 		request("Setting", "Arrow", World.ArrowOn)
 		UI.Refreshers.Settings()
 	end)
+	UI.Card(settingsList, 5, UI.Icon("", {}, "📱"), T("settings.light"), T("settings.light.d"), if World.Light then T("on") else T("off"), if World.Light then C.Green else C.Gray, function()
+		World.SetLight(not World.Light)
+		request("Setting", "Light", World.Light)
+		UI.Refreshers.Settings()
+	end)
 	if tbl(state and state.Owned).G_tractor then
-		UI.Card(settingsList, 5, UI.Icon("", {}, "🚜"), T("settings.tractor"), T("settings.tractor.d"), T("settings.tractor.go"), C.Orange, function()
+		UI.Card(settingsList, 6, UI.Icon("", {}, "🚜"), T("settings.tractor"), T("settings.tractor.d"), T("settings.tractor.go"), C.Orange, function()
 			request("TractorHome")
 		end)
 	end
@@ -2388,7 +2444,7 @@ local function updateHud()
 	sellValue.Text = T("pop.reward", { n = short(num(bizOf(1).Payout) * num(state.Hand, 1)) })
 	petsBadge.Visible = hatchReady()
 	prizesBadge.Visible = num(state.GiftLeft) <= 0 or state.StreakCan == true or num(state.Spins) > 0 or playReadyNow()
-	rebirthBadge.Visible = state.CanRebirth == true or state.CanEvolve == true
+	rebirthBadge.Visible = state.CanRebirth == true or state.CanEvolve == true or achievementReady()
 	-- comprar de longe
 	local nextButton = nextButtonOf()
 	if nextButton and num(tbl(state.Talents).remote) > 0 then
@@ -2457,6 +2513,9 @@ Remotes:WaitForChild("State").OnClientEvent:Connect(function(newState: any)
 		end
 		if settings.Arrow == false then
 			World.ArrowOn = false
+		end
+		if settings.Light == true then
+			World.SetLight(true)
 		end
 		if settings.Music == false then
 			musicOn = false
@@ -2567,6 +2626,71 @@ RunService.RenderStepped:Connect(function()
 	coinText.Text = short(math.floor(shown))
 	if t >= 1 then
 		Hud.RollTo, Hud.RollShown = nil, nil
+	end
+end)
+
+-- v6: depois de FavoriteAfter segundos jogando nesta visita, pergunta UMA vez na vida se quer favoritar
+-- (janela do próprio Roblox). Espera um momento calmo: sem painel aberto.
+task.spawn(function()
+	local after = num(Config.FavoriteAfter)
+	if after <= 0 then
+		return
+	end
+	while true do
+		task.wait(10)
+		local start = player:GetAttribute("PlayStart")
+		if state and state.FavoriteAsked then
+			return
+		end
+		if state and type(start) == "number" and workspace:GetServerTimeNow() - start >= after and not UI.OpenPanel then
+			request("FavoriteAsked")
+			pcall(function()
+				game:GetService("AvatarEditorService"):PromptSetFavorite(game.PlaceId, Enum.AvatarItemType.Asset, true)
+			end)
+			return
+		end
+	end
+end)
+
+-- v6: lembrete de curtir (uma vez na vida, depois de LikeReminderAfter segundos nesta visita). Cartão
+-- pequeno no meio da tela que não segura o toque (só o X), some sozinho em 10 s. Sem prêmio: é proibido.
+task.spawn(function()
+	local after = num(Config.LikeReminderAfter)
+	if after <= 0 then
+		return
+	end
+	while true do
+		task.wait(10)
+		local start = player:GetAttribute("PlayStart")
+		if state and state.LikeAsked then
+			return
+		end
+		if state and type(start) == "number" and workspace:GetServerTimeNow() - start >= after and not UI.OpenPanel then
+			request("LikeAsked")
+			local f = new("Frame", {
+				Name = "LikeReminder",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0.5, 0, 0.5, 0),
+				Size = UDim2.fromOffset(440, 110),
+				BackgroundColor3 = C.Panel,
+				BackgroundTransparency = 0.05,
+				Active = false,
+				ZIndex = 35,
+				Parent = gui,
+			}, { UI.Corner(0.18), UI.Stroke(C.Green, 4) })
+			if isTouch then
+				new("UIScale", { Scale = 0.8, Parent = f })
+			end
+			UI.Icon("", { Position = UDim2.new(0, 10, 0.12, 0), Size = UDim2.new(0, 76, 0.76, 0), ZIndex = 36, Parent = f }, "👍")
+			UI.Label({ Position = UDim2.new(0, 94, 0.08, 0), Size = UDim2.new(1, -170, 0.46, 0), Text = T("like.title"), TextXAlignment = Enum.TextXAlignment.Left, Dark = true, MaxText = 26, ZIndex = 36, Parent = f })
+			UI.Label({ Position = UDim2.new(0, 94, 0.54, 0), Size = UDim2.new(1, -170, 0.38, 0), Text = T("like.desc"), TextXAlignment = Enum.TextXAlignment.Left, Dark = true, TextColor3 = C.Brown, Font = UI.Font2, MaxText = 18, ZIndex = 36, Parent = f })
+			UI.Button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(60, 60), Text = "X", BackgroundColor3 = C.Gray, ZIndex = 36, Parent = f }, function()
+				f:Destroy()
+			end)
+			UI.Pop(f, 0.8)
+			task.delay(10, UI.Vanish, f)
+			return
+		end
 	end
 end)
 

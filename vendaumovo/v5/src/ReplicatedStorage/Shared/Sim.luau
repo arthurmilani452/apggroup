@@ -42,6 +42,9 @@ function Sim.NewData(C: any): any
 		Daily = { Day = 0, List = {} },
 		GiftSeconds = 0,
 		GroupChestAt = 0, -- v6: quando abriu o Baú do Grupo pela última vez (os.time)
+		Achieved = {}, -- v6: conquistas: [id] = quantos degraus já pegou
+		FavoriteAsked = false, -- v6: a janela de favoritar já apareceu uma vez
+		LikeAsked = false, -- v6: o lembrete de curtir já apareceu uma vez
 		Streak = { Day = 0, Count = 0 },
 		Codes = {},
 		Hunt = {}, -- [índice do ovo escondido] = true
@@ -1911,6 +1914,46 @@ function Sim.DeliverProduct(C: any, data: any, ctx: any, product: any, now: numb
 		data.Basket[out.Egg] = (data.Basket[out.Egg] or 0) + 1
 	end
 	return out
+end
+
+-- ---------------------------------------------------------------------------
+-- Conquistas (v6)
+-- ---------------------------------------------------------------------------
+function Sim.AchievementValue(data: any, def: any): number
+	if def.Stat == "Rebirths" or def.Stat == "Likes" then
+		return tonumber(data[def.Stat]) or 0
+	end
+	return tonumber(type(data.Stats) == "table" and data.Stats[def.Stat]) or 0
+end
+
+-- Devolve (degraus pegos, meta do próximo ou nil, estrelas do próximo, valor atual)
+function Sim.AchievementInfo(data: any, def: any): (number, number?, number, number)
+	local done = math.clamp(math.floor(tonumber(type(data.Achieved) == "table" and data.Achieved[def.Id]) or 0), 0, #def.Goals)
+	return done, def.Goals[done + 1], def.Stars[done + 1] or 0, Sim.AchievementValue(data, def)
+end
+
+-- Pega o próximo degrau de uma conquista. Devolve as estrelas ganhas (0 = ainda não dá).
+function Sim.ClaimAchievement(C: any, data: any, id: string): number
+	local def = nil
+	for _, d in C.Achievements do
+		if d.Id == id then
+			def = d
+		end
+	end
+	if not def then
+		return 0
+	end
+	local done, goal, stars, value = Sim.AchievementInfo(data, def)
+	if not goal or value < goal then
+		return 0
+	end
+	if type(data.Achieved) ~= "table" then
+		data.Achieved = {}
+	end
+	data.Achieved[id] = done + 1
+	data.Stars += stars
+	data.StarsTotal += stars
+	return stars
 end
 
 -- Passe VIP: uma vez por dia dá o giro extra da roleta. Com ctx.NoRandom (lugar onde o Roblox restringe

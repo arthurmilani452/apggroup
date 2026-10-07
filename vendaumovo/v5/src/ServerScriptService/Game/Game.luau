@@ -279,6 +279,15 @@ local function snapshot(player: Player, data: any): any
 	state.InGroup = inGroup[player] == true
 	state.GroupChestAt = (tonumber(data.GroupChestAt) or 0) + Config.GroupChest.Every
 	state.StarsGain = Sim.StarsFor(Config, data)
+	-- v6: conquistas já prontas para a tela (degrau, meta, prêmio, valor)
+	local achievements = {}
+	for _, def in Config.Achievements do
+		local done, goal, stars, value = Sim.AchievementInfo(data, def)
+		table.insert(achievements, { Id = def.Id, Done = done, Max = #def.Goals, Goal = goal or 0, Stars = stars, Value = value })
+	end
+	state.Achievements = achievements
+	state.FavoriteAsked = data.FavoriteAsked == true
+	state.LikeAsked = data.LikeAsked == true
 	state.CanRebirth = Sim.CanRebirth(Config, data)
 	state.Rebirths = data.Rebirths
 	state.Seal = data.Seal

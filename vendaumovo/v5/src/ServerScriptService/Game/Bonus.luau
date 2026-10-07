@@ -13,6 +13,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Sim = require(ReplicatedStorage.Shared.Sim)
 local Registry = require(script.Parent.Registry)
 
 local Bonus = {}
@@ -59,8 +60,9 @@ function Bonus.RefreshTitle(player: Player)
 			title = def
 		end
 	end
+	local richest = player:GetAttribute("Richest") == true
 	local gui = head:FindFirstChild("TitleTag") :: BillboardGui?
-	if not title then
+	if not title and not richest then
 		if gui then
 			gui:Destroy()
 		end
@@ -89,8 +91,9 @@ function Bonus.RefreshTitle(player: Player)
 	tag.StudsOffsetWorldSpace = Vector3.new(0, if player:GetAttribute("VIP") then 4.15 else 3.2, 0)
 	local seal = Config.Seals[tonumber(data.Seal) or 0]
 	local label = tag:FindFirstChild("Text") :: TextLabel
-	label.Text = ("%s · %d"):format(title.Text, data.Rebirths)
-	label.TextColor3 = if seal then seal.Color else Color3.fromRGB(255, 250, 230)
+	local text = if title then ("%s · %d"):format(title.Text, data.Rebirths) else "Mais rico do servidor"
+	label.Text = if richest then "💰 " .. text else text
+	label.TextColor3 = if richest then Color3.fromRGB(255, 215, 60) elseif seal then seal.Color else Color3.fromRGB(255, 250, 230)
 end
 
 local function claimGroupChest(player: Player)
@@ -164,6 +167,32 @@ function Bonus.Init()
 	Players.PlayerAdded:Connect(joined)
 	Players.PlayerRemoving:Connect(function(player)
 		given[player] = nil
+	end)
+	-- v6: o jogador com a maior renda por segundo do servidor ganha o 💰 no título (com 2+ jogadores)
+	task.spawn(function()
+		while true do
+			task.wait(15)
+			local best, bestIncome = nil, 0
+			local players = Players:GetPlayers()
+			if #players >= 2 then
+				for _, player in players do
+					local data = Registry.Game.Data(player)
+					if data then
+						local ok, income = pcall(Sim.Income, Config, data, Registry.Game.Ctx(player))
+						if ok and income > bestIncome then
+							best, bestIncome = player, income
+						end
+					end
+				end
+			end
+			for _, player in players do
+				local richest = player == best
+				if (player:GetAttribute("Richest") == true) ~= richest then
+					player:SetAttribute("Richest", richest)
+					Bonus.RefreshTitle(player)
+				end
+			end
+		end
 	end)
 	Registry.Remotes.On("ClaimPlay", claimPlay, 1)
 	Registry.Remotes.On("ClaimGroupChest", claimGroupChest, 2)
