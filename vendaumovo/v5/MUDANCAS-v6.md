@@ -39,6 +39,6 @@ Arquivo novo: `place/VendaUmOvo-v6.rbxlx`. Ele é o seu v5 com os scripts trocad
 1. **Emblemas.** Em create.roblox.com > seu jogo > Emblemas, crie os 7 emblemas. Cole os números em `ReplicatedStorage > Shared > Config`, na tabela `Config.Badges`.
 2. **Chocar Já.** Em Produtos do Desenvolvedor, crie um produto de 15 Robux. Cole o número no `Id` do item `ChocarJa` em `Config.Products`.
 3. **Recarga de Poderes.** Ela ainda está com `Id = 0`. Crie também se quiser vender.
-4. **Modelos 3D.** Os 21 modelos do Higgsfield estão em `modelos3d/`. Veja `modelos3d/COMO-IMPORTAR.md`, que tem os nomes e tamanhos.
+4. **Modelos 3D.** Os 21 modelos do Higgsfield estão em `higgsfield/`. Veja `higgsfield/COMO-IMPORTAR.md`, que tem os nomes e tamanhos.
 
 No Studio a loja mostra todos os itens, mesmo sem Id, para você ver como fica. No jogo publicado, item sem Id não aparece.

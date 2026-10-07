@@ -6,8 +6,8 @@ São 21 modelos (GLB) feitos no Higgsfield. Cada um tem no máximo 18 mil triân
 
 A rede desta sessão não deixou baixar os arquivos daqui. No seu PC, faça uma destas:
 
-- Rode `python baixar.py` dentro desta pasta. Os 21 `.glb` caem aqui.
-- Ou abra os links do `links.json` no navegador, um por um.
+- Abra o `baixar-modelos.html` no navegador e clique em cada modelo.
+- Ou rode `python baixar.py` dentro desta pasta: os 21 `.glb` caem na pasta `modelos/`.
 
 ## 2. Importar no Studio (um por vez)
 
