@@ -152,4 +152,13 @@ return {
 	prop_snowman = "d8ecaf66-7504-4bc3-bf2d-30debc6be52f",
 	prop_gummybear = "46144f3c-08b1-4c8f-bc2f-fac6da68eb0f",
 	prop_babydragon = "a63fb3cf-a2a7-46a2-be84-c19acc5cdb73",
+	-- v30: os 8 bichinhos da semana (Weekly Egg), que ainda eram de peças
+	sugarpaw = "62a77801-ad51-40b9-9262-a5db76ce9ba2",
+	voltbeak = "19dbaa82-b542-4a77-90d6-322ca1392832",
+	mochidino = "a27c6401-27f8-493b-b0cb-c992f37aaa6f",
+	nightcat = "1cb8ac40-1084-45a3-952d-f9e10c8c6751",
+	bubbletoad = "0d2cb482-31af-403f-bcd7-d6ee9e8907c2",
+	emberuni = "6601eecb-f785-4044-ab82-c086a4a7ce67",
+	cloudpuff = "dd0f8788-98ff-41ac-bd96-af8bbd42b0e7",
+	galaxydrake = "d7fada12-57e4-4442-94a8-9b8f2999cf2d",
 }
