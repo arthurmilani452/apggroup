@@ -737,229 +737,232 @@ refreshers.Shop = refreshShop
 ---------------------------------------------------------------------
 -- INDEX: zonas à esquerda, cartões no meio, detalhes e prêmios à direita
 ---------------------------------------------------------------------
-local indexWindow, indexBody = Theme.window(gui, "Index", "Pet Index", Theme.Blue, Vector2.new(1000, 580))
-windows.Index = indexWindow
-local indexZone = 1
-local indexSelected = nil
-local zoneList = scroller(indexBody, { Size = UDim2.new(0, 190, 1, -16) })
-local cardArea = create("Frame", { Size = UDim2.new(1, -530, 1, -96), Position = UDim2.fromOffset(206, 8), BackgroundTransparency = 1, ZIndex = 12, Parent = indexBody })
-local cardGrid = scroller(cardArea, { Size = UDim2.fromScale(1, 1), Position = UDim2.new() }, Vector2.new(128, 140))
-local progressBack = create("Frame", { Size = UDim2.new(1, -730, 0, 66), Position = UDim2.new(0, 206, 1, -80), BackgroundColor3 = Color3.fromRGB(20, 20, 26), ZIndex = 12, Parent = indexBody }, { corner(10), stroke(3) })
-local progressFill = create("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Theme.Green, ZIndex = 13, Parent = progressBack }, { corner(10) })
-Theme.gloss(progressFill, 0.3)
-local progressText = text({ Size = UDim2.fromScale(1, 0.8), Position = UDim2.fromScale(0, 0.1), Text = "0/0", ZIndex = 14, Stroke = 4, Parent = progressBack })
-local batButton, batLabel = button({ Size = UDim2.fromOffset(188, 66), Position = UDim2.new(1, -512, 1, -80), BackgroundColor3 = Theme.Gray, ZIndex = 13, Parent = indexBody }, "\u{1F3CF} Bat", function()
-	net:FireServer("EquipBat", indexZone)
-end)
-local detail = create("Frame", { Size = UDim2.new(0, 300, 1, -16), Position = UDim2.new(1, -308, 0, 8), BackgroundColor3 = Color3.fromRGB(60, 60, 72), ZIndex = 12, Parent = indexBody }, { corner(12), stroke(3) })
-local detailView = create("Frame", { Size = UDim2.new(1, -20, 0, 200), Position = UDim2.fromOffset(10, 10), BackgroundColor3 = Color3.fromRGB(80, 80, 95), ZIndex = 13, Parent = detail }, { corner(10) })
-Theme.gloss(detailView, 0.4)
-local detailName = text({ Size = UDim2.new(1, -20, 0, 40), Position = UDim2.fromOffset(10, 214), Text = "", ZIndex = 13, Parent = detail })
-local detailRarity = text({ Size = UDim2.new(1, -20, 0, 32), Position = UDim2.fromOffset(10, 254), Text = "", ZIndex = 13, Parent = detail })
-local detailIncome = text({ Size = UDim2.new(1, -20, 0, 32), Position = UDim2.fromOffset(10, 288), Text = "", TextColor3 = GREEN_TEXT, ZIndex = 13, Parent = detail })
-local detailReward = text({ Size = UDim2.new(1, -20, 0, 30), Position = UDim2.fromOffset(10, 330), Text = "", TextColor3 = Color3.fromRGB(255, 230, 120), Stroke = 2, ZIndex = 13, Parent = detail })
-local claimButton, claimLabel = button({ Size = UDim2.new(1, -40, 0, 56), Position = UDim2.new(0, 20, 1, -132), BackgroundColor3 = Theme.Green, ZIndex = 13, Parent = detail }, "CLAIM", function()
-	if indexSelected then
-		net:FireServer("ClaimIndex", indexSelected)
-	end
-end)
-local claimAllButton, claimAllLabel = button({ Size = UDim2.new(1, -40, 0, 56), Position = UDim2.new(0, 20, 1, -68), BackgroundColor3 = Theme.Blue, ZIndex = 13, Parent = detail }, "CLAIM ALL", function()
-	net:FireServer("ClaimIndex")
-end)
+-- (do...end: as variáveis do Índice ficam só aqui dentro - limite de 200 locais do Luau)
+do
+	local indexWindow, indexBody = Theme.window(gui, "Index", "Pet Index", Theme.Blue, Vector2.new(1000, 580))
+	windows.Index = indexWindow
+	local indexZone = 1
+	local indexSelected = nil
+	local zoneList = scroller(indexBody, { Size = UDim2.new(0, 190, 1, -16) })
+	local cardArea = create("Frame", { Size = UDim2.new(1, -530, 1, -96), Position = UDim2.fromOffset(206, 8), BackgroundTransparency = 1, ZIndex = 12, Parent = indexBody })
+	local cardGrid = scroller(cardArea, { Size = UDim2.fromScale(1, 1), Position = UDim2.new() }, Vector2.new(128, 140))
+	local progressBack = create("Frame", { Size = UDim2.new(1, -730, 0, 66), Position = UDim2.new(0, 206, 1, -80), BackgroundColor3 = Color3.fromRGB(20, 20, 26), ZIndex = 12, Parent = indexBody }, { corner(10), stroke(3) })
+	local progressFill = create("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Theme.Green, ZIndex = 13, Parent = progressBack }, { corner(10) })
+	Theme.gloss(progressFill, 0.3)
+	local progressText = text({ Size = UDim2.fromScale(1, 0.8), Position = UDim2.fromScale(0, 0.1), Text = "0/0", ZIndex = 14, Stroke = 4, Parent = progressBack })
+	local batButton, batLabel = button({ Size = UDim2.fromOffset(188, 66), Position = UDim2.new(1, -512, 1, -80), BackgroundColor3 = Theme.Gray, ZIndex = 13, Parent = indexBody }, "\u{1F3CF} Bat", function()
+		net:FireServer("EquipBat", indexZone)
+	end)
+	local detail = create("Frame", { Size = UDim2.new(0, 300, 1, -16), Position = UDim2.new(1, -308, 0, 8), BackgroundColor3 = Color3.fromRGB(60, 60, 72), ZIndex = 12, Parent = indexBody }, { corner(12), stroke(3) })
+	local detailView = create("Frame", { Size = UDim2.new(1, -20, 0, 200), Position = UDim2.fromOffset(10, 10), BackgroundColor3 = Color3.fromRGB(80, 80, 95), ZIndex = 13, Parent = detail }, { corner(10) })
+	Theme.gloss(detailView, 0.4)
+	local detailName = text({ Size = UDim2.new(1, -20, 0, 40), Position = UDim2.fromOffset(10, 214), Text = "", ZIndex = 13, Parent = detail })
+	local detailRarity = text({ Size = UDim2.new(1, -20, 0, 32), Position = UDim2.fromOffset(10, 254), Text = "", ZIndex = 13, Parent = detail })
+	local detailIncome = text({ Size = UDim2.new(1, -20, 0, 32), Position = UDim2.fromOffset(10, 288), Text = "", TextColor3 = GREEN_TEXT, ZIndex = 13, Parent = detail })
+	local detailReward = text({ Size = UDim2.new(1, -20, 0, 30), Position = UDim2.fromOffset(10, 330), Text = "", TextColor3 = Color3.fromRGB(255, 230, 120), Stroke = 2, ZIndex = 13, Parent = detail })
+	local claimButton, claimLabel = button({ Size = UDim2.new(1, -40, 0, 56), Position = UDim2.new(0, 20, 1, -132), BackgroundColor3 = Theme.Green, ZIndex = 13, Parent = detail }, "CLAIM", function()
+		if indexSelected then
+			net:FireServer("ClaimIndex", indexSelected)
+		end
+	end)
+	local claimAllButton, claimAllLabel = button({ Size = UDim2.new(1, -40, 0, 56), Position = UDim2.new(0, 20, 1, -68), BackgroundColor3 = Theme.Blue, ZIndex = 13, Parent = detail }, "CLAIM ALL", function()
+		net:FireServer("ClaimIndex")
+	end)
 
-local function zoneDefs(zoneIndex: number)
-	local zone = Config.Zones[zoneIndex]
-	local list, seen = {}, {}
-	for _, rarity in zone.Rarities do
-		for _, world in zone.Pool do
-			local byRarity = Critters.ByWorld[world]
-			for _, def in (byRarity and byRarity[rarity]) or {} do
-				if not seen[def.Id] then
-					seen[def.Id] = true
-					table.insert(list, def)
+	local function zoneDefs(zoneIndex: number)
+		local zone = Config.Zones[zoneIndex]
+		local list, seen = {}, {}
+		for _, rarity in zone.Rarities do
+			for _, world in zone.Pool do
+				local byRarity = Critters.ByWorld[world]
+				for _, def in (byRarity and byRarity[rarity]) or {} do
+					if not seen[def.Id] then
+						seen[def.Id] = true
+						table.insert(list, def)
+					end
 				end
 			end
 		end
+		return list
 	end
-	return list
-end
 
--- (v66 perf) os cartões e os botões das zonas ficam prontos e só mudam texto/borda; a zona só é refeita
--- quando você troca de zona, e a prévia 3D de cada cartão nasce só quando ele aparece na tela (lazyPreviews)
-local refreshIndex
-local indexShown: string? = nil -- cartão mostrado à direita (mesmo não descoberto)
-local detailKey = ""
-local zoneButtons: { [number]: { Button: TextButton, Label: TextLabel, Stroke: UIStroke? } } = {}
-local indexCards: { [string]: any } = {}
-local indexCardsZone = 0
-local indexLazy = lazyPreviews(cardGrid)
-local CLAIM_YELLOW = Color3.fromRGB(255, 230, 80)
+	-- (v66 perf) os cartões e os botões das zonas ficam prontos e só mudam texto/borda; a zona só é refeita
+	-- quando você troca de zona, e a prévia 3D de cada cartão nasce só quando ele aparece na tela (lazyPreviews)
+	local refreshIndex
+	local indexShown: string? = nil -- cartão mostrado à direita (mesmo não descoberto)
+	local detailKey = ""
+	local zoneButtons: { [number]: { Button: TextButton, Label: TextLabel, Stroke: UIStroke? } } = {}
+	local indexCards: { [string]: any } = {}
+	local indexCardsZone = 0
+	local indexLazy = lazyPreviews(cardGrid)
+	local CLAIM_YELLOW = Color3.fromRGB(255, 230, 80)
 
--- borda do cartão: amarela = prêmio para pegar; branca e grossa = o que está aberto à direita
-local function paintIndexCards()
-	for id, entry in indexCards do
-		local shown = id == indexShown
-		entry.Stroke.Color = if entry.Found == 1 then CLAIM_YELLOW elseif shown then Theme.White else Theme.Dark
-		entry.Stroke.Thickness = if shown then 5 else 3
-	end
-end
-
-local function selectPet(def, found: number?)
-	indexSelected = if found then def.Id else nil
-	indexShown = def.Id
-	-- a prévia girando só é refeita se mudou o bichinho (ou se ele acabou de ser descoberto)
-	local key = def.Id .. (if found then "+" else "-")
-	if key ~= detailKey then
-		detailKey = key
-		clear(detailView)
-		Theme.preview(detailView, def, not found, true)
-	end
-	detailName.Text = if found then def.Name else "???"
-	detailRarity.Text = def.Rarity
-	detailRarity.TextColor3 = Theme.rarityColor(def.Rarity)
-	local income = Config.BaseIncome(def, indexZone)
-	detailIncome.Text = if found then Format.Money(income) .. "/s" else "Steal it to find out!"
-	local cash, speed = Config.IndexReward(def, indexZone)
-	detailReward.Text = ("Reward: %s  +%s Speed"):format(Format.Money(cash), Format.Short(speed))
-	claimButton.Visible = found == 1
-	claimLabel.Text = "CLAIM"
-	paintIndexCards()
-end
-
--- (re)cria a prévia do cartão quando ele aparecer na tela (sombra preta se ainda não foi descoberto)
-local function queueIndexPreview(entry)
-	if entry.View then
-		entry.View:Destroy()
-		entry.View = nil
-	end
-	indexLazy.Add(entry.Card, function()
-		if entry.Card.Parent and not entry.View then
-			entry.View = Theme.preview(entry.Card, entry.Def, not entry.Found, false)
-			entry.ViewFound = entry.Found ~= nil
-		end
-	end)
-end
-
-local function buildIndexCard(def, order: number)
-	local card = create("TextButton", { LayoutOrder = order, Text = "", AutoButtonColor = false, BackgroundColor3 = Theme.cardColor(def.Rarity), ZIndex = 13, Parent = cardGrid }, { corner(10), stroke(3) })
-	Theme.gloss(card, 0.35)
-	local entry = {
-		Def = def,
-		Card = card,
-		Stroke = card:FindFirstChildOfClass("UIStroke"),
-		Name = text({ Size = UDim2.new(1, -8, 0, 26), Position = UDim2.fromOffset(4, 4), Text = "???", ZIndex = 15, Parent = card }),
-		Claim = text({ AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -4, 1, -4), Size = UDim2.fromOffset(60, 22), Text = "CLAIM!", TextColor3 = CLAIM_YELLOW, Visible = false, ZIndex = 15, Parent = card }),
-		Found = nil,
-		View = nil,
-		ViewFound = false,
-	}
-	Theme.springy(card)
-	card.Activated:Connect(function()
-		selectPet(def, entry.Found)
-	end)
-	indexCards[def.Id] = entry
-	queueIndexPreview(entry)
-	return entry
-end
-
-refreshIndex = function()
-	local index = decode("Index", {})
-	local unclaimed = 0
-	for _, value in index do
-		if value == 1 then
-			unclaimed += 1
+	-- borda do cartão: amarela = prêmio para pegar; branca e grossa = o que está aberto à direita
+	local function paintIndexCards()
+		for id, entry in indexCards do
+			local shown = id == indexShown
+			entry.Stroke.Color = if entry.Found == 1 then CLAIM_YELLOW elseif shown then Theme.White else Theme.Dark
+			entry.Stroke.Thickness = if shown then 5 else 3
 		end
 	end
-	claimAllLabel.Text = ("CLAIM ALL (%d)!"):format(unclaimed)
-	claimAllButton.BackgroundColor3 = if unclaimed > 0 then Theme.Blue else Theme.Gray
-	for order, zone in Config.Zones do
-		local defs = zoneDefs(order)
+
+	local function selectPet(def, found: number?)
+		indexSelected = if found then def.Id else nil
+		indexShown = def.Id
+		-- a prévia girando só é refeita se mudou o bichinho (ou se ele acabou de ser descoberto)
+		local key = def.Id .. (if found then "+" else "-")
+		if key ~= detailKey then
+			detailKey = key
+			clear(detailView)
+			Theme.preview(detailView, def, not found, true)
+		end
+		detailName.Text = if found then def.Name else "???"
+		detailRarity.Text = def.Rarity
+		detailRarity.TextColor3 = Theme.rarityColor(def.Rarity)
+		local income = Config.BaseIncome(def, indexZone)
+		detailIncome.Text = if found then Format.Money(income) .. "/s" else "Steal it to find out!"
+		local cash, speed = Config.IndexReward(def, indexZone)
+		detailReward.Text = ("Reward: %s  +%s Speed"):format(Format.Money(cash), Format.Short(speed))
+		claimButton.Visible = found == 1
+		claimLabel.Text = "CLAIM"
+		paintIndexCards()
+	end
+
+	-- (re)cria a prévia do cartão quando ele aparecer na tela (sombra preta se ainda não foi descoberto)
+	local function queueIndexPreview(entry)
+		if entry.View then
+			entry.View:Destroy()
+			entry.View = nil
+		end
+		indexLazy.Add(entry.Card, function()
+			if entry.Card.Parent and not entry.View then
+				entry.View = Theme.preview(entry.Card, entry.Def, not entry.Found, false)
+				entry.ViewFound = entry.Found ~= nil
+			end
+		end)
+	end
+
+	local function buildIndexCard(def, order: number)
+		local card = create("TextButton", { LayoutOrder = order, Text = "", AutoButtonColor = false, BackgroundColor3 = Theme.cardColor(def.Rarity), ZIndex = 13, Parent = cardGrid }, { corner(10), stroke(3) })
+		Theme.gloss(card, 0.35)
+		local entry = {
+			Def = def,
+			Card = card,
+			Stroke = card:FindFirstChildOfClass("UIStroke"),
+			Name = text({ Size = UDim2.new(1, -8, 0, 26), Position = UDim2.fromOffset(4, 4), Text = "???", ZIndex = 15, Parent = card }),
+			Claim = text({ AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -4, 1, -4), Size = UDim2.fromOffset(60, 22), Text = "CLAIM!", TextColor3 = CLAIM_YELLOW, Visible = false, ZIndex = 15, Parent = card }),
+			Found = nil,
+			View = nil,
+			ViewFound = false,
+		}
+		Theme.springy(card)
+		card.Activated:Connect(function()
+			selectPet(def, entry.Found)
+		end)
+		indexCards[def.Id] = entry
+		queueIndexPreview(entry)
+		return entry
+	end
+
+	refreshIndex = function()
+		local index = decode("Index", {})
+		local unclaimed = 0
+		for _, value in index do
+			if value == 1 then
+				unclaimed += 1
+			end
+		end
+		claimAllLabel.Text = ("CLAIM ALL (%d)!"):format(unclaimed)
+		claimAllButton.BackgroundColor3 = if unclaimed > 0 then Theme.Blue else Theme.Gray
+		for order, zone in Config.Zones do
+			local defs = zoneDefs(order)
+			local count = 0
+			for _, def in defs do
+				if index[def.Id] then
+					count += 1
+				end
+			end
+			local entry = zoneButtons[order]
+			if not entry then
+				local btn, label = button({ LayoutOrder = order, Size = UDim2.new(1, -10, 0, 64), BackgroundColor3 = zone.Floor[1], ZIndex = 13, Parent = zoneList }, "", function()
+					if indexZone ~= order then
+						indexZone = order
+						refreshIndex()
+					end
+				end)
+				entry = { Button = btn, Label = label, Stroke = btn:FindFirstChildOfClass("UIStroke") }
+				zoneButtons[order] = entry
+			end
+			entry.Label.Text = ("%s %s\n%d/%d"):format(zone.Emoji or "", zone.Name, count, #defs)
+			entry.Button.BackgroundTransparency = if order == indexZone then 0 else 0.35
+			if entry.Stroke then
+				entry.Stroke.Color = if order == indexZone then Theme.White else Theme.Dark
+			end
+		end
+		local defs = zoneDefs(indexZone)
+		-- trocou de zona: refaz os cartões (só os desta zona existem; prévias nascem aos poucos)
+		if indexCardsZone ~= indexZone then
+			indexCardsZone = indexZone
+			indexLazy.Clear()
+			clear(cardGrid)
+			table.clear(indexCards)
+			cardGrid.CanvasPosition = Vector2.zero
+			for order, def in defs do
+				buildIndexCard(def, order)
+			end
+		end
 		local count = 0
+		local first = nil
 		for _, def in defs do
-			if index[def.Id] then
+			local found = index[def.Id]
+			if found then
 				count += 1
 			end
-		end
-		local entry = zoneButtons[order]
-		if not entry then
-			local btn, label = button({ LayoutOrder = order, Size = UDim2.new(1, -10, 0, 64), BackgroundColor3 = zone.Floor[1], ZIndex = 13, Parent = zoneList }, "", function()
-				if indexZone ~= order then
-					indexZone = order
-					refreshIndex()
+			local entry = indexCards[def.Id]
+			if entry then
+				entry.Found = found
+				entry.Name.Text = if found then def.Name else "???"
+				entry.Claim.Visible = found == 1
+				-- acabou de descobrir: troca a sombra pela prévia colorida
+				if entry.View and entry.ViewFound ~= (found ~= nil) then
+					queueIndexPreview(entry)
 				end
-			end)
-			entry = { Button = btn, Label = label, Stroke = btn:FindFirstChildOfClass("UIStroke") }
-			zoneButtons[order] = entry
-		end
-		entry.Label.Text = ("%s %s\n%d/%d"):format(zone.Emoji or "", zone.Name, count, #defs)
-		entry.Button.BackgroundTransparency = if order == indexZone then 0 else 0.35
-		if entry.Stroke then
-			entry.Stroke.Color = if order == indexZone then Theme.White else Theme.Dark
-		end
-	end
-	local defs = zoneDefs(indexZone)
-	-- trocou de zona: refaz os cartões (só os desta zona existem; prévias nascem aos poucos)
-	if indexCardsZone ~= indexZone then
-		indexCardsZone = indexZone
-		indexLazy.Clear()
-		clear(cardGrid)
-		table.clear(indexCards)
-		cardGrid.CanvasPosition = Vector2.zero
-		for order, def in defs do
-			buildIndexCard(def, order)
-		end
-	end
-	local count = 0
-	local first = nil
-	for _, def in defs do
-		local found = index[def.Id]
-		if found then
-			count += 1
-		end
-		local entry = indexCards[def.Id]
-		if entry then
-			entry.Found = found
-			entry.Name.Text = if found then def.Name else "???"
-			entry.Claim.Visible = found == 1
-			-- acabou de descobrir: troca a sombra pela prévia colorida
-			if entry.View and entry.ViewFound ~= (found ~= nil) then
-				queueIndexPreview(entry)
 			end
+			first = first or { def, found }
 		end
-		first = first or { def, found }
-	end
-	indexLazy.Pump()
-	progressFill.Size = UDim2.fromScale(if #defs > 0 then count / #defs else 0, 1)
-	-- o taco da zona não pede Divine/Celestial (igual ao servidor)
-	local needed, have = 0, 0
-	for _, def in defs do
-		if (Config.RarityIndex[def.Rarity] or 1) < Config.RarityIndex.Divine then
-			needed += 1
-			if index[def.Id] then
-				have += 1
-			end
-		end
-	end
-	local complete = needed > 0 and have == needed
-	local equipped = (player:GetAttribute("Bat") or 0) == indexZone
-	batLabel.Text = if equipped then "EQUIPPED" elseif complete then "EQUIP BAT!" else "\u{1F512} Zone Bat"
-	batButton.BackgroundColor3 = if equipped then Theme.Gray elseif complete then Theme.Orange else Color3.fromRGB(80, 80, 90)
-	progressText.Text = ("%d/%d"):format(count, #defs)
-	if first then
-		local keep = false
+		indexLazy.Pump()
+		progressFill.Size = UDim2.fromScale(if #defs > 0 then count / #defs else 0, 1)
+		-- o taco da zona não pede Divine/Celestial (igual ao servidor)
+		local needed, have = 0, 0
 		for _, def in defs do
-			if def.Id == indexShown then
-				keep = true
-				selectPet(def, index[def.Id])
+			if (Config.RarityIndex[def.Rarity] or 1) < Config.RarityIndex.Divine then
+				needed += 1
+				if index[def.Id] then
+					have += 1
+				end
 			end
 		end
-		if not keep then
-			selectPet(first[1], first[2])
+		local complete = needed > 0 and have == needed
+		local equipped = (player:GetAttribute("Bat") or 0) == indexZone
+		batLabel.Text = if equipped then "EQUIPPED" elseif complete then "EQUIP BAT!" else "\u{1F512} Zone Bat"
+		batButton.BackgroundColor3 = if equipped then Theme.Gray elseif complete then Theme.Orange else Color3.fromRGB(80, 80, 90)
+		progressText.Text = ("%d/%d"):format(count, #defs)
+		if first then
+			local keep = false
+			for _, def in defs do
+				if def.Id == indexShown then
+					keep = true
+					selectPet(def, index[def.Id])
+				end
+			end
+			if not keep then
+				selectPet(first[1], first[2])
+			end
 		end
 	end
+	onOpen.Index = refreshIndex
+	refreshers.Index = refreshIndex
 end
-onOpen.Index = refreshIndex
-refreshers.Index = refreshIndex
 
 ---------------------------------------------------------------------
 -- EGGS (ovos crescendo) e PETS / SELL
@@ -1038,209 +1041,212 @@ player:GetAttributeChangedSignal("Slots"):Connect(function()
 	end
 end)
 
-local petsWindow, petsBody = Theme.window(gui, "Pets", "My Pets", Theme.Orange, Vector2.new(860, 560))
-windows.Pets = petsWindow
-local petsTitle = petsWindow.Header.Title
-local petsGrid = scroller(petsBody, { Size = UDim2.new(1, -16, 1, -84) }, Vector2.new(150, 196))
-button({ Size = UDim2.new(1, -16, 0, 60), Position = UDim2.new(0, 8, 1, -68), BackgroundColor3 = Theme.Red, ZIndex = 13, Parent = petsBody }, "\u{1F4B0} SELL ALL  (keeps Legendary+ and mutated)", function()
-	net:FireServer("SellAll")
-end)
-
-local petsLazy = lazyPreviews(petsGrid)
--- lazy = a prévia 3D nasce só quando o cartão aparece na tela (v66 perf)
-local function petCard(parent: Instance, slot, def, order: number, extra: (Frame) -> (), lazy)
-	local card = create("Frame", { LayoutOrder = order, BackgroundColor3 = Theme.cardColor(def.Rarity), ZIndex = 13, Parent = parent }, { corner(10), stroke(3) })
-	Theme.gloss(card, 0.35)
-	local view = create("Frame", { Size = UDim2.new(1, 0, 0, 100), BackgroundTransparency = 1, ZIndex = 13, Parent = card })
-	if lazy then
-		lazy.Add(card, function()
-			if view.Parent then
-				Theme.preview(view, def, false, false)
-			end
-		end)
-	else
-		Theme.preview(view, def, false, false)
-	end
-	local label = Config.SizeLabel(slot.s or 1)
-	text({ Size = UDim2.new(1, -8, 0, 24), Position = UDim2.fromOffset(4, 4), Text = (if slot.m then slot.m .. " " else "") .. def.Name, ZIndex = 15, Parent = card })
-	if label then
-		text({ Size = UDim2.new(1, -8, 0, 18), Position = UDim2.fromOffset(4, 82), Text = label, TextColor3 = Color3.fromRGB(255, 230, 90), ZIndex = 15, Parent = card })
-	end
-	text({ Size = UDim2.new(1, -8, 0, 24), Position = UDim2.fromOffset(4, 102), Text = Format.Money(slot.inc or 0) .. "/s", TextColor3 = GREEN_TEXT, ZIndex = 15, Parent = card })
-	extra(card)
-	return card
-end
-
-local function refreshPets()
-	petsLazy.Clear()
-	clear(petsGrid)
-	-- (cópia: a tabela do decode é compartilhada e o sort mudaria a ordem para as outras janelas)
-	local slots = table.clone(decode("Slots", {}))
-	local order = 0
-	table.sort(slots, function(a, b)
-		return (a.inc or 0) > (b.inc or 0)
+-- (do...end: as variáveis das janelas Pets e Fusão ficam só aqui dentro - limite de 200 locais do Luau)
+do
+	local petsWindow, petsBody = Theme.window(gui, "Pets", "My Pets", Theme.Orange, Vector2.new(860, 560))
+	windows.Pets = petsWindow
+	local petsTitle = petsWindow.Header.Title
+	local petsGrid = scroller(petsBody, { Size = UDim2.new(1, -16, 1, -84) }, Vector2.new(150, 196))
+	button({ Size = UDim2.new(1, -16, 0, 60), Position = UDim2.new(0, 8, 1, -68), BackgroundColor3 = Theme.Red, ZIndex = 13, Parent = petsBody }, "\u{1F4B0} SELL ALL  (keeps Legendary+ and mutated)", function()
+		net:FireServer("SellAll")
 	end)
-	for _, slot in slots do
-		local def = Critters.ById[slot.id]
-		if slot.k == "Pet" and def then
-			order += 1
-			petCard(petsGrid, slot, def, order, function(card)
-				local value = math.floor((slot.inc or 0) * 100)
-				-- v65: bichinho Raro+ ou com mutação: toca 2 vezes para vender (criança vendia sem querer)
-				local precious = slot.m ~= nil or (Config.RarityIndex[def.Rarity] or 1) >= Config.RarityIndex.Rare
-				local confirmUntil = 0
-				local sellLabel
-				_, sellLabel = button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(1, -14, 0, 52), BackgroundColor3 = Theme.Red, ZIndex = 15, Parent = card }, "Sell " .. Format.Money(value), function()
-					if precious and os.clock() > confirmUntil then
-						confirmUntil = os.clock() + 3
-						sellLabel.Text = "Sure? Tap again!"
-						task.delay(3, function()
-							if sellLabel.Parent and os.clock() >= confirmUntil then
-								sellLabel.Text = "Sell " .. Format.Money(value)
-							end
-						end)
-						return
-					end
-					net:FireServer("Sell", { slot.i, slot.id })
-					-- some na hora (a lista é refeita quando chega a resposta)
-					card.Visible = false
-				end)
-			end, petsLazy)
-		end
-	end
-	if order == 0 then
-		text({ Size = UDim2.fromOffset(500, 60), Text = "No pets yet. Hatch your eggs!", TextColor3 = Color3.fromRGB(200, 210, 230), ZIndex = 13, Parent = petsGrid })
-	end
-end
-onOpen.Pets = function()
-	petsTitle.Text = "My Pets"
-	refreshPets()
-end
--- a barraquinha SELL abre a mesma janela com outro título
-windows.Sell = petsWindow
-onOpen.Sell = function()
-	petsTitle.Text = "\u{1F4B0} Sell Pets"
-	refreshPets()
-end
-refreshers.Pets = refreshPets
-refreshers.Sell = refreshPets
 
----------------------------------------------------------------------
--- FUSE
----------------------------------------------------------------------
-local fuseWindow, fuseBody = Theme.window(gui, "Fuse", "Fuse Machine", Theme.Cyan, Vector2.new(860, 560))
-windows.Fuse = fuseWindow
-local fuseGrid = scroller(fuseBody, { Size = UDim2.new(1, -16, 1, -84) }, Vector2.new(150, 160))
-local fuseSelected: { number } = {}
-local fuseButton, fuseLabel
-local refreshFuse
-fuseButton, fuseLabel = button({ Size = UDim2.new(1, -16, 0, 60), Position = UDim2.new(0, 8, 1, -68), BackgroundColor3 = Theme.Gray, ZIndex = 13, Parent = fuseBody }, "Pick 3 pets of the SAME rarity", function()
-	if #fuseSelected == Config.FuseCount then
-		net:FireServer("Fuse", fuseSelected)
-		fuseSelected = {}
-		task.delay(0.4, refreshFuse)
-	end
-end)
--- (v66 perf) os cartões ficam prontos: tocar num pet só muda a borda/transparência (antes refazia TODOS os
--- cartões, cada um com prévia 3D, a cada toque). Só refaz quando a lista de pets muda.
-local fuseLazy = lazyPreviews(fuseGrid)
-local fuseCards: { [number]: any } = {} -- por slot.i: { Card, Stroke, Def, Key }
-local fuseSignature: string? = nil
-local function fuseRarity(): string?
-	for _, i in fuseSelected do
-		local entry = fuseCards[i]
-		if entry then
-			return entry.Def.Rarity
+	local petsLazy = lazyPreviews(petsGrid)
+	-- lazy = a prévia 3D nasce só quando o cartão aparece na tela (v66 perf)
+	local function petCard(parent: Instance, slot, def, order: number, extra: (Frame) -> (), lazy)
+		local card = create("Frame", { LayoutOrder = order, BackgroundColor3 = Theme.cardColor(def.Rarity), ZIndex = 13, Parent = parent }, { corner(10), stroke(3) })
+		Theme.gloss(card, 0.35)
+		local view = create("Frame", { Size = UDim2.new(1, 0, 0, 100), BackgroundTransparency = 1, ZIndex = 13, Parent = card })
+		if lazy then
+			lazy.Add(card, function()
+				if view.Parent then
+					Theme.preview(view, def, false, false)
+				end
+			end)
+		else
+			Theme.preview(view, def, false, false)
 		end
-	end
-	return nil
-end
-local function paintFuse()
-	local rarity = fuseRarity()
-	for i, entry in fuseCards do
-		local chosen = table.find(fuseSelected, i) ~= nil
-		if entry.Stroke then
-			entry.Stroke.Color = if chosen then Color3.fromRGB(80, 255, 255) else Theme.Dark
-			entry.Stroke.Thickness = if chosen then 5 else 3
+		local label = Config.SizeLabel(slot.s or 1)
+		text({ Size = UDim2.new(1, -8, 0, 24), Position = UDim2.fromOffset(4, 4), Text = (if slot.m then slot.m .. " " else "") .. def.Name, ZIndex = 15, Parent = card })
+		if label then
+			text({ Size = UDim2.new(1, -8, 0, 18), Position = UDim2.fromOffset(4, 82), Text = label, TextColor3 = Color3.fromRGB(255, 230, 90), ZIndex = 15, Parent = card })
 		end
-		entry.Card.BackgroundTransparency = if rarity and entry.Def.Rarity ~= rarity and not chosen then 0.6 else 0
+		text({ Size = UDim2.new(1, -8, 0, 24), Position = UDim2.fromOffset(4, 102), Text = Format.Money(slot.inc or 0) .. "/s", TextColor3 = GREEN_TEXT, ZIndex = 15, Parent = card })
+		extra(card)
+		return card
 	end
-	local nextRarity = rarity and Config.Rarities[(Config.RarityIndex[rarity] or 1) + 1]
-	fuseLabel.Text = if #fuseSelected == Config.FuseCount and nextRarity then ("\u{2728} FUSE \u{2192} %s EGG!"):format(string.upper(nextRarity.Name)) else ("Pick 3 pets of the SAME rarity (%d/3)"):format(#fuseSelected)
-	fuseButton.BackgroundColor3 = if #fuseSelected == Config.FuseCount then Theme.Green else Theme.Gray
-end
-refreshFuse = function()
-	local pets, keys = {}, {}
-	for _, slot in decode("Slots", {}) do
-		if type(slot) == "table" and slot.k == "Pet" and Critters.ById[slot.id] then
-			table.insert(pets, slot)
-			table.insert(keys, ("%s:%s:%s:%s:%s"):format(tostring(slot.i), tostring(slot.id), tostring(slot.m), tostring(slot.s), tostring(slot.inc)))
-		end
-	end
-	local signature = table.concat(keys, "|")
-	if signature ~= fuseSignature then
-		fuseSignature = signature
-		local oldKeys: { [number]: string } = {}
-		for i, entry in fuseCards do
-			oldKeys[i] = entry.Key
-		end
-		fuseLazy.Clear()
-		clear(fuseGrid)
-		table.clear(fuseCards)
-		for order, slot in pets do
+
+	local function refreshPets()
+		petsLazy.Clear()
+		clear(petsGrid)
+		-- (cópia: a tabela do decode é compartilhada e o sort mudaria a ordem para as outras janelas)
+		local slots = table.clone(decode("Slots", {}))
+		local order = 0
+		table.sort(slots, function(a, b)
+			return (a.inc or 0) > (b.inc or 0)
+		end)
+		for _, slot in slots do
 			local def = Critters.ById[slot.id]
-			local slotIndex = slot.i
-			local card = petCard(fuseGrid, slot, def, order, function(cardFrame)
-				local pick = create("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 16, Parent = cardFrame })
-				pick.Activated:Connect(function()
-					local at = table.find(fuseSelected, slotIndex)
-					if at then
-						table.remove(fuseSelected, at)
-					else
-						local rarity = fuseRarity()
-						if #fuseSelected < Config.FuseCount and (rarity == nil or rarity == def.Rarity) then
-							table.insert(fuseSelected, slotIndex)
+			if slot.k == "Pet" and def then
+				order += 1
+				petCard(petsGrid, slot, def, order, function(card)
+					local value = math.floor((slot.inc or 0) * 100)
+					-- v65: bichinho Raro+ ou com mutação: toca 2 vezes para vender (criança vendia sem querer)
+					local precious = slot.m ~= nil or (Config.RarityIndex[def.Rarity] or 1) >= Config.RarityIndex.Rare
+					local confirmUntil = 0
+					local sellLabel
+					_, sellLabel = button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(1, -14, 0, 52), BackgroundColor3 = Theme.Red, ZIndex = 15, Parent = card }, "Sell " .. Format.Money(value), function()
+						if precious and os.clock() > confirmUntil then
+							confirmUntil = os.clock() + 3
+							sellLabel.Text = "Sure? Tap again!"
+							task.delay(3, function()
+								if sellLabel.Parent and os.clock() >= confirmUntil then
+									sellLabel.Text = "Sell " .. Format.Money(value)
+								end
+							end)
+							return
 						end
-					end
-					paintFuse()
-				end)
-			end, fuseLazy)
-			fuseCards[slotIndex] = { Card = card, Stroke = card:FindFirstChildOfClass("UIStroke"), Def = def, Key = keys[order] }
-		end
-		-- a lista mudou: só continua marcado o pet que ainda é o mesmo naquela vaga
-		for k = #fuseSelected, 1, -1 do
-			local i = fuseSelected[k]
-			if not fuseCards[i] or fuseCards[i].Key ~= oldKeys[i] then
-				table.remove(fuseSelected, k)
+						net:FireServer("Sell", { slot.i, slot.id })
+						-- some na hora (a lista é refeita quando chega a resposta)
+						card.Visible = false
+					end)
+				end, petsLazy)
 			end
 		end
+		if order == 0 then
+			text({ Size = UDim2.fromOffset(500, 60), Text = "No pets yet. Hatch your eggs!", TextColor3 = Color3.fromRGB(200, 210, 230), ZIndex = 13, Parent = petsGrid })
+		end
 	end
-	paintFuse()
-end
-onOpen.Fuse = function()
-	fuseSelected = {}
-	refreshFuse()
-end
-refreshers.Fuse = refreshFuse
-player:GetAttributeChangedSignal("Slots"):Connect(function()
-	if fuseWindow.Visible then
-		refreshFuse() -- (só refaz os cartões se a lista de pets mudou)
+	onOpen.Pets = function()
+		petsTitle.Text = "My Pets"
+		refreshPets()
 	end
-end)
+	-- a barraquinha SELL abre a mesma janela com outro título
+	windows.Sell = petsWindow
+	onOpen.Sell = function()
+		petsTitle.Text = "\u{1F4B0} Sell Pets"
+		refreshPets()
+	end
+	refreshers.Pets = refreshPets
+	refreshers.Sell = refreshPets
 
--- TRAILS e BOOSTS abrem o Shop na aba certa
-windows.Trails = shopWindow
-onOpen.Trails = function()
-	shopTab = "Trails"
-	refreshShop()
+	---------------------------------------------------------------------
+	-- FUSE
+	---------------------------------------------------------------------
+	local fuseWindow, fuseBody = Theme.window(gui, "Fuse", "Fuse Machine", Theme.Cyan, Vector2.new(860, 560))
+	windows.Fuse = fuseWindow
+	local fuseGrid = scroller(fuseBody, { Size = UDim2.new(1, -16, 1, -84) }, Vector2.new(150, 160))
+	local fuseSelected: { number } = {}
+	local fuseButton, fuseLabel
+	local refreshFuse
+	fuseButton, fuseLabel = button({ Size = UDim2.new(1, -16, 0, 60), Position = UDim2.new(0, 8, 1, -68), BackgroundColor3 = Theme.Gray, ZIndex = 13, Parent = fuseBody }, "Pick 3 pets of the SAME rarity", function()
+		if #fuseSelected == Config.FuseCount then
+			net:FireServer("Fuse", fuseSelected)
+			fuseSelected = {}
+			task.delay(0.4, refreshFuse)
+		end
+	end)
+	-- (v66 perf) os cartões ficam prontos: tocar num pet só muda a borda/transparência (antes refazia TODOS os
+	-- cartões, cada um com prévia 3D, a cada toque). Só refaz quando a lista de pets muda.
+	local fuseLazy = lazyPreviews(fuseGrid)
+	local fuseCards: { [number]: any } = {} -- por slot.i: { Card, Stroke, Def, Key }
+	local fuseSignature: string? = nil
+	local function fuseRarity(): string?
+		for _, i in fuseSelected do
+			local entry = fuseCards[i]
+			if entry then
+				return entry.Def.Rarity
+			end
+		end
+		return nil
+	end
+	local function paintFuse()
+		local rarity = fuseRarity()
+		for i, entry in fuseCards do
+			local chosen = table.find(fuseSelected, i) ~= nil
+			if entry.Stroke then
+				entry.Stroke.Color = if chosen then Color3.fromRGB(80, 255, 255) else Theme.Dark
+				entry.Stroke.Thickness = if chosen then 5 else 3
+			end
+			entry.Card.BackgroundTransparency = if rarity and entry.Def.Rarity ~= rarity and not chosen then 0.6 else 0
+		end
+		local nextRarity = rarity and Config.Rarities[(Config.RarityIndex[rarity] or 1) + 1]
+		fuseLabel.Text = if #fuseSelected == Config.FuseCount and nextRarity then ("\u{2728} FUSE \u{2192} %s EGG!"):format(string.upper(nextRarity.Name)) else ("Pick 3 pets of the SAME rarity (%d/3)"):format(#fuseSelected)
+		fuseButton.BackgroundColor3 = if #fuseSelected == Config.FuseCount then Theme.Green else Theme.Gray
+	end
+	refreshFuse = function()
+		local pets, keys = {}, {}
+		for _, slot in decode("Slots", {}) do
+			if type(slot) == "table" and slot.k == "Pet" and Critters.ById[slot.id] then
+				table.insert(pets, slot)
+				table.insert(keys, ("%s:%s:%s:%s:%s"):format(tostring(slot.i), tostring(slot.id), tostring(slot.m), tostring(slot.s), tostring(slot.inc)))
+			end
+		end
+		local signature = table.concat(keys, "|")
+		if signature ~= fuseSignature then
+			fuseSignature = signature
+			local oldKeys: { [number]: string } = {}
+			for i, entry in fuseCards do
+				oldKeys[i] = entry.Key
+			end
+			fuseLazy.Clear()
+			clear(fuseGrid)
+			table.clear(fuseCards)
+			for order, slot in pets do
+				local def = Critters.ById[slot.id]
+				local slotIndex = slot.i
+				local card = petCard(fuseGrid, slot, def, order, function(cardFrame)
+					local pick = create("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 16, Parent = cardFrame })
+					pick.Activated:Connect(function()
+						local at = table.find(fuseSelected, slotIndex)
+						if at then
+							table.remove(fuseSelected, at)
+						else
+							local rarity = fuseRarity()
+							if #fuseSelected < Config.FuseCount and (rarity == nil or rarity == def.Rarity) then
+								table.insert(fuseSelected, slotIndex)
+							end
+						end
+						paintFuse()
+					end)
+				end, fuseLazy)
+				fuseCards[slotIndex] = { Card = card, Stroke = card:FindFirstChildOfClass("UIStroke"), Def = def, Key = keys[order] }
+			end
+			-- a lista mudou: só continua marcado o pet que ainda é o mesmo naquela vaga
+			for k = #fuseSelected, 1, -1 do
+				local i = fuseSelected[k]
+				if not fuseCards[i] or fuseCards[i].Key ~= oldKeys[i] then
+					table.remove(fuseSelected, k)
+				end
+			end
+		end
+		paintFuse()
+	end
+	onOpen.Fuse = function()
+		fuseSelected = {}
+		refreshFuse()
+	end
+	refreshers.Fuse = refreshFuse
+	player:GetAttributeChangedSignal("Slots"):Connect(function()
+		if fuseWindow.Visible then
+			refreshFuse() -- (só refaz os cartões se a lista de pets mudou)
+		end
+	end)
+
+	-- TRAILS e BOOSTS abrem o Shop na aba certa
+	windows.Trails = shopWindow
+	onOpen.Trails = function()
+		shopTab = "Trails"
+		refreshShop()
+	end
+	windows.Boosts = shopWindow
+	onOpen.Boosts = function()
+		shopTab = "Boosts"
+		refreshShop()
+	end
+	refreshers.Trails = refreshShop
+	refreshers.Boosts = refreshShop
 end
-windows.Boosts = shopWindow
-onOpen.Boosts = function()
-	shopTab = "Boosts"
-	refreshShop()
-end
-refreshers.Trails = refreshShop
-refreshers.Boosts = refreshShop
 
 ---------------------------------------------------------------------
 -- PRÊMIO DIÁRIO (7 dias seguidos)
@@ -2993,18 +2999,21 @@ end)
 local treadHud = create("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = if TOUCH then UDim2.new(0.5, 0, 1, -150) else UDim2.new(0.5, 0, 1, -14), Size = UDim2.fromOffset(440, 150), BackgroundTransparency = 1, Visible = false, Parent = gui })
 -- PC: acima da barra de itens do Roblox (bastão/armadilha, ~72 px embaixo no meio, por cima de tudo).
 -- A barra não muda com a escala da tela, então a distância é calculada em pixels de verdade.
-local function aboveHotbar(object: GuiObject, extra: number)
-	if TOUCH then
-		return
+-- (dentro de do...end: o script já está perto do limite de 200 variáveis locais do Luau)
+do
+	local function aboveHotbar(object: GuiObject)
+		if TOUCH then
+			return
+		end
+		local function place()
+			object.Position = UDim2.new(0.5, 0, 1, -math.ceil(78 / math.max(uiScale.Scale, 0.1)))
+		end
+		uiScale:GetPropertyChangedSignal("Scale"):Connect(place)
+		place()
 	end
-	local function place()
-		object.Position = UDim2.new(0.5, 0, 1, -math.ceil((78 + extra) / math.max(uiScale.Scale, 0.1)))
-	end
-	uiScale:GetPropertyChangedSignal("Scale"):Connect(place)
-	place()
+	aboveHotbar(treadHud)
+	aboveHotbar(carryText)
 end
-aboveHotbar(treadHud, 0)
-aboveHotbar(carryText, 0)
 local autoRun = false
 local autoArmed = false -- (v66) só desliga o AUTO RUN num movimento NOVO, não no dedo que já estava no joystick
 local setAutoRun: (boolean) -> ()
