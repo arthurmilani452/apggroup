@@ -1185,7 +1185,9 @@ local function endCarry(player: Player, delivered: boolean, drop: boolean?)
 	elseif nest.Egg == egg and egg.Model.Parent then
 		setModelAnchored(egg.Model)
 		local root = rootOf(player)
-		if drop and root then
+		-- v65: derrubado a menos de Config.LooseMinZ studs da SAFE ZONE = volta para o ninho (senão um
+		-- novato pegava na linha um ovo da zona 12 sem correr nada)
+		if drop and root and root.Position.Z >= Config.LooseMinZ then
 			-- OVO SOLTO: cai no chão onde a pessoa estava; qualquer um pode pegar (some depois de um tempo)
 			local half = Config.Map.LaneWidth / 2 - 4
 			local spot = Vector3.new(math.clamp(root.Position.X, -half, half), 0, math.max(root.Position.Z, 4))
@@ -1216,6 +1218,14 @@ beginCarry = function(player: Player, zone, nest, egg)
 	end
 	local root = rootOf(player)
 	if not root or (root.Position - egg.Root.Position).Magnitude > 16 + egg.Scale * 2 then
+		return
+	end
+	-- v65: cercado cheio = nem pega (antes a criança fugia do guardião e o ovo voltava na linha)
+	if #state.Data.Slots >= Config.SlotCount(state.Data.PenLevel) then
+		if os.clock() - (state.FullToast or 0) > 3 then
+			state.FullToast = os.clock()
+			toast(player, "Your pen is FULL! Upgrade your pen or sell a pet first.", "warning")
+		end
 		return
 	end
 	-- (v65: só limpa o tempo do ovo solto DEPOIS de conferir a distância; antes um pedido de longe
@@ -1434,7 +1444,7 @@ local function tickZone(zone, dt: number, clock: number)
 			-- (v65: o guardião não chega até a parede; sem isso quem andava colado na parede nunca era pego)
 			local half = Config.Map.LaneWidth / 2 - 6
 			local flat = (Vector3.new(math.clamp(targetRoot.Position.X, -half, half), 0, targetRoot.Position.Z) - Vector3.new(zone.Pos.X, 0, zone.Pos.Z)).Magnitude
-			if flat <= zone.CatchRange then
+			if flat <= zone.CatchRange and targetRoot.Position.Z > 0.5 then -- (v65: em cima da faixa SAFE não pega)
 				catchCarrier(zone, target)
 			end
 		end
@@ -1852,7 +1862,7 @@ local function fuse(player: Player, indices: any)
 	if type(indices) ~= "table" or #indices ~= Config.FuseCount then
 		return
 	end
-	local seen, slots, rarity, bestZone = {}, {}, nil, 1
+	local seen, slots, rarity, bestZone = {}, {}, nil, math.huge
 	for _, index in indices do
 		if type(index) ~= "number" or seen[index] then
 			return
@@ -1867,7 +1877,8 @@ local function fuse(player: Player, indices: any)
 			return toast(player, "All 3 pets must have the SAME rarity!", "error")
 		end
 		rarity = def.Rarity
-		bestZone = math.max(bestZone, slot.Zone or 1)
+		-- v65: vale a zona MAIS FRACA dos 3 (antes 1 bicho bom + 2 fracos rendia como 3 bons)
+		bestZone = math.min(bestZone, slot.Zone or 1)
 		table.insert(slots, slot)
 	end
 	local nextIndex = (Config.RarityIndex[rarity] or 1) + 1
@@ -1942,7 +1953,7 @@ local function stun(player: Player, seconds: number, fling: Vector3?)
 	if os.clock() < (state.StunImmuneUntil or 0) then
 		return
 	end
-	state.StunUntil = os.clock() + seconds
+	state.StunUntil = math.max(state.StunUntil or 0, os.clock() + seconds)
 	state.StunImmuneUntil = state.StunUntil + 1.5
 	applySpeed(player)
 	if fling then
@@ -1972,6 +1983,10 @@ local function zoneComplete(state, zoneIndex: number): boolean
 	end
 	local any = false
 	for _, rarity in zone.Rarities do
+		-- v65: Divine e Celestial não contam (a zona 1 pedia um Celestial: 1 em 83 mil ovos)
+		if (Config.RarityIndex[rarity] or 1) >= Config.RarityIndex.Divine then
+			continue
+		end
 		for _, def in poolFor(zone, rarity) do
 			any = true
 			if not state.Data.Index[def.Id] then
@@ -2518,9 +2533,11 @@ local function claimGift(player: Player, index: any)
 	if info.Egg then
 		local zoneIndex = bestZoneFor(state)
 		local def, mutation = rollEgg(Config.Zones[zoneIndex], Random.new(), Config.RarityIndex.Rare)
-		if def and #data.Slots < Config.SlotCount(data.PenLevel) then
-			addEggSlot(player, def, zoneIndex, Config.RollScale(Random.new()), mutation, true)
-			extra = "  + " .. def.Rarity .. " egg!"
+		if def then
+			-- (cercado cheio: addEggSlot dá dinheiro no lugar; antes o ovo sumia)
+			if addEggSlot(player, def, zoneIndex, Config.RollScale(Random.new()), mutation, true) then
+				extra = "  + " .. def.Rarity .. " egg!"
+			end
 		end
 	end
 	publishGifts(player)
@@ -2779,6 +2796,7 @@ local function rebirth(player: Player)
 	econ(player, false, data.Money, "Gameplay", "Rebirth")
 	custom(player, "Rebirth", data.Rebirths)
 	data.Money = 0
+	local giftZone = bestZoneFor(state) -- (v65: antes de zerar a velocidade; o presente era sempre da zona 1)
 	data.Speed = Config.StartSpeed
 	data.TreadLevel = 1
 	data.Trails = {}
@@ -2788,7 +2806,7 @@ local function rebirth(player: Player)
 	redrawPen(player)
 	-- presente para recomeçar: 1 ovo pronto Raro ou melhor
 	pcall(function()
-		local zoneIndex = bestZoneFor(state)
+		local zoneIndex = giftZone
 		local def, mutation = rollEgg(Config.Zones[zoneIndex], Random.new(), Config.RarityIndex.Rare)
 		if def then
 			addEggSlot(player, def, zoneIndex, 1, mutation, true)
@@ -3125,8 +3143,17 @@ local function onRequest(player: Player, action: any, arg: any)
 			banner(player, ("Hatched %d eggs!"):format(count), Color3.fromRGB(255, 225, 80))
 			publish(player, true)
 		end
-	elseif action == "Sell" and type(arg) == "number" then
-		local value = sellAt(player, arg)
+	elseif action == "Sell" and (type(arg) == "number" or type(arg) == "table") then
+		-- v65: a tela manda {posição, bichinho}. Se a lista dela estava velha (depois de outra venda),
+		-- a posição aponta para OUTRO bicho: aí não vende nada (antes vendia o bicho errado, até Lendário)
+		local index = if type(arg) == "table" then arg[1] else arg
+		local expected = if type(arg) == "table" then arg[2] else nil
+		local slot = type(index) == "number" and state.Data.Slots[index]
+		if not slot or (expected ~= nil and slot.Id ~= expected) then
+			net:FireClient(player, "Refresh") -- a tela refaz a lista
+			return
+		end
+		local value = sellAt(player, index)
 		if value > 0 then
 			toast(player, "Sold for " .. Format.Money(value), "success")
 			net:FireClient(player, "Sold", value)
@@ -3701,12 +3728,12 @@ function Game.Init()
 			end
 			if t >= partyStart - 3600 and t < partyStart and partyWarned ~= partyStart then
 				partyWarned = partyStart
-				banner(nil, ("\u{1F389} UPDATE PARTY in 1 hour! Rare eggs x%d!"):format(Config.Update.PartyLuck), Color3.fromRGB(255, 200, 80))
+				banner(nil, ("\u{1F389} UPDATE PARTY in 1 hour! Legendary+ eggs x%d!"):format(Config.Update.PartyLuck), Color3.fromRGB(255, 200, 80))
 			elseif t >= partyStart and t < partyEnd then
 				if partyAnnounced ~= partyStart then
 					partyAnnounced = partyStart
 					nextPartyGolden = t + 30
-					banner(nil, ("\u{1F389} UPDATE PARTY! Rare eggs x%d + golden eggs for %d min!"):format(Config.Update.PartyLuck, Config.Update.PartyMinutes), Color3.fromRGB(255, 200, 80))
+					banner(nil, ("\u{1F389} UPDATE PARTY! Legendary+ eggs x%d + golden eggs for %d min!"):format(Config.Update.PartyLuck, Config.Update.PartyMinutes), Color3.fromRGB(255, 200, 80))
 					net:FireAllClients("Sfx", "Alarm")
 				end
 				if t >= nextPartyGolden then
@@ -3731,7 +3758,7 @@ function Game.Init()
 			if t < luckyEnd then
 				if workspace:GetAttribute("LuckyEnd") ~= luckyEnd then
 					workspace:SetAttribute("LuckyEnd", luckyEnd)
-					banner(nil, "\u{1F340} LUCKY EVENT! Rare eggs x3 for 3 minutes!", Color3.fromRGB(120, 255, 120))
+					banner(nil, ("\u{1F340} LUCKY EVENT! Legendary+ eggs x%d for 3 minutes!"):format(Config.LuckyMult), Color3.fromRGB(120, 255, 120))
 					net:FireAllClients("Sfx", "Alarm")
 				end
 			end

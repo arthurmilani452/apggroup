@@ -438,7 +438,8 @@ refreshShop = function()
 		local confirmUntil = 0
 		local rebirthLabel
 		_, rebirthLabel = button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.fromOffset(420, 80), BackgroundColor3 = if money >= cost then Theme.Purple else Theme.Gray, ZIndex = 13, Parent = row }, "REBIRTH  " .. Format.Money(cost), function()
-			if money < cost then
+			-- v65: lê o dinheiro de AGORA (antes usava o valor de quando abriu a aba e pulava a confirmação)
+			if (player:GetAttribute("Money") or 0) < cost then
 				net:FireServer("Rebirth") -- o servidor avisa quanto falta
 			elseif os.clock() < confirmUntil then
 				net:FireServer("Rebirth")
@@ -585,7 +586,17 @@ refreshIndex = function()
 		first = first or { def, found }
 	end
 	progressFill.Size = UDim2.fromScale(if #defs > 0 then count / #defs else 0, 1)
-	local complete = #defs > 0 and count == #defs
+	-- o taco da zona não pede Divine/Celestial (igual ao servidor)
+	local needed, have = 0, 0
+	for _, def in defs do
+		if (Config.RarityIndex[def.Rarity] or 1) < Config.RarityIndex.Divine then
+			needed += 1
+			if index[def.Id] then
+				have += 1
+			end
+		end
+	end
+	local complete = needed > 0 and have == needed
 	local equipped = (player:GetAttribute("Bat") or 0) == indexZone
 	batLabel.Text = if equipped then "EQUIPPED" elseif complete then "EQUIP BAT!" else "\u{1F512} Zone Bat"
 	batButton.BackgroundColor3 = if equipped then Theme.Gray elseif complete then Theme.Orange else Color3.fromRGB(80, 80, 90)
@@ -704,7 +715,9 @@ local function refreshPets()
 						end)
 						return
 					end
-					net:FireServer("Sell", slot.i)
+					net:FireServer("Sell", { slot.i, slot.id })
+					-- some na hora (a lista é refeita quando chega a resposta)
+					card.Visible = false
 				end)
 			end)
 		end
@@ -1131,7 +1144,7 @@ do
 		end
 		offerCard.Visible = false
 	end)
-	button({ AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -4, 0, 4), Size = UDim2.fromOffset(40, 40), BackgroundColor3 = Theme.Red, ZIndex = 27, Parent = offerCard }, "X", function()
+	button({ AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -4, 0, 4), Size = UDim2.fromOffset(58, 58), BackgroundColor3 = Theme.Red, ZIndex = 27, Parent = offerCard }, "X", function()
 		offerCard.Visible = false
 	end)
 	local offerSerial = 0
@@ -1577,7 +1590,7 @@ net.OnClientEvent:Connect(function(kind, a, b)
 		TweenService:Create(nightShade, TweenInfo.new(1.5), { BackgroundTransparency = 1 }):Play()
 	end
 	-- qualquer mudança: atualiza a janela aberta
-	if kind == "Purchased" or kind == "Stole" or kind == "Hatched" then
+	if kind == "Purchased" or kind == "Stole" or kind == "Hatched" or kind == "Sold" or kind == "Refresh" then
 		task.delay(0.2, function()
 			for name, window in windows do
 				if window.Visible and onOpen[name] and windows[name] == window then
@@ -1922,7 +1935,7 @@ local function animateGuardian(model: Model, info, dt: number, t: number)
 end
 
 -- PETS DO CERCADO ----------------------------------------------------
-local petState: { [Model]: any } = {}
+local petState: { [Model]: any } = setmetatable({}, { __mode = "k" }) :: any -- (v65: chave fraca: não vaza memória)
 local function petInfo(model: Model)
 	local info = petState[model]
 	if not info then
@@ -2026,7 +2039,7 @@ local function animatePet(model: Model, info, dt: number, t: number, root: BaseP
 end
 
 -- OVOS NOS NINHOS: balançam de vez em quando (os prontos no cercado balançam mais)
-local eggWobble: { [Model]: any } = {}
+local eggWobble: { [Model]: any } = setmetatable({}, { __mode = "k" }) :: any
 local function animateEgg(model: Model, dt: number, t: number)
 	local root = model.PrimaryPart
 	if not root or not root.Anchored then

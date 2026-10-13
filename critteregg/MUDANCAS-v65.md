@@ -39,6 +39,21 @@ Arquivo novo: `place/StealACritterEgg-v65.rbxl`. Mudou só o código dos scripts
 
 > ⚠️ **Você precisa conferir:** os Ids que estão no `Config` (2x Cash, VIP, Speed1-3, Hatch All, Starter, 2x Cash Boost) têm que ser **deste jogo**. Abra Creator Hub > Steal a Critter Egg > Monetization. Se algum item não estiver lá (por exemplo, se veio do jogo antigo), crie de novo e cole o número novo. Desde 30/05/2026 a Roblox não vende mais itens de outro jogo.
 
+## 2.5 Bugs que a revisão do código achou (corrigidos)
+- **Vender bicho:** depois de vender um, a lista ficava velha e o próximo toque podia vender **outro** bicho, até Lendário. Agora o servidor confere qual bicho é antes de vender.
+- **Rebirth:** às vezes o botão pulava o "TAP AGAIN" e apagava os bichos sem confirmar. Agora sempre pede 2 toques.
+- **Cercado cheio:** a criança roubava, fugia do guardião e o ovo voltava na linha. Agora nem deixa pegar e avisa "pen is FULL".
+- **Taco da zona:** a zona 1 pedia um Celestial (1 em 83 mil ovos). Agora Divine e Celestial não contam para o taco.
+- **Fusão:** 1 bicho bom + 2 fracos rendia como 3 bons. Agora vale a zona mais fraca dos 3.
+- **Presente de 45 min:** o ovo sumia com o cercado cheio. Agora vira dinheiro.
+- **Rebirth:** o ovo de presente era sempre da zona 1. Agora é da zona onde você estava.
+- **Ovo derrubado colado na SAFE ZONE** volta para o ninho. Antes um novato pegava ali um ovo da zona 12 sem correr nada.
+- **Zona 2:** a placa dizia 800, mas o guardião precisava de 1.050. Agora as duas dizem 1.000.
+- **Aviso da sorte:** dizia "Rare eggs x3", mas só Lendário+ aumenta. O texto foi corrigido.
+- **Guardião** não pega mais quem já está em cima da faixa SAFE.
+- **Menos memória gasta** no celular em sessões longas.
+- **Oferta:** o botão de fechar ficou maior.
+
 ## 3. Nada idêntico ao Steal an Egg
 
 As zonas tinham **os mesmos nomes, a mesma ordem e exatamente os mesmos números** do Steal an Egg (Forest 0, Lake 900, Desert 10K...). Mecânica parecida tudo bem; nome + número idênticos dão risco de denúncia. Agora:
@@ -46,7 +61,7 @@ As zonas tinham **os mesmos nomes, a mesma ordem e exatamente os mesmos números
 | Zona | Antes | Agora |
 |---|---|---|
 | 1 | Forest 0 | Sprout Woods 0 |
-| 2 | Lake 900 | Puddle Pond 800 |
+| 2 | Lake 900 | Puddle Pond 1K |
 | 3 | Desert 10K | Sunny Sands 9K |
 | 4 | Jungle 40K | Wild Vines 36K |
 | 5 | Snow 170K | Frosty Peaks 150K |

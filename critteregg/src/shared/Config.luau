@@ -82,7 +82,7 @@ Config.Zones = {
 		Guardian = "chirpy", Height = 19, Emoji = "\u{1F332}", Sky = rgb(150, 210, 255),
 		Floor = { rgb(96, 200, 60), rgb(84, 180, 52) }, Wall = ORANGE_WALL, Top = GRASS_TOP, Props = "forest",
 		Egg = { Style = "grass", Color = rgb(245, 235, 210), Accent = rgb(140, 215, 110) } },
-	{ Id = "lake", Name = "Puddle Pond", Speed = 800, MinSpeed = 1_050, Mult = 12, Pool = { "hybrid" }, Rarities = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic" },
+	{ Id = "lake", Name = "Puddle Pond", Speed = 1_000, MinSpeed = 1_000, Mult = 12, Pool = { "hybrid" }, Rarities = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic" },
 		Guardian = "shellbo", Height = 22, Emoji = "\u{1F9A2}", Sky = rgb(140, 205, 255),
 		Floor = { rgb(96, 200, 60), rgb(84, 180, 52) }, Wall = ORANGE_WALL, Top = GRASS_TOP, Props = "lake",
 		Egg = { Style = "spotted", Color = rgb(170, 220, 255), Accent = rgb(255, 255, 255) } },
@@ -392,6 +392,8 @@ Config.Bats[0].Color = Color3.fromRGB(170, 120, 70)
 Config.Trap = { Max = 3, Stun = 3, Life = 180, Radius = 3.2, MinZ = 30 }
 -- ovo largado no chão: some e volta para o ninho depois disso
 Config.LooseEggSeconds = 20
+-- ovo derrubado mais perto que isso da SAFE ZONE volta para o ninho (não vira ovo solto)
+Config.LooseMinZ = 30
 
 ---------------------------------------------------------------------
 -- ROBUX. Crie os passes/produtos no Creator Hub e cole o número (Id) de cada um aqui.
