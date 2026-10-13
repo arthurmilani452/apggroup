@@ -1,11 +1,11 @@
-# Como publicar a v66
+# Como publicar a v66.1
 
 ## 1. Abrir no Studio
-1. Baixe o **StealACritterEgg-v66.rbxl**: o Claude manda no chat, e ele também fica na pasta `place/`.
+1. Baixe o **StealACritterEgg-v66.1.rbxl**: o Claude manda no chat, e ele também fica na pasta `place/`.
 2. Abra o **Roblox Studio** e vá em **File > Open from File...**. Escolha o arquivo.
 3. Para testar o salvamento no Studio: **Game Settings > Security > Enable Studio Access to API Services**.
 
-> Prefere o Rojo? Copie a pasta `src` da v66 por cima da sua. Depois abra o seu jogo no Studio, clique em **Plugins > Rojo > Connect** e siga a partir do passo 3 da seção "Publicar".
+> Prefere o Rojo? Copie a pasta `src` da v66.1 por cima da sua. Depois abra o seu jogo no Studio, clique em **Plugins > Rojo > Connect** e siga a partir do passo 3 da seção "Publicar".
 
 ## 2. Testar (10 minutos)
 Aperte **Play** e confira a lista "Como testar no Studio" do `MUDANCAS-v66.md`: tela no celular, Menu, esteira com AUTO RUN, Admin e zona nova.

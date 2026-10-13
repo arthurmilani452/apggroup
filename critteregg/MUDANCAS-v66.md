@@ -1,14 +1,27 @@
-# Steal a Critter Egg - v66 (13/10/2026)
+# Steal a Critter Egg - v66.1 (13/10/2026)
+
+> **v66.1 (use ESTE arquivo: StealACritterEgg-v66.1.rbxl).** Correções da revisão final:
+> - **Vender:** tocando rápido em dois bichos da mesma espécie, o jogo podia vender **outro**, até um Dourado ou Gigante, sem pedir confirmação. Agora o servidor confere espécie, mutação, tamanho e zona.
+> - **Memória do celular:** cada bicho vendido, fundido ou apagado no rebirth ficava guardado na memória de todo mundo até o fim da partida, e o celular ia ficando lento. Corrigido.
+> - **Admin Abuse:** servidores que abrem **durante** o evento (gente entrando por causa dele) agora também entram no evento, e todos terminam juntos. Testar no Studio fica só no Studio. "Pumpkin Rain" só funciona no Halloween (antes prometia doces que não vinham).
+> - **Halloween** aparece no relógio, com os doces, e o aviso diz que a loja fica no Menu.
+> - **Slow Mode:** o botão não mostra mais "OFF" com o modo ligado.
+> - **Celular bem pequeno (iPhone SE):** a tela encolhe um pouco mais, então os textos não ficam mais em cima dos botões.
+> - **Índice:** o prêmio mostrado é o mesmo que você ganha.
+> - **Missões:** o "CLAIM!" não se perde mais enquanto você corre na esteira.
+> - **Trilhas:** equipar uma trilha que já é sua mostra o aviso.
+> - **Sequência de roubos:** aparece no aviso de correr e a cada entrega.
+
 
 Feito em cima do **StealACritterEgg-v64.rbxl** que você mandou, com tudo da v65.1 junto.
 
-Arquivo novo: `place/StealACritterEgg-v66.rbxl`. Mudou só o código dos scripts: mapa, modelos 3D e configurações do Studio estão iguais ao v64.
+Arquivo novo: `place/StealACritterEgg-v66.1.rbxl`. Mudou só o código dos scripts: mapa, modelos 3D e configurações do Studio estão iguais ao v64.
 
 > **Sobre "100% de certeza que vai viralizar":** ninguém consegue garantir isso, nem copiando o Steal an Egg igualzinho. Cópia exata ainda corre risco de denúncia e de ser derrubada. O que dá para copiar com segurança é **o que faz esses jogos crescerem**, e foi isso que a v66 fez: eventos ao vivo de admin em todos os servidores, atualização toda semana com festa, tela limpa no celular, esteira que dá vontade de melhorar e uma economia que não acaba em 40 minutos.
 
 ## Como colocar no jogo
 
-1. Abra o `StealACritterEgg-v66.rbxl` no Studio. Ou, no seu jeito de sempre, copie a pasta `src` desta versão por cima da sua e ligue o Rojo.
+1. Abra o `StealACritterEgg-v66.1.rbxl` no Studio. Ou, no seu jeito de sempre, copie a pasta `src` desta versão por cima da sua e ligue o Rojo.
 2. Aperte **Play** e teste a lista do fim deste arquivo.
 3. **File > Publish to Roblox** por cima do jogo que já existe. O passo a passo está no `COMO-PUBLICAR.md`.
 
@@ -96,7 +109,7 @@ O começo continua rápido, para a criança não desistir. O que mudou:
 - você (o dono do jogo);
 - se o jogo for de um grupo, quem tem cargo 254 ou 255 (`Config.AdminMinRank`);
 - quem você colocar em `Config.Admins`, por exemplo `Config.Admins = { 12345678 }`;
-- no Studio, todo mundo pode, para você testar.
+- no Studio, todo mundo pode, para você testar (o evento fica só no teste, nunca nos servidores de verdade).
 
 **Como usar:** Menu ☰ > **Admin**. Toque 2 vezes no botão (dentro de 3 s) para confirmar, porque 1 toque sem querer liga em todos os servidores.
 
@@ -104,7 +117,7 @@ O começo continua rápido, para a criança não desistir. O que mudou:
 |---|---|
 | Luck x10 | sorte x10 em Lendário ou melhor por 15 min |
 | Golden Rain | 5 ovos dourados em cada servidor |
-| Pumpkin Rain | 3 ovos de abóbora em cada servidor |
+| Pumpkin Rain | 3 ovos de abóbora em cada servidor (só no Halloween) |
 | Party | começa o Festão da atualização agora |
 | 2x Money | renda em dobro por 15 min |
 
@@ -113,7 +126,7 @@ Os números ficam em `Config.AdminAbuse`.
 **Dica:** marque no grupo e no Discord, por exemplo "Admin Abuse sábado às 15h", e entre no jogo na hora. É isso que lota os servidores.
 
 ## 5. Mais coisas que dão vontade de voltar
-- **Sequência de roubos:** a cada 5 entregas sem ser pego, ganha 2 min de renda. A sequência aparece na tela e zera quando o guardião pega.
+- **Sequência de roubos:** a cada 5 entregas sem ser pego, ganha 2 min de renda. A sequência aparece no aviso de correr e zera quando o guardião pega.
 - **Notícias:** quando alguém choca Divine ou Celestial, todos os servidores ficam sabendo.
 - **Convite de amigo:** o amigo novo ganha $2K + 500 de velocidade na hora. Quem convidou ganha depois que o amigo joga 5 min e rouba 1 ovo, no máximo 5 por dia.
 
