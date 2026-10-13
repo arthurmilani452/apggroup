@@ -109,6 +109,18 @@ A curva é a mesma, uns 11% mais baixa: o começo fica um pouco mais fácil. Tam
 - **No Studio o evento já aparece ligado** para você testar (`Config.Halloween.TestInStudio`).
 - **Para mudar datas, chances e loja:** `Config.Halloween`.
 
+### 👥 Convite de amigo
+- **Quem entra pelo convite oficial** (botão "Invite") ganha $2K + 500 de velocidade.
+- **O amigo que convidou** ganha 15 min de renda (mínimo $5K) + 1K de velocidade, 1 vez por amigo, se estiver no mesmo servidor (`Config.Invite`).
+- **A Roblox permite** prêmio por convite. Por like e favorito, não, e o jogo continua sem dar.
+- **O botão** dizia "+25%" e agora diz "Invite". O +25% de dinheiro é por amigo JOGANDO junto, não por convite enviado.
+
+### Outras melhorias
+- **Vender um bicho Raro+ ou com mutação** pede um segundo toque ("Sure? Tap again!"). Criança vendia o Divine sem querer.
+- **Números no Creator Hub > Analytics:**
+  - **Economy:** de onde vem e para onde vai o dinheiro (venda, baú, presentes, diário, missões, códigos, loja, rebirth, Robux);
+  - **Custom Events:** `CaughtInZone` (em qual zona o guardião pega), `EggStolenZone`, `Rebirth`, `CodeRedeemed`, `CandyShopBuy`, `FriendInvited`.
+
 ## Como testar no Studio (Play)
 
 1. **Roubar um ovo e levar para casa:** tem que funcionar normal.
@@ -123,6 +135,8 @@ A curva é a mesma, uns 11% mais baixa: o começo fica um pouco mais fácil. Tam
    - em quem carrega, derruba o ovo;
    - na SAFE ZONE, não bate.
 6. **Presentes:** saia e volte. O tempo dos presentes continua de onde parou.
+
+Como publicar: veja o `COMO-PUBLICAR.md`.
 
 ## Para o Claude (ferramentas)
 - `tools/build_place.py`: coloca o código de `src` dentro do `.rbxl` (só o Source dos scripts muda).

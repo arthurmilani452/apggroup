@@ -689,7 +689,21 @@ local function refreshPets()
 			order += 1
 			petCard(petsGrid, slot, def, order, function(card)
 				local value = math.floor((slot.inc or 0) * 100)
-				button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(1, -14, 0, 52), BackgroundColor3 = Theme.Red, ZIndex = 15, Parent = card }, "Sell " .. Format.Money(value), function()
+				-- v65: bichinho Raro+ ou com mutação: toca 2 vezes para vender (criança vendia sem querer)
+				local precious = slot.m ~= nil or (Config.RarityIndex[def.Rarity] or 1) >= Config.RarityIndex.Rare
+				local confirmUntil = 0
+				local sellLabel
+				_, sellLabel = button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(1, -14, 0, 52), BackgroundColor3 = Theme.Red, ZIndex = 15, Parent = card }, "Sell " .. Format.Money(value), function()
+					if precious and os.clock() > confirmUntil then
+						confirmUntil = os.clock() + 3
+						sellLabel.Text = "Sure? Tap again!"
+						task.delay(3, function()
+							if sellLabel.Parent and os.clock() >= confirmUntil then
+								sellLabel.Text = "Sell " .. Format.Money(value)
+							end
+						end)
+						return
+					end
 					net:FireServer("Sell", slot.i)
 				end)
 			end)

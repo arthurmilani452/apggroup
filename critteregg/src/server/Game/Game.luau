@@ -485,6 +485,31 @@ local function funnel(player: Player, key: string)
 	end)
 end
 
+-- NÚMEROS DO JOGO (v65): aparecem em Creator Hub > Analytics > Economy e > Custom Events.
+-- Mostram de onde vem e para onde vai o dinheiro, e onde as crianças travam (pegas pelo guardião etc.).
+local AnalyticsService = game:GetService("AnalyticsService")
+local ECON_TYPE = {
+	Shop = Enum.AnalyticsEconomyTransactionType.Shop,
+	Gameplay = Enum.AnalyticsEconomyTransactionType.Gameplay,
+	TimedReward = Enum.AnalyticsEconomyTransactionType.TimedReward,
+	IAP = Enum.AnalyticsEconomyTransactionType.IAP,
+}
+local function econ(player: Player, source: boolean, amount: number, kind: string, sku: string)
+	local state = states[player]
+	if not state or type(amount) ~= "number" or amount <= 0 or amount ~= amount or amount == math.huge then
+		return
+	end
+	task.spawn(pcall, function()
+		AnalyticsService:LogEconomyEvent(player, if source then Enum.AnalyticsEconomyFlowType.Source else Enum.AnalyticsEconomyFlowType.Sink,
+			"Cash", amount, state.Data.Money, (ECON_TYPE[kind] or ECON_TYPE.Gameplay).Name, sku)
+	end)
+end
+local function custom(player: Player, name: string, value: number?)
+	task.spawn(pcall, function()
+		AnalyticsService:LogCustomEvent(player, name, value or 1)
+	end)
+end
+
 local function questAdd(player: Player, key: string, amount: number?)
 	local state = states[player]
 	if not state then
@@ -671,6 +696,7 @@ local function sellAt(player: Player, index: number): number
 	local value = if def then Config.SellValue(def, slot.Scale or 1, slot.Mut, slot.Zone) else 0
 	table.remove(state.Data.Slots, index)
 	state.Data.Money += value
+	econ(player, true, value, "Gameplay", "SellPet")
 	return value
 end
 
@@ -1329,6 +1355,7 @@ local function deliver(player: Player)
 		end)
 	end
 	questAdd(player, "Steal")
+	custom(player, "EggStolenZone", carry.Zone.Index or 1)
 	do
 		local rIndex = Config.RarityIndex[egg.Def.Rarity] or 1
 		local label = Config.SizeLabel(egg.Scale or 1)
@@ -1347,6 +1374,7 @@ local function deliver(player: Player)
 end
 
 local function catchCarrier(zone, player: Player)
+	custom(player, "CaughtInZone", zone.Index)
 	local root = rootOf(player)
 	endCarry(player, false)
 	if root then
@@ -1631,6 +1659,7 @@ local function upgrade(player: Player, what: string)
 		end
 		data.Money -= info.Cost
 		data.PenLevel += 1
+		econ(player, false, info.Cost, "Shop", "PenLevel" .. data.PenLevel)
 		funnel(player, "Pen")
 		if state.Plot then
 			World.BuildPen(state.Plot, data.PenLevel)
@@ -1650,6 +1679,7 @@ local function upgrade(player: Player, what: string)
 		end
 		data.Money -= info.Cost
 		data.TreadLevel += 1
+		econ(player, false, info.Cost, "Shop", "Treadmill" .. data.TreadLevel)
 		funnel(player, "Treadmill")
 		toast(player, ("%s Treadmill! +%s speed per step."):format(info.Name, Format.Short(info.Gain)), "success")
 		net:FireClient(player, "Purchased")
@@ -1670,6 +1700,7 @@ local function buyTrail(player: Player, id: string)
 		end
 		data.Money -= trail.Cost
 		table.insert(data.Trails, id)
+		econ(player, false, trail.Cost, "Shop", "Trail_" .. id)
 		toast(player, ("You bought the %s! (x%s treadmill speed)"):format(trail.Name, tostring(trail.Mult)), "success")
 		net:FireClient(player, "Purchased")
 	end
@@ -1699,6 +1730,7 @@ local function buyBoost(player: Player, id: string)
 		return toast(player, "Not enough money! You need " .. Format.Money(price), "error")
 	end
 	data.Money -= price
+	econ(player, false, price, "Shop", "Boost_" .. id)
 	local start = math.max(now(), data.Boosts[id] or 0)
 	data.Boosts[id] = start + boost.Minutes * 60
 	toast(player, ("%s %s active! (+%d minutes)"):format(boost.Icon, boost.Name, boost.Minutes), "success")
@@ -1778,6 +1810,7 @@ local function claimChest(player: Player)
 	data.Money += cash
 	data.Speed += speed
 	applySpeed(player)
+	econ(player, true, cash, "TimedReward", "Chest")
 	banner(player, ("FREE CHEST! +%s  +%s Speed"):format(Format.Money(cash), Format.Short(speed)), Color3.fromRGB(120, 255, 120))
 	net:FireClient(player, "Purchased")
 	net:FireClient(player, "ChestOpened")
@@ -1803,6 +1836,7 @@ local function claimIndex(player: Player, id: string?): number
 	end
 	if claimed > 0 then
 		data.Money += cashTotal
+		econ(player, true, cashTotal, "Gameplay", "Index")
 		data.Speed += speedTotal
 		applySpeed(player)
 		toast(player, ("Index reward! +%s  +%s Speed"):format(Format.Money(cashTotal), Format.Short(speedTotal)), "success")
@@ -2478,6 +2512,7 @@ local function claimGift(player: Player, index: any)
 	local cash = math.max(info.MinCash, math.floor((state.Income or 0) * 60 * info.Cash))
 	data.Money += cash
 	data.Speed += info.Speed
+	econ(player, true, cash, "TimedReward", "Gift" .. index)
 	applySpeed(player)
 	local extra = ""
 	if info.Egg then
@@ -2528,6 +2563,7 @@ local function grantProduct(player: Player, key: string)
 	elseif key == "Cash" then
 		local cash = math.max(50_000, math.floor((state.Income or 0) * 3600))
 		data.Money += cash
+		econ(player, true, cash, "IAP", "CashPack")
 		banner(player, "+" .. Format.Money(cash), Color3.fromRGB(110, 255, 90))
 	elseif key == "Starter" then
 		-- v65: SEM ovo sorteado. Item pago com prêmio sorteado é "paid random item" para a Roblox
@@ -2535,6 +2571,7 @@ local function grantProduct(player: Player, key: string)
 		-- O pacote agora tem só coisas certas: dinheiro + velocidade + 2x Cash.
 		data.StarterBought = true
 		data.Money += info.Cash or 50_000
+		econ(player, true, info.Cash or 50_000, "IAP", "StarterPack")
 		data.Speed += info.Speed or 0
 		applySpeed(player)
 		local start = math.max(now(), data.Boosts.Money2 or 0)
@@ -2715,6 +2752,7 @@ local function claimDaily(player: Player)
 	data.Money += cash
 	data.Speed += reward.Speed
 	applySpeed(player)
+	econ(player, true, cash, "TimedReward", "Daily" .. streak)
 	banner(player, ("DAY %d REWARD! +%s  +%s Speed"):format(streak, Format.Money(cash), Format.Short(reward.Speed)), Color3.fromRGB(120, 255, 120))
 	if reward.Egg then
 		local zoneIndex = bestZoneFor(state)
@@ -2738,6 +2776,8 @@ local function rebirth(player: Player)
 		endCarry(player, false)
 	end
 	data.Rebirths = (data.Rebirths or 0) + 1
+	econ(player, false, data.Money, "Gameplay", "Rebirth")
+	custom(player, "Rebirth", data.Rebirths)
 	data.Money = 0
 	data.Speed = Config.StartSpeed
 	data.TreadLevel = 1
@@ -2837,6 +2877,7 @@ local function claimQuest(player: Player, key: any)
 			local cash = math.max(info.MinCash, math.floor((state.Income or 0) * 60 * info.Minutes))
 			state.Data.Money += cash
 			state.Data.Speed += info.Speed
+			econ(player, true, cash, "Gameplay", "Quest_" .. info.Key)
 			applySpeed(player)
 			banner(player, ("QUEST REWARD! +%s  +%s Speed"):format(Format.Money(cash), Format.Short(info.Speed)), Color3.fromRGB(120, 255, 120))
 			net:FireClient(player, "Purchased")
@@ -2937,6 +2978,7 @@ local function candyBuy(player: Player, index: any)
 	end
 	data.Candy -= item.Cost
 	addEggSlot(player, def, bestZoneFor(state), 1, item.Mut, true)
+	custom(player, "CandyShopBuy", index)
 	banner(player, ("\u{1F383} %s%s egg is ready in your pen!"):format(if item.Mut then item.Mut .. " " else "", def.Name), Color3.fromRGB(255, 140, 40))
 	net:FireClient(player, "Purchased")
 	publish(player, true)
@@ -2999,6 +3041,7 @@ local function redeemCode(player: Player, raw: any)
 	if reward.Minutes then
 		local cash = math.max(reward.Minutes * 500, math.floor((state.Income or 0) * 60 * reward.Minutes))
 		data.Money += cash
+		econ(player, true, cash, "Gameplay", "Code_" .. code)
 		table.insert(parts, "+" .. Format.Money(cash))
 	end
 	if reward.Speed then
@@ -3024,6 +3067,7 @@ local function redeemCode(player: Player, raw: any)
 			table.insert(parts, def.Rarity .. " egg")
 		end
 	end
+	custom(player, "CodeRedeemed")
 	banner(player, "CODE! " .. table.concat(parts, "  "), Color3.fromRGB(120, 230, 255))
 	net:FireClient(player, "Purchased")
 	net:FireClient(player, "CodeOk")
@@ -3328,6 +3372,7 @@ local function onPlayerAdded(player: Player)
 		local cash = math.floor(state.Income * seconds * Config.OfflineRate)
 		if cash > 0 then
 			data.Money += cash
+			econ(player, true, cash, "TimedReward", "Offline")
 			task.delay(4, function()
 				if player.Parent then
 					banner(player, ("While you were away your pets made %s!"):format(Format.Money(cash)), Color3.fromRGB(110, 255, 90))
@@ -3351,6 +3396,53 @@ local function onPlayerAdded(player: Player)
 	if player.Character then
 		task.spawn(onCharacter, player, player.Character)
 	end
+	-- CONVITE DE AMIGO (v65): quem entrou pelo convite oficial (botão "Invite") de um amigo ganha um
+	-- presente, e o amigo que convidou também (se estiver no servidor; 1 vez por amigo, até 50).
+	-- A Roblox permite prêmio por convite ("referral rewards"); NÃO dá prêmio por like/favorito.
+	task.spawn(function()
+		local ok, joinData = pcall(player.GetJoinData, player)
+		local inviterId = ok and type(joinData) == "table" and tonumber((joinData :: any).ReferredByPlayerId) or nil
+		if not inviterId or inviterId <= 0 or inviterId == player.UserId or data.InvitedBy or (data.Stolen or 0) > 5 then
+			return
+		end
+		data.InvitedBy = inviterId
+		local gift = Config.Invite
+		data.Money += gift.NewCash
+		data.Speed += gift.NewSpeed
+		applySpeed(player)
+		econ(player, true, gift.NewCash, "Gameplay", "InvitedBonus")
+		task.delay(6, function()
+			if player.Parent then
+				banner(player, ("Your friend invited you! +%s  +%s Speed"):format(Format.Money(gift.NewCash), Format.Short(gift.NewSpeed)), Color3.fromRGB(120, 220, 255))
+			end
+		end)
+		local inviter = Players:GetPlayerByUserId(inviterId)
+		local inviterState = inviter and states[inviter]
+		if inviter and inviterState then
+			local list = inviterState.Data.Referred
+			if type(list) ~= "table" then
+				list = {}
+				inviterState.Data.Referred = list
+			end
+			local key = tostring(player.UserId)
+			local count = 0
+			for _ in list do
+				count += 1
+			end
+			if not list[key] and count < 50 then
+				list[key] = true
+				local cash = math.max(gift.InviterMinCash, math.floor((inviterState.Income or 0) * 60 * gift.InviterMinutes))
+				inviterState.Data.Money += cash
+				inviterState.Data.Speed += gift.InviterSpeed
+				applySpeed(inviter)
+				econ(inviter, true, cash, "Gameplay", "InviteReward")
+				custom(inviter, "FriendInvited")
+				banner(inviter, ("%s joined from your invite! +%s  +%s Speed"):format(player.DisplayName, Format.Money(cash), Format.Short(gift.InviterSpeed)), Color3.fromRGB(120, 220, 255))
+				publish(inviter)
+			end
+		end
+		publish(player)
+	end)
 	if halloweenNow() then
 		task.delay(8, function()
 			if player.Parent then

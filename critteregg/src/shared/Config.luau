@@ -459,6 +459,9 @@ Config.OfflineMaxHours = 12
 Config.FriendBoost = 0.25 -- +25% de dinheiro por amigo no servidor
 Config.FriendBoostMax = 1 -- até +100%
 Config.FriendEggSeconds = 120 -- jogar 2 min com amigo = ovo da amizade (1 por dia)
+-- v65: CONVITE (botão "Invite"): quem entra pelo convite de um amigo ganha New*, e quem convidou ganha
+-- Inviter* (minutos da renda, mínimo InviterMinCash) se estiver no mesmo servidor. 1 vez por amigo.
+Config.Invite = { NewCash = 2_000, NewSpeed = 500, InviterMinutes = 15, InviterMinCash = 5_000, InviterSpeed = 1_000 }
 -- EVENTO DA SORTE: a cada LuckyEvery segundos (relógio UTC), durante LuckyLength, raros aparecem x3 nos ninhos.
 -- Fim de semana (sáb/dom UTC): dinheiro x2 para todo mundo.
 -- BICHO DA SEMANA: muda toda segunda (UTC); dentro da raridade dele, sai WeeklyMult vezes mais
