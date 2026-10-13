@@ -110,7 +110,9 @@ Config.Zones = {
 		Guardian = "cupcaketoad", Height = 40, Emoji = "\u{1F996}", Sky = rgb(255, 215, 170),
 		Floor = { rgb(200, 170, 110), rgb(185, 155, 95) }, Wall = { rgb(140, 100, 65), rgb(120, 85, 55) }, Top = rgb(90, 170, 60), Props = "prehistoric",
 		Egg = { Style = "spotted", Color = rgb(255, 180, 220), Accent = rgb(110, 215, 255) } },
-	{ Id = "cosmic", Name = "Starry Space", Speed = 620_000_000, MinSpeed = 245_000_000, Mult = 300_000_000, Pool = { "galaxy" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary",  "Mythic", "Secret", "Divine", "Celestial" },
+	-- v66: Speed 620M -> 190M e MinSpeed 245M -> 105M. O salto 16M -> 620M era 38x (as outras zonas pedem ~4x):
+	--   com a esteira mais cara virava um muro de horas. 190M fica no meio do caminho (16M -> 190M -> 2,2B = ~12x cada).
+	{ Id = "cosmic", Name = "Starry Space", Speed = 190_000_000, MinSpeed = 105_000_000, Mult = 300_000_000, Pool = { "galaxy" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary",  "Mythic", "Secret", "Divine", "Celestial" },
 		Guardian = "cosmodragon", Height = 32, Emoji = "\u{1FA90}", Sky = rgb(120, 90, 200),
 		Floor = { rgb(40, 20, 70), rgb(55, 30, 90) }, Wall = { rgb(50, 28, 85), rgb(38, 20, 68) }, Top = rgb(255, 230, 110), Props = "cosmic",
 		Egg = { Style = "cosmic", Color = rgb(80, 50, 170), Accent = rgb(255, 230, 120) } },
@@ -130,8 +132,13 @@ Config.Zones = {
 
 -- renda base de cada raridade (vezes o Mult da zona e o tamanho/mutação do ovo)
 Config.RarityIncome = { Common = 1, Uncommon = 3, Rare = 8, Epic = 25, Legendary = 90, Mythic = 400, Secret = 2_500, Divine = 15_000, Celestial = 90_000 }
--- prêmio do Index (uma vez por bichinho descoberto): Cash = 100x a renda base; Speed = velocidade de presente
-Config.IndexSpeed = { Common = 120, Uncommon = 260, Rare = 420, Epic = 720, Legendary = 1_500, Mythic = 4_000, Secret = 12_000, Divine = 40_000, Celestial = 150_000 }
+-- prêmio do Index (uma vez por bichinho descoberto): Cash = 100x a renda base; Speed = velocidade de presente.
+-- v66: Speed = IndexShare (fatia do CAMINHO da zona até o portão da próxima), nunca menos que IndexSpeed (que só
+--   vale nas zonas 1-2). Antes (v65) era IndexSpeed * Mult^0.75: crescia ~5,6x por zona e os portões ~4x, então da
+--   zona 3 em diante 2-4 bichinhos novos abriam a zona seguinte e dava para zerar as 12 zonas em ~40 min
+--   (tools/sim/progression.py). Agora a zona INTEIRA descoberta vale ~85% do caminho (o normal é achar uns 20-40%).
+Config.IndexSpeed = { Common = 60, Uncommon = 130, Rare = 210, Epic = 360, Legendary = 750, Mythic = 2_000, Secret = 6_000, Divine = 20_000, Celestial = 75_000 }
+Config.IndexShare = { Common = 0.01, Uncommon = 0.015, Rare = 0.02, Epic = 0.03, Legendary = 0.05, Mythic = 0.08, Secret = 0.12, Divine = 0.18, Celestial = 0.25 }
 
 ---------------------------------------------------------------------
 -- Ovos, tamanho (Scale) e renda
@@ -201,10 +208,26 @@ function Config.SellValue(def, s: number, mutation: string?, zoneIndex: number?)
 	return math.floor(Config.PetIncome(def, s, mutation, zoneIndex) * 100)
 end
 
-function Config.IndexReward(def, zoneIndex: number?): (number, number)
+-- portão (Speed) da zona SEGUINTE; depois da última zona, um portão imaginário 3x acima
+function Config.NextGate(zoneIndex: number?): number
+	local index = if Config.Zones[zoneIndex or 1] then zoneIndex or 1 else 1
+	local nextZone = Config.Zones[index + 1]
+	if nextZone then
+		return nextZone.Speed
+	end
+	return Config.Zones[index].Speed * 3
+end
+
+-- velocidade que o Index dá por um bichinho novo desta raridade descoberto nesta zona
+function Config.IndexSpeedReward(rarity: string, zoneIndex: number?): number
 	local zone = Config.Zones[zoneIndex or 1] or Config.Zones[1]
-	local speedReward = math.floor((Config.IndexSpeed[def.Rarity] or 100) * math.max(1, zone.Mult ^ 0.75))
-	return math.floor(Config.BaseIncome(def, zoneIndex) * 100), speedReward
+	local share = Config.IndexShare[rarity] or Config.IndexShare.Common
+	local path = Config.NextGate(zoneIndex) - zone.Speed
+	return math.floor(math.max(Config.IndexSpeed[rarity] or Config.IndexSpeed.Common, share * path))
+end
+
+function Config.IndexReward(def, zoneIndex: number?): (number, number)
+	return math.floor(Config.BaseIncome(def, zoneIndex) * 100), Config.IndexSpeedReward(def.Rarity, zoneIndex)
 end
 
 function Config.GrowSeconds(def, s: number): number
@@ -251,13 +274,17 @@ end
 local TREAD_NAMES = { "Basic", "Bronze", "Silver", "Gold", "Ruby", "Emerald", "Sapphire", "Diamond", "Neon", "Lava", "Frost", "Cosmic", "Mythic", "Celestial", "Angelic", "Divine" }
 local TREAD_COLORS = { rgb(120, 120, 130), rgb(205, 130, 70), rgb(200, 205, 215), rgb(255, 200, 50), rgb(230, 40, 70), rgb(40, 200, 110), rgb(50, 110, 240), rgb(150, 235, 255),
 	rgb(255, 80, 220), rgb(255, 110, 30), rgb(120, 220, 255), rgb(130, 70, 230), rgb(255, 60, 120), rgb(255, 240, 160), rgb(255, 255, 255), rgb(255, 225, 90) }
+-- v66: do nível 4 em diante cada nível custa TreadmillRamp vezes mais (5,5x -> 33x por nível; níveis 1-3 iguais).
+--   Sem isso a renda (Mult 10x por zona) comprava a esteira rápido demais: mesmo SEM o Index as 12 zonas
+--   acabavam em ~2 h (tools/sim/progression.py). Quem já comprou um nível continua com ele.
+Config.TreadmillRamp = 6
 Config.Treadmills = {}
 for level = 1, #TREAD_NAMES do
 	table.insert(Config.Treadmills, {
 		Name = TREAD_NAMES[level],
 		Color = TREAD_COLORS[level],
 		Gain = math.floor(2 * 2.6 ^ (level - 1) + 0.5),
-		Cost = if level == 1 then 0 else math.floor(2_500 * 5.5 ^ (level - 2)),
+		Cost = if level == 1 then 0 else math.floor(2_500 * 5.5 ^ (level - 2) * Config.TreadmillRamp ^ math.max(0, level - 3)),
 	})
 end
 Config.TreadmillUnlockPen = 1 -- a esteira fica trancada (holograma) até comprar o cercado nível 1
@@ -451,11 +478,13 @@ Config.Daily = {
 	{ Minutes = 60, MinCash = 50_000, Speed = 15_000, Egg = true }, -- dia 7: ovo da sorte
 }
 -- REBIRTH: zera dinheiro, velocidade, esteira, trilhas E OS BICHINHOS/OVOS; mantém cercado e Index.
--- Cada rebirth = +50% dinheiro e +25% velocidade na esteira para sempre.
+-- Cada rebirth = +100% dinheiro e +50% velocidade na esteira para sempre.
+-- v66: RebirthTread 0.25 -> 0.5. Com +25% quem fazia rebirth assim que podia chegava na última zona DEPOIS de
+--   quem nunca fazia (a velocidade do Index não volta); com +50% chega ~25-35% antes (tools/sim/progression.py).
 Config.RebirthBase = 1_000_000
 Config.RebirthGrowth = 25
 Config.RebirthMoney = 1 -- cada rebirth = +100% de dinheiro para sempre (o rebirth leva os bichinhos)
-Config.RebirthTread = 0.25
+Config.RebirthTread = 0.5
 function Config.RebirthCost(rebirths: number): number
 	return Config.RebirthBase * Config.RebirthGrowth ^ (rebirths or 0)
 end
@@ -472,12 +501,29 @@ Config.FriendEggSeconds = 120 -- jogar 2 min com amigo = ovo da amizade (1 por d
 Config.Invite = { NewCash = 2_000, NewSpeed = 500, InviterMinutes = 15, InviterMinCash = 5_000, InviterSpeed = 1_000, PerDay = 5 }
 -- EVENTO DA SORTE: a cada LuckyEvery segundos (relógio UTC), durante LuckyLength, raros aparecem x3 nos ninhos.
 -- Fim de semana (sáb/dom UTC): dinheiro x2 para todo mundo.
--- BICHO DA SEMANA: muda toda segunda (UTC); dentro da raridade dele, sai WeeklyMult vezes mais
-Config.WeeklyCritters = { "divineunicorn", "celestialdragon", "cosmoking", "goldengoober", "solarking" }
+-- BICHO DA SEMANA: muda toda segunda (UTC). Na zona onde ele vive, a raridade dele pesa WeeklyRarityMult vezes mais
+-- (Config.WeeklyBoostFor) e, dentro da raridade, ele sai WeeklyMult vezes mais que os outros.
+-- v66: rodízio de 24 semanas com Lendários/Míticos de TODAS as 12 zonas (alternando começo/meio/fim do mapa).
+--   Antes eram 5 bichinhos da zona 1 sozinhos na raridade (Divino/Celestial/Secreto): o x5 não mudava nada.
+--   Agora o da semana sai ~3-9x mais na zona dele (python3 tools/sim/progression.py --weekly).
+Config.WeeklyCritters = {
+	"sunwing", "volcanoram", "glaciaroo", "cosmodragon", "ghostcaptain", "tideunicorn", "brontoboom", "cyberwolf",
+	"glacierunicorn", "cottonphoenix", "voidicorn", "supergelatogato", "krakenlord", "starlightunicorn", "spinoking", "deepkraken",
+	"blizzardwyrm", "nebuladragon", "stormhorn", "infernobeast", "treasureturtle", "chocodrake", "megamech", "megamozzarella",
+}
 Config.WeeklyMult = 5
+Config.WeeklyRarityMult = 3
 function Config.WeeklyCritter(t: number): string
 	local week = (t // 86400 + 3) // 7 -- semanas começando na segunda
 	return Config.WeeklyCritters[(week % #Config.WeeklyCritters) + 1]
+end
+-- quanto o peso da RARIDADE deste bichinho sobe no sorteio do ninho (só na semana dele; senão 1).
+-- O servidor só aplica na zona onde o bichinho existe (poolFor da zona tem ele).
+function Config.WeeklyBoostFor(def, t: number?): number
+	if def and def.Id == Config.WeeklyCritter(t or os.time()) then
+		return Config.WeeklyRarityMult
+	end
+	return 1
 end
 function Config.WeeklyEnds(t: number): number
 	local week = (t // 86400 + 3) // 7

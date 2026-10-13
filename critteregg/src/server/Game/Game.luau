@@ -250,6 +250,7 @@ local function refreshBoards(state)
 		end
 	end
 	World.SetTreadmillLocked(plot, data.PenLevel < Config.TreadmillUnlockPen)
+	World.StyleTreadmill(plot, data.TreadLevel)
 end
 
 local function computeGain(state): number
@@ -1775,6 +1776,12 @@ local function upgrade(player: Player, what: string)
 		data.TreadLevel += 1
 		econ(player, false, info.Cost, "Shop", "Treadmill" .. data.TreadLevel)
 		funnel(player, "Treadmill")
+		if state.Plot then
+			World.StyleTreadmill(state.Plot, data.TreadLevel)
+			World.TreadmillBurst(state.Plot, data.TreadLevel)
+			net:FireAllClients("SfxAt", "Delivered", state.Plot.TreadCenter or state.Plot.Belt.Position)
+		end
+		banner(player, ("%s TREADMILL! +%s speed per step"):format(string.upper(info.Name), Format.Short(info.Gain)), info.Color)
 		toast(player, ("%s Treadmill! +%s speed per step."):format(info.Name, Format.Short(info.Gain)), "success")
 		net:FireClient(player, "Purchased")
 	end
@@ -3730,6 +3737,7 @@ local function onPlayerRemoving(player: Player)
 		state.Plot.OwnerLabel.Text = "Empty Pen"
 		World.BuildPen(state.Plot, 0)
 		World.SetTreadmillLocked(state.Plot, true)
+		World.StyleTreadmill(state.Plot, 0)
 		state.Plot.Belt.AssemblyLinearVelocity = Vector3.zero
 		state.Plot.Belt:SetAttribute("OwnerId", nil)
 		state.Plot.Belt:SetAttribute("Unlocked", nil)

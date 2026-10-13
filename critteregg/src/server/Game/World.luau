@@ -694,10 +694,10 @@ local function buildPlot(index: number, x: number)
 	local lock = part(folder, "TreadLock", Vector3.new(12.4, 6, 22.4), CFrame.new(x + 13, 3, tz), rgb(160, 160, 175), Enum.Material.ForceField, { CanCollide = true, Transparency = 0.2 })
 	billboard(lock, Vector3.new(0, 5, 0), UDim2.fromScale(10, 3), { { "\u{1F512} Unlock Pen Level 1", WHITE, 0.55 }, { "to use the treadmill", rgb(255, 225, 120), 0.45 } }, 90)
 	-- ESTEIRA 3D do Toolbox por cima (as peças de bloquinho ficam invisíveis, mas o chão que anda continua)
+	local deckTop = 1.6
 	local fancy = placeAsset(tread, "Treadmill", Vector3.new(x + 13, 0, tz), 13.2, math.pi / 2, nil, true)
 	if fancy then
 		fancy.Name = "TreadmillModel"
-		local deckTop = 1.6
 		local bestArea = 0
 		for _, item in fancy:GetDescendants() do
 			if item:IsA("BasePart") and item.Name == "ThreadPart" then
@@ -729,6 +729,7 @@ local function buildPlot(index: number, x: number)
 		end
 	end
 	plot.Belt = belt
+	plot.TreadCenter = Vector3.new(x + 13, deckTop, tz) -- (v66) centro do chão da esteira, para o visual de cada nível
 	plot.Screen = screen
 	plot.TreadLock = lock
 	plot.TreadModel = tread
@@ -814,6 +815,194 @@ function World.BuildPen(plot, penLevel: number)
 	block(plot.FenceFolder, "GatePost", Vector3.new(1.8, 9, 1.8), CFrame.new(x - 5, 4.5, front), post, true)
 	block(plot.FenceFolder, "GatePost", Vector3.new(1.8, 9, 1.8), CFrame.new(x + 5, 4.5, front), post, true)
 	block(plot.FenceFolder, "GateTop", Vector3.new(12, 1.6, 2), CFrame.new(x, 9.4, front), color)
+end
+
+---------------------------------------------------------------------
+-- ESTEIRA 2.0 (v66): cada nível tem um visual mais incrível que o anterior
+--   2-4  Bronze/Silver/Gold ....... trilhos de metal brilhante (Gold cintila)
+--   5-8  Ruby/Emerald/Sapphire/Diamond . pilares de pedra preciosa com joias nos cantos
+--   9    Neon .................... arco de neon com luz
+--   10   Lava .................... brasas subindo
+--   11   Frost ................... flocos de neve e cristais de gelo
+--   12   Cosmic .................. estrelas flutuando
+--   13   Mythic .................. aura rosa
+--   14   Celestial ............... coluna de luz até o céu
+--   15   Angelic ................. auréola e asas no arco
+--   16   Divine .................. arco arco-íris + raios dourados
+-- Tudo sem física, sem sombra e com poucas partículas (celular).
+---------------------------------------------------------------------
+local SPARKLE = "rbxasset://textures/particles/sparkles_main.dds"
+local RAINBOW = { rgb(255, 80, 80), rgb(255, 160, 60), rgb(255, 230, 80), rgb(90, 220, 90), rgb(70, 170, 255), rgb(150, 90, 255), rgb(255, 110, 220) }
+
+local function fxPart(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material, shape: Enum.PartType?): Part
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Shape = shape or Enum.PartType.Block
+	p.Size = size
+	p.CFrame = cframe
+	p.Color = color
+	p.Material = material
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Parent = parent
+	return p
+end
+
+local function emitter(parent: Instance, color: ColorSequence, props: { [string]: any }): ParticleEmitter
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = SPARKLE
+	e.Color = color
+	e.LightEmission = 1
+	e.Lifetime = NumberRange.new(1, 2)
+	e.Speed = NumberRange.new(1, 3)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Size = NumberSequence.new(0.5, 0)
+	for key, value in props do
+		(e :: any)[key] = value
+	end
+	e.Parent = parent
+	return e
+end
+
+function World.StyleTreadmill(plot, level: number)
+	if plot.StyledLevel == level then
+		return
+	end
+	plot.StyledLevel = level
+	local old = plot.Model:FindFirstChild("TreadFX")
+	if old then
+		old:Destroy()
+	end
+	local info = Config.Treadmills[level]
+	local center: Vector3? = plot.TreadCenter
+	if level <= 1 or not info or not center then
+		return
+	end
+	local fx = Instance.new("Folder")
+	fx.Name = "TreadFX"
+	local c = info.Color
+	local base = CFrame.new(center)
+	local halfX, halfZ = 6, 10.5
+	-- 2+: trilhos laterais (metal até o Gold, neon depois)
+	for _, side in { -1, 1 } do
+		local rail = fxPart(fx, "Rail", Vector3.new(0.6, 0.6, halfZ * 2), base * CFrame.new(side * (halfX - 0.2), 1.3, 0), c,
+			if level <= 3 then Enum.Material.Metal elseif level == 4 then Enum.Material.Foil else Enum.Material.Neon)
+		rail.Reflectance = if level <= 4 then 0.3 else 0
+	end
+	-- 4+: brilhinhos subindo da esteira
+	local core = fxPart(fx, "Core", Vector3.new(halfX * 2 - 2, 0.2, halfZ * 2 - 2), base * CFrame.new(0, 0.3, 0), c, Enum.Material.SmoothPlastic)
+	core.Transparency = 1
+	if level >= 4 then
+		emitter(core, ColorSequence.new(c, Color3.new(1, 1, 1)), { Rate = math.min(3 + level * 0.6, 12), Acceleration = Vector3.new(0, 2, 0) })
+	end
+	-- 5+: pilares de pedra preciosa com joia em cima
+	if level >= 5 then
+		local height = 3.5 + (level - 5) * 0.25
+		for _, sx in { -1, 1 } do
+			for _, sz in { -1, 1 } do
+				local at = base * CFrame.new(sx * (halfX + 0.6), height / 2, sz * halfZ)
+				fxPart(fx, "Pillar", Vector3.new(1.1, height, 1.1), at, c, Enum.Material.Glass).Transparency = 0.25
+				fxPart(fx, "Gem", Vector3.one * 1.5, at * CFrame.new(0, height / 2 + 0.9, 0) * CFrame.Angles(0, math.rad(45), math.rad(45)), c, Enum.Material.Neon)
+			end
+		end
+	end
+	-- 9+: arco de neon atrás de quem corre, com luz
+	local archTop = 12
+	if level >= 9 then
+		for _, sx in { -1, 1 } do
+			fxPart(fx, "ArchPost", Vector3.new(1, archTop, 1), base * CFrame.new(sx * (halfX + 0.6), archTop / 2, halfZ - 1), c, Enum.Material.Neon)
+		end
+		if level >= 16 then
+			-- DIVINE: arco arco-íris
+			local width = (halfX + 0.6) * 2 + 1
+			for k, color in RAINBOW do
+				local w = width / #RAINBOW
+				fxPart(fx, "ArchTop", Vector3.new(w, 1.2, 1.2), base * CFrame.new(-width / 2 + w * (k - 0.5), archTop, halfZ - 1), color, Enum.Material.Neon)
+			end
+		else
+			fxPart(fx, "ArchTop", Vector3.new((halfX + 0.6) * 2 + 1, 1.2, 1.2), base * CFrame.new(0, archTop, halfZ - 1), c, Enum.Material.Neon)
+		end
+		local light = Instance.new("PointLight")
+		light.Color = c
+		light.Range = 16
+		light.Brightness = 1.5
+		light.Shadows = false
+		light.Parent = core
+	end
+	-- assinatura de cada nível alto
+	local sky = fxPart(fx, "Sky", Vector3.new(halfX * 2, 0.2, halfZ * 2), base * CFrame.new(0, archTop + 2, 0), c, Enum.Material.SmoothPlastic)
+	sky.Transparency = 1
+	if level == 10 then -- LAVA: brasas
+		emitter(core, ColorSequence.new(rgb(255, 160, 40), rgb(255, 50, 20)), { Rate = 14, Speed = NumberRange.new(4, 8), SpreadAngle = Vector2.new(25, 25),
+			Acceleration = Vector3.new(0, 6, 0), Size = NumberSequence.new(0.35, 0), Lifetime = NumberRange.new(0.8, 1.5) })
+	elseif level == 11 then -- FROST: neve + cristais
+		emitter(sky, ColorSequence.new(Color3.new(1, 1, 1), rgb(190, 235, 255)), { Rate = 12, Speed = NumberRange.new(0.5, 1.5), Acceleration = Vector3.new(0, -3, 0),
+			Lifetime = NumberRange.new(2.5, 3.5), Size = NumberSequence.new(0.4, 0.2), LightEmission = 0.5 })
+		for _, sx in { -1, 1 } do
+			for k = 0, 2 do
+				fxPart(fx, "Ice", Vector3.new(1, 2.5 + k, 1), base * CFrame.new(sx * (halfX + 2), 1.2 + k * 0.5, -6 + k * 6) * CFrame.Angles(0, 0, math.rad(sx * 15)), rgb(190, 235, 255), Enum.Material.Ice)
+			end
+		end
+	elseif level == 12 then -- COSMIC: estrelas
+		emitter(sky, ColorSequence.new(rgb(200, 170, 255), Color3.new(1, 1, 1)), { Rate = 10, Speed = NumberRange.new(0.2, 0.8), Lifetime = NumberRange.new(3, 5),
+			Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, 0.7), NumberSequenceKeypoint.new(1, 0) }) })
+	elseif level == 13 then -- MYTHIC: aura rosa
+		local aura = fxPart(fx, "Aura", Vector3.new(halfX * 2 + 3, 9, halfZ * 2 + 3), base * CFrame.new(0, 4.5, 0), rgb(255, 90, 170), Enum.Material.ForceField, Enum.PartType.Ball)
+		aura.Transparency = 0.2
+	elseif level >= 14 then
+		-- CELESTIAL+: coluna de luz até o céu atrás da esteira
+		local column = fxPart(fx, "LightColumn", Vector3.new(80, 6, 6), base * CFrame.new(0, 40, halfZ + 3) * CFrame.Angles(0, 0, math.rad(90)),
+			if level >= 16 then rgb(255, 225, 90) else c, Enum.Material.Neon, Enum.PartType.Cylinder)
+		column.Transparency = 0.8
+		if level >= 15 then
+			-- ANGELIC+: auréola e asas no arco
+			for k = 0, 11 do
+				local a = math.rad(k * 30)
+				fxPart(fx, "Halo", Vector3.new(0.9, 0.35, 0.5), base * CFrame.new(math.cos(a) * 2.6, archTop + 3, halfZ - 1 + math.sin(a) * 2.6) * CFrame.Angles(0, -a, 0),
+					rgb(255, 240, 160), Enum.Material.Neon)
+			end
+			for _, sx in { -1, 1 } do
+				for k = 0, 2 do
+					local wing = Instance.new("WedgePart")
+					wing.Name = "Wing"
+					wing.Size = Vector3.new(0.3, 2.4 - k * 0.5, 4 - k)
+					wing.CFrame = base * CFrame.new(sx * (halfX + 2.5 + k * 1.2), archTop - 1 - k * 1.1, halfZ - 1) * CFrame.Angles(0, math.rad(sx * 90), math.rad(sx * 20))
+					wing.Color = Color3.new(1, 1, 1)
+					wing.Material = Enum.Material.SmoothPlastic
+					wing.Anchored = true
+					wing.CanCollide = false
+					wing.CanQuery = false
+					wing.CanTouch = false
+					wing.CastShadow = false
+					wing.Parent = fx
+				end
+			end
+		end
+		if level >= 16 then
+			-- DIVINE: raios dourados
+			emitter(sky, ColorSequence.new(rgb(255, 230, 120), rgb(255, 255, 255)), { Rate = 8, Speed = NumberRange.new(0, 0), Lifetime = NumberRange.new(1.5, 2.5),
+				Rotation = NumberRange.new(0, 360), RotSpeed = NumberRange.new(-40, 40), Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.4, 3), NumberSequenceKeypoint.new(1, 0) }) })
+		end
+	end
+	fx.Parent = plot.Model
+end
+
+-- explosão de brilho na cor do nível (quando compra o upgrade)
+function World.TreadmillBurst(plot, level: number)
+	local info = Config.Treadmills[level]
+	local center: Vector3? = plot.TreadCenter
+	if not info or not center then
+		return
+	end
+	local holder = fxPart(workspace, "TreadBurst", Vector3.one, CFrame.new(center + Vector3.new(0, 2, 0)), info.Color, Enum.Material.SmoothPlastic)
+	holder.Transparency = 1
+	local e = emitter(holder, ColorSequence.new(info.Color, Color3.new(1, 1, 1)), { Rate = 0, Speed = NumberRange.new(12, 24), Lifetime = NumberRange.new(0.8, 1.4),
+		Size = NumberSequence.new(1.2, 0), Acceleration = Vector3.new(0, -12, 0) })
+	e:Emit(70)
+	game:GetService("Debris"):AddItem(holder, 2)
 end
 
 function World.SetTreadmillLocked(plot, locked: boolean)
