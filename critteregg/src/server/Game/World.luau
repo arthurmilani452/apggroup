@@ -10,6 +10,7 @@ local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Format = require(ReplicatedStorage.Shared.Format)
 
 local World = {}
 World.Plots = {}
@@ -58,6 +59,11 @@ end
 -- bloco sólido "de brinquedo" (com studs em cima)
 local function block(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, collide: boolean?): Part
 	local p = part(parent, name, size, cframe, color, Enum.Material.Plastic, { TopSurface = STUDS, CanCollide = collide == true, CastShadow = true })
+	if collide ~= true then
+		-- (v66) enfeite: sem toque e sem raio (o motor de física trabalha menos)
+		p.CanTouch = false
+		p.CanQuery = false
+	end
 	return p
 end
 
@@ -207,7 +213,7 @@ end
 
 ---------------------------------------------------------------------
 -- BIOMAS de terreno (chão de verdade + paredões de pedra em vez do xadrez)
--- Inspirado em Steal an Egg / Grow a Garden: cada zona tem chão e cânion próprios.
+-- Cada zona tem chão e cânion próprios.
 ---------------------------------------------------------------------
 local T = Enum.Material
 local BIOMES = {
@@ -353,7 +359,19 @@ local function placeAsset(parent: Instance, name: string, position: Vector3, hei
 	end
 	local model = source:Clone()
 	if not model:IsA("Model") then
-		return nil
+		-- (v66) alguns itens do Toolbox são Tool (ex.: CrystalBlue): vira Model em vez de sumir do mapa
+		if model:IsA("Tool") then
+			local wrap = Instance.new("Model")
+			wrap.Name = name
+			for _, child in model:GetChildren() do
+				child.Parent = wrap
+			end
+			model:Destroy()
+			model = wrap
+		else
+			model:Destroy()
+			return nil
+		end
 	end
 	local _, size = model:GetBoundingBox()
 	if size.Y > 0.05 then
@@ -652,7 +670,7 @@ local function buildPlot(index: number, x: number)
 	}
 	-- caminho de areia do portão até a avenida
 	deco(folder, "Path", Vector3.new(10, 0.2, 48), CFrame.new(x, 0.08, front + 24), rgb(235, 215, 160), Enum.Material.SmoothPlastic)
-	-- ESTEIRA na frente do portão. Quem corre olha para -Z (para o hub, como no jogo de referência):
+	-- ESTEIRA na frente do portão. Quem corre olha para -Z (para o hub):
 	-- o chão anda para +Z na velocidade do dono, então ele corre parado.
 	local tz = front + 22
 	local tread = Instance.new("Model")
@@ -719,13 +737,13 @@ local function buildPlot(index: number, x: number)
 	local penBoard = part(folder, "PenBoard", Vector3.new(10, 6, 1), CFrame.new(x - 12, 5.5, front + 5), rgb(255, 205, 40))
 	part(folder, "PenLegA", Vector3.new(1, 2.5, 1), CFrame.new(x - 15.5, 1.25, front + 5), rgb(120, 80, 45))
 	part(folder, "PenLegB", Vector3.new(1, 2.5, 1), CFrame.new(x - 8.5, 1.25, front + 5), rgb(120, 80, 45))
-	surface(penBoard, Enum.NormalId.Back, { { "Upgrade Pen", WHITE, 0.3 }, { "Unlock Pen Level 1", rgb(120, 255, 120), 0.25 }, { "$1K", WHITE, 0.32 } }, 30, rgb(70, 170, 60))
+	surface(penBoard, Enum.NormalId.Back, { { "Upgrade Pen", WHITE, 0.3 }, { "Unlock Pen Level 1", rgb(120, 255, 120), 0.25 }, { Format.Money(Config.PenLevels[1].Cost), WHITE, 0.32 } }, 30, rgb(70, 170, 60))
 	plot.PenBoard = penBoard
 	-- placa da esteira (do lado de fora da esteira)
 	local treadBoard = part(folder, "TreadBoard", Vector3.new(10, 6, 1), CFrame.new(x + 13, 5.5, tz + 13), rgb(255, 205, 40))
 	part(folder, "TreadLegA", Vector3.new(1, 2.5, 1), CFrame.new(x + 9.5, 1.25, tz + 13), rgb(25, 30, 50))
 	part(folder, "TreadLegB", Vector3.new(1, 2.5, 1), CFrame.new(x + 16.5, 1.25, tz + 13), rgb(25, 30, 50))
-	surface(treadBoard, Enum.NormalId.Back, { { "Upgrade Treadmill", WHITE, 0.3 }, { "Level 1 > Level 2", rgb(120, 255, 120), 0.25 }, { "$2.5K", WHITE, 0.32 } }, 30, rgb(40, 130, 230))
+	surface(treadBoard, Enum.NormalId.Back, { { "Upgrade Treadmill", WHITE, 0.3 }, { "Level 1 > Level 2", rgb(120, 255, 120), 0.25 }, { Format.Money(Config.Treadmills[2].Cost), WHITE, 0.32 } }, 30, rgb(40, 130, 230))
 	plot.TreadBoard = treadBoard
 	-- placa do dono em cima do cercado
 	local anchor = part(folder, "OwnerAnchor", Vector3.one, CFrame.new(x, 15, front - 18), WHITE, nil, { Transparency = 1, CanCollide = false, CanQuery = false })
@@ -977,8 +995,8 @@ local function buildShops(hub: Instance)
 			end
 		end
 		local sign = block(model, "Sign", Vector3.new(22, 5, 2), CFrame.new(x, 18.5, z + 0.5), rgb(120, 60, 200), true)
-		surface(sign, Enum.NormalId.Back, { { "\u{2728} TRAILS SHOP", WHITE, 0.85 } }, 20, rgb(140, 70, 220))
-		surface(sign, Enum.NormalId.Front, { { "\u{2728} TRAILS SHOP", WHITE, 0.85 } }, 20, rgb(140, 70, 220))
+		surface(sign, Enum.NormalId.Back, { { "\u{2728} SPARKLE TRAILS", WHITE, 0.85 } }, 20, rgb(140, 70, 220))
+		surface(sign, Enum.NormalId.Front, { { "\u{2728} SPARKLE TRAILS", WHITE, 0.85 } }, 20, rgb(140, 70, 220))
 		for k, c in colors do
 			deco(model, "TrailStripe", Vector3.new(2.4, 0.12, 16), CFrame.new(x - 7.2 + (k - 1) * 2.9, 0.08, z), c, Enum.Material.Neon).Transparency = 0.3
 		end

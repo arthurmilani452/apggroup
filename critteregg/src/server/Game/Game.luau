@@ -237,7 +237,8 @@ local function refreshBoards(state)
 	if screenGui then
 		screenGui.Line1.Text = string.upper(info.Name) .. " TREADMILL"
 		screenGui.Line1.TextColor3 = info.Color
-		screenGui.Line2.Text = ("+%s/step"):format(Format.Short(state.Gain or info.Gain))
+		local runMult = state.RunMult or 1
+		screenGui.Line2.Text = ("+%s/step"):format(Format.Short(math.floor((state.Gain or info.Gain) * runMult))) .. (if runMult > 1 then ("  \u{1F525}x%.2f"):format(runMult) else "")
 	end
 	local belt = plot.TreadModel:FindFirstChild("Base")
 	if belt then
@@ -290,7 +291,35 @@ local function computeIncome(state)
 	if workspace:GetAttribute("Weekend") then
 		total *= 2
 	end
+	if (workspace:GetAttribute("AdminMoneyEnd") or 0) > os.time() then
+		total *= 2 -- ADMIN ABUSE: 2x dinheiro
+	end
 	state.Income = total
+end
+
+-- NÚMEROS DO JOGO (v65): aparecem em Creator Hub > Analytics > Economy e > Custom Events.
+-- Mostram de onde vem e para onde vai o dinheiro, e onde as crianças travam (pegas pelo guardião etc.).
+local AnalyticsService = game:GetService("AnalyticsService")
+local ECON_TYPE = {
+	Shop = Enum.AnalyticsEconomyTransactionType.Shop,
+	Gameplay = Enum.AnalyticsEconomyTransactionType.Gameplay,
+	TimedReward = Enum.AnalyticsEconomyTransactionType.TimedReward,
+	IAP = Enum.AnalyticsEconomyTransactionType.IAP,
+}
+local function econ(player: Player, source: boolean, amount: number, kind: string, sku: string)
+	local state = states[player]
+	if not state or type(amount) ~= "number" or amount <= 0 or amount ~= amount or amount == math.huge then
+		return
+	end
+	task.spawn(pcall, function()
+		AnalyticsService:LogEconomyEvent(player, if source then Enum.AnalyticsEconomyFlowType.Source else Enum.AnalyticsEconomyFlowType.Sink,
+			"Cash", amount, state.Data.Money, (ECON_TYPE[kind] or ECON_TYPE.Gameplay).Name, sku)
+	end)
+end
+local function custom(player: Player, name: string, value: number?)
+	task.spawn(pcall, function()
+		AnalyticsService:LogCustomEvent(player, name, value or 1)
+	end)
 end
 
 local function publish(player: Player, full: boolean?)
@@ -300,6 +329,23 @@ local function publish(player: Player, full: boolean?)
 	end
 	local data = state.Data
 	computeGain(state)
+	-- ZONA NOVA (v66): a primeira vez que a velocidade passa do portão de uma zona = comemoração
+	do
+		local reached = 1
+		for index, zone in Config.Zones do
+			if data.Speed >= zone.Speed then
+				reached = index
+			end
+		end
+		if data.ZoneReached == nil then
+			data.ZoneReached = reached -- save antigo: só começa a contar daqui
+		elseif reached > data.ZoneReached then
+			data.ZoneReached = reached
+			net:FireClient(player, "ZoneUnlocked", reached)
+			banner(player, ("NEW ZONE UNLOCKED: %s %s!"):format(string.upper(Config.Zones[reached].Name), Config.Zones[reached].Emoji or ""), Color3.fromRGB(120, 255, 160))
+			custom(player, "ZoneUnlocked", reached)
+		end
+	end
 	player:SetAttribute("Money", data.Money)
 	player:SetAttribute("Speed", data.Speed)
 	player:SetAttribute("Income", state.Income or 0)
@@ -492,31 +538,6 @@ local function funnel(player: Player, key: string)
 	end)
 end
 
--- NÚMEROS DO JOGO (v65): aparecem em Creator Hub > Analytics > Economy e > Custom Events.
--- Mostram de onde vem e para onde vai o dinheiro, e onde as crianças travam (pegas pelo guardião etc.).
-local AnalyticsService = game:GetService("AnalyticsService")
-local ECON_TYPE = {
-	Shop = Enum.AnalyticsEconomyTransactionType.Shop,
-	Gameplay = Enum.AnalyticsEconomyTransactionType.Gameplay,
-	TimedReward = Enum.AnalyticsEconomyTransactionType.TimedReward,
-	IAP = Enum.AnalyticsEconomyTransactionType.IAP,
-}
-local function econ(player: Player, source: boolean, amount: number, kind: string, sku: string)
-	local state = states[player]
-	if not state or type(amount) ~= "number" or amount <= 0 or amount ~= amount or amount == math.huge then
-		return
-	end
-	task.spawn(pcall, function()
-		AnalyticsService:LogEconomyEvent(player, if source then Enum.AnalyticsEconomyFlowType.Source else Enum.AnalyticsEconomyFlowType.Sink,
-			"Cash", amount, state.Data.Money, (ECON_TYPE[kind] or ECON_TYPE.Gameplay).Name, sku)
-	end)
-end
-local function custom(player: Player, name: string, value: number?)
-	task.spawn(pcall, function()
-		AnalyticsService:LogCustomEvent(player, name, value or 1)
-	end)
-end
-
 local function questAdd(player: Player, key: string, amount: number?)
 	local state = states[player]
 	if not state then
@@ -532,6 +553,21 @@ local function questAdd(player: Player, key: string, amount: number?)
 		end
 	end
 	player:SetAttribute("Quests", questJson(state))
+end
+
+-- NOTÍCIAS ENTRE SERVIDORES (v66): Divine/Celestial chocado vira aviso em TODOS os servidores
+local NEWS_TOPIC = "CritterNews_v1"
+local lastNews = 0
+local function shareHatch(player: Player, def, mutation: string?)
+	if (Config.RarityIndex[def.Rarity] or 1) < Config.RarityIndex.Divine or os.clock() - lastNews < 10 then
+		return
+	end
+	lastNews = os.clock()
+	task.spawn(pcall, function()
+		game:GetService("MessagingService"):PublishAsync(NEWS_TOPIC, {
+			Job = game.JobId, Name = player.DisplayName, Rarity = def.Rarity, Critter = def.Name, Mut = mutation,
+		})
+	end)
 end
 
 local function hatch(player: Player, index: number, silent: boolean?): boolean
@@ -676,6 +712,7 @@ local function hatch(player: Player, index: number, silent: boolean?): boolean
 		net:FireClient(player, "Hatched", { { def.Id, slot.Mut, slot.Scale or 1, slot.Zone or 1 } })
 	end
 	local rarity = Config.RarityByName[def.Rarity]
+	shareHatch(player, def, slot.Mut)
 	if (Config.RarityIndex[def.Rarity] or 1) >= Config.RarityIndex.Mythic then
 		epic(("\u{2728} %s HATCHED A %s %s!"):format(player.DisplayName, string.upper(def.Rarity), def.Name), rarityColor(def))
 	elseif rarity and rarity.Announce then
@@ -767,7 +804,7 @@ renderSlot = function(player: Player, index: number, popIn: boolean?)
 		if popIn then
 			model:SetAttribute("PopIn", workspace:GetServerTimeNow())
 		end
-		-- PEDESTAL brilhante na cor da raridade (Raro ou melhor), igual às bases do Steal an Egg
+		-- PEDESTAL brilhante na cor da raridade (Raro ou melhor)
 		if rarityIndex >= Config.RarityIndex.Rare then
 			local color = rarityColor(def)
 			local ext = model:GetExtentsSize()
@@ -904,6 +941,11 @@ local function partyNow(): boolean
 	return (workspace:GetAttribute("PartyStart") or math.huge) <= t and (workspace:GetAttribute("PartyEnd") or 0) > t
 end
 
+-- ADMIN ABUSE (v66): sorte que o dono liga ao vivo (vale em todos os servidores)
+local function adminLuck(): number
+	return if (workspace:GetAttribute("AdminLuckEnd") or 0) > os.time() then (workspace:GetAttribute("AdminLuckMult") or 1) else 1
+end
+
 -- HALLOWEEN (v65): Config.Halloween (o loop de 1 s liga/desliga o atributo)
 local function halloweenNow(): boolean
 	return workspace:GetAttribute("Halloween") == true
@@ -925,7 +967,7 @@ end
 
 -- sorteia o bichinho (mesma semente = mesmo resultado em todos os servidores)
 local function luckyNow(): boolean
-	return (workspace:GetAttribute("LuckyEnd") or 0) > os.time() or partyNow()
+	return (workspace:GetAttribute("LuckyEnd") or 0) > os.time() or partyNow() or adminLuck() > 1
 end
 
 local function rollEgg(zoneDef, rng: Random, minRarity: number?)
@@ -935,7 +977,7 @@ local function rollEgg(zoneDef, rng: Random, minRarity: number?)
 		if #poolFor(zoneDef, rarity) > 0 and (Config.RarityIndex[rarity] or 1) >= (minRarity or 1) then
 			local weight = Config.RarityByName[rarity].Weight
 			if lucky and (Config.RarityIndex[rarity] or 1) >= Config.RarityIndex.Legendary then
-				weight *= if partyNow() then Config.Update.PartyLuck else Config.LuckyMult
+				weight *= math.max(adminLuck(), if partyNow() then Config.Update.PartyLuck else Config.LuckyMult)
 			end
 			table.insert(options, { rarity, weight })
 			total += weight
@@ -1020,6 +1062,7 @@ local function setSleeping(zone, sleeping: boolean)
 		zone.Guardian:SetAttribute("Sleeping", sleeping)
 	end
 	if zone.Outline then
+		zone.Outline.Enabled = not sleeping -- (v66: Highlight pesa no celular; só aparece com o guardião acordado)
 		zone.Outline.OutlineColor = if sleeping then zone.ZoneColor else Color3.fromRGB(255, 40, 40)
 		zone.Outline.FillColor = Color3.fromRGB(255, 40, 40)
 		zone.Outline.FillTransparency = if sleeping then 1 else 0.8
@@ -1382,6 +1425,23 @@ local function deliver(player: Player)
 	end
 	questAdd(player, "Steal")
 	custom(player, "EggStolenZone", carry.Zone.Index or 1)
+	-- SEQUÊNCIA DE ROUBOS (v66): a cada Config.StealStreak.Every ovos seguidos sem o guardião pegar = prêmio
+	state.StealStreak = (state.StealStreak or 0) + 1
+	player:SetAttribute("StealStreak", state.StealStreak)
+	if state.StealStreak % Config.StealStreak.Every == 0 then
+		local S = Config.StealStreak
+		local bonus = math.max(S.MinCash, math.floor((state.Income or 0) * 60 * S.Minutes))
+		data.Money += bonus
+		econ(player, true, bonus, "Gameplay", "StealStreak")
+		task.delay(1.2, function()
+			if player.Parent then
+				banner(player, ("\u{1F525} STEAL STREAK x%d! +%s"):format(state.StealStreak, Format.Money(bonus)), Color3.fromRGB(255, 150, 50))
+			end
+		end)
+		if state.StealStreak >= 10 then
+			toastAll(("\u{1F525} %s is on a %d STEAL STREAK!"):format(player.DisplayName, state.StealStreak), "rare")
+		end
+	end
 	do
 		local rIndex = Config.RarityIndex[egg.Def.Rarity] or 1
 		local label = Config.SizeLabel(egg.Scale or 1)
@@ -1401,6 +1461,14 @@ end
 
 local function catchCarrier(zone, player: Player)
 	custom(player, "CaughtInZone", zone.Index)
+	local caughtState = states[player]
+	if caughtState and (caughtState.StealStreak or 0) >= Config.StealStreak.Every then
+		toast(player, ("Your %d steal streak ended! Start a new one!"):format(caughtState.StealStreak), "info")
+	end
+	if caughtState then
+		caughtState.StealStreak = 0
+		player:SetAttribute("StealStreak", 0)
+	end
 	local root = rootOf(player)
 	endCarry(player, false)
 	if root then
@@ -1940,7 +2008,7 @@ end
 
 
 ---------------------------------------------------------------------
--- PvP: TACO e ARMADILHAS (igual ao jogo de referência)
+-- PvP: TACO e ARMADILHAS
 ---------------------------------------------------------------------
 local trapsFolder: Folder
 local traps = {} -- { Model, Owner, Pos, Until }
@@ -3116,17 +3184,125 @@ local function redeemCode(player: Player, raw: any)
 end
 
 ---------------------------------------------------------------------
+-- ADMIN ABUSE (v66): o dono do jogo liga eventos AO VIVO em TODOS os servidores ao mesmo tempo
+-- (é o que os YouTubers transmitem). Botão "Admin" no Menu da tela, só para admins:
+--   Luck = ovos Lendário+ x Config.AdminAbuse.LuckMult | Golden = chuva de ovos dourados
+--   Party = Festão agora | Money = 2x dinheiro | Pumpkin = chuva de Ovos de Abóbora
+-- Admin = dono do jogo (ou cargo >= Config.AdminMinRank no grupo dono) ou UserId em Config.Admins.
+-- No Studio todo mundo é admin (para testar).
+---------------------------------------------------------------------
+local MessagingService = game:GetService("MessagingService")
+local ADMIN_TOPIC = "CritterAdminAbuse_v1"
+local ADMIN_CMDS = { Luck = true, Golden = true, Party = true, Money = true, Pumpkin = true }
+local adminCache: { [Player]: boolean } = {}
+local lastAdmin: { [string]: number } = {}
+local adminSeen: { [string]: boolean } = {}
+
+local function isAdmin(player: Player): boolean
+	if adminCache[player] ~= nil then
+		return adminCache[player]
+	end
+	local ok = false
+	if RunService:IsStudio() or table.find(Config.Admins, player.UserId) then
+		ok = true
+	elseif game.CreatorType == Enum.CreatorType.User then
+		ok = player.UserId == game.CreatorId
+	elseif game.CreatorType == Enum.CreatorType.Group then
+		local good, groups = pcall(function()
+			return game:GetService("GroupService"):GetGroupsAsync(player.UserId)
+		end)
+		if good and type(groups) == "table" then
+			for _, info in groups do
+				if info.Id == game.CreatorId and (tonumber(info.Rank) or 0) >= Config.AdminMinRank then
+					ok = true
+				end
+			end
+		end
+	end
+	adminCache[player] = ok
+	return ok
+end
+
+local function applyAdmin(cmd: string, by: string)
+	local t = os.time()
+	local A = Config.AdminAbuse
+	local color = Color3.fromRGB(255, 90, 200)
+	if cmd == "Luck" then
+		workspace:SetAttribute("AdminLuckMult", A.LuckMult)
+		workspace:SetAttribute("AdminLuckEnd", t + A.Minutes * 60)
+		epic(("\u{26A1} ADMIN ABUSE by %s! Legendary+ eggs x%d for %d min!"):format(by, A.LuckMult, A.Minutes), color)
+		if not night then
+			pcall(resetNests, t) -- ninhos novos na hora, já com a sorte
+		end
+	elseif cmd == "Golden" then
+		epic(("\u{26A1} ADMIN ABUSE by %s! GOLDEN EGG RAIN!"):format(by), Color3.fromRGB(255, 215, 60))
+		for k = 1, A.GoldenCount do
+			task.delay((k - 1) * 4, spawnGoldenEgg)
+		end
+	elseif cmd == "Pumpkin" then
+		epic(("\u{26A1} ADMIN ABUSE by %s! PUMPKIN EGG RAIN!"):format(by), Color3.fromRGB(255, 140, 40))
+		for k = 1, A.PumpkinCount do
+			task.delay((k - 1) * 4, spawnGoldenEgg, "Pumpkin")
+		end
+	elseif cmd == "Party" then
+		workspace:SetAttribute("AdminPartyStart", t)
+		workspace:SetAttribute("AdminPartyEnd", t + Config.Update.PartyMinutes * 60)
+		epic(("\u{26A1} ADMIN ABUSE by %s! UPDATE PARTY NOW!"):format(by), color)
+	elseif cmd == "Money" then
+		workspace:SetAttribute("AdminMoneyEnd", t + A.Minutes * 60)
+		epic(("\u{26A1} ADMIN ABUSE by %s! 2x MONEY for %d min!"):format(by, A.Minutes), Color3.fromRGB(110, 255, 90))
+		for _, state in states do
+			computeIncome(state)
+		end
+	end
+	net:FireAllClients("Sfx", "Alarm")
+end
+
+local function onAdminMessage(data: any)
+	if type(data) ~= "table" or type(data.Cmd) ~= "string" or not ADMIN_CMDS[data.Cmd] then
+		return
+	end
+	local id = tostring(data.Id)
+	if adminSeen[id] then
+		return
+	end
+	adminSeen[id] = true
+	applyAdmin(data.Cmd, string.sub(tostring(data.By or "Admin"), 1, 20))
+end
+
+local function adminCommand(player: Player, arg: any)
+	local cmd = type(arg) == "table" and arg.cmd
+	if type(cmd) ~= "string" or not ADMIN_CMDS[cmd] or not isAdmin(player) then
+		return
+	end
+	if os.clock() - (lastAdmin[cmd] or -1e9) < 10 then
+		return toast(player, "Wait a few seconds before using this again.", "info")
+	end
+	lastAdmin[cmd] = os.clock()
+	local payload = { Cmd = cmd, By = player.DisplayName, Id = HttpService:GenerateGUID(false) }
+	local ok = pcall(function()
+		MessagingService:PublishAsync(ADMIN_TOPIC, payload)
+	end)
+	if not ok then
+		onAdminMessage(payload) -- sem MessagingService (Studio): vale só neste servidor
+	end
+	custom(player, "AdminAbuse_" .. cmd)
+	toast(player, if ok then "Sent to ALL servers!" else "Started on this server (publish the game to reach all servers).", "success")
+end
+
+---------------------------------------------------------------------
 -- Pedidos da tela
 ---------------------------------------------------------------------
 -- limite de pedidos POR AÇÃO (v65): antes era um limite só para todos os botões, e abrir/clicar rápido
 -- em coisas diferentes fazia pedidos sumirem. Agora cada ação tem o seu.
 local lastRequest: { [Player]: { [string]: number } } = {}
-local REQUEST_GAP = { Redeem = 1.5, Buy = 0.5, SlowMode = 0.3 }
+local REQUEST_GAP = { Redeem = 1.5, Buy = 0.5, SlowMode = 0.3, Admin = 1 }
 -- (v65.1) só ações que existem (antes qualquer texto que a tela mandasse ficava guardado na memória)
 local KNOWN_ACTIONS = {
 	Swing = true, Upgrade = true, SlowMode = true, Hatch = true, HatchAll = true, Sell = true, SellAll = true,
 	Fuse = true, Trail = true, Boost = true, Chest = true, Gift = true, ClaimIndex = true, PlaceTrap = true,
 	EquipBat = true, Buy = true, Daily = true, Rebirth = true, ClaimQuest = true, Redeem = true, CandyBuy = true,
+	Admin = true,
 }
 
 local function onRequest(player: Player, action: any, arg: any)
@@ -3236,6 +3412,8 @@ local function onRequest(player: Player, action: any, arg: any)
 		redeemCode(player, arg)
 	elseif action == "CandyBuy" then
 		candyBuy(player, arg)
+	elseif action == "Admin" then
+		adminCommand(player, arg)
 	end
 end
 
@@ -3407,6 +3585,11 @@ local function onPlayerAdded(player: Player)
 	end
 	giftData(state) -- presentes por tempo jogado (salvos: sair e voltar não zera)
 	publishGifts(player)
+	task.spawn(function()
+		if isAdmin(player) and player.Parent then
+			player:SetAttribute("IsAdmin", true)
+		end
+	end)
 	if plot then
 		plot.Owner = player
 		plot.OwnerLabel.Text = player.DisplayName .. "'s Pen"
@@ -3553,6 +3736,7 @@ local function onPlayerRemoving(player: Player)
 	end
 	states[player] = nil
 	lastRequest[player] = nil
+	adminCache[player] = nil
 	Data.Release(player)
 	refreshFriendBoosts()
 end
@@ -3664,6 +3848,30 @@ function Game.Init()
 		table.insert(zones, zone)
 	end
 
+	-- NOTÍCIAS: Divine/Celestial chocado em outro servidor
+	task.spawn(function()
+		pcall(function()
+			game:GetService("MessagingService"):SubscribeAsync(NEWS_TOPIC, function(message)
+				local d = message.Data
+				if type(d) ~= "table" or d.Job == game.JobId or type(d.Name) ~= "string" or type(d.Critter) ~= "string" then
+					return
+				end
+				toastAll(("\u{1F30D} %s hatched a %s%s %s in another server!"):format(string.sub(d.Name, 1, 20),
+					if type(d.Mut) == "string" then string.sub(d.Mut, 1, 12) .. " " else "", string.upper(tostring(d.Rarity)), string.sub(d.Critter, 1, 30)), "rare")
+			end)
+		end)
+	end)
+	-- ADMIN ABUSE: ouve os comandos vindos de qualquer servidor
+	task.spawn(function()
+		local ok, err = pcall(function()
+			MessagingService:SubscribeAsync(ADMIN_TOPIC, function(message)
+				onAdminMessage(message.Data)
+			end)
+		end)
+		if not ok then
+			warn("[Game] admin messaging off:", err)
+		end
+	end)
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	for _, player in Players:GetPlayers() do
@@ -3745,6 +3953,8 @@ function Game.Init()
 	task.spawn(function()
 		local tick = 0
 		local partyWarned, partyAnnounced, nextPartyGolden, nextPumpkin = 0, 0, 0, math.huge
+		local nextGolden = os.time() + 150
+		local nightWarned = -1
 		local lastClock = os.clock()
 		while true do
 			task.wait(1)
@@ -3763,12 +3973,18 @@ function Game.Init()
 			workspace:SetAttribute("Weekend", weekday == 0 or weekday == 6)
 			local luckyStart = t - t % Config.LuckyEvery
 			local luckyEnd = luckyStart + Config.LuckyLength
-			-- ovo dourado a cada 8 minutos (no meio do ciclo, nunca na noite)
-			if t % 480 == 150 then
+			-- ovo dourado a cada 8 minutos (v66: só se faltar pelo menos 1 min para a noite; senão espera)
+			if t >= nextGolden and not isNight and not night and phase < Config.Cycle - Config.Night - 60 then
+				nextGolden = t + 480
 				task.spawn(spawnGoldenEgg)
 			end
 			-- FESTÃO (v65): contagem para a atualização da semana e começo automático
 			local partyStart, partyEnd = Config.PartyWindow(t)
+			-- ADMIN ABUSE: Festão ligado na hora pelo dono
+			local adminPartyEnd = workspace:GetAttribute("AdminPartyEnd") or 0
+			if adminPartyEnd > t and partyStart > t then
+				partyStart, partyEnd = workspace:GetAttribute("AdminPartyStart") or t, adminPartyEnd
+			end
 			if workspace:GetAttribute("PartyStart") ~= partyStart then
 				workspace:SetAttribute("PartyStart", partyStart)
 				workspace:SetAttribute("PartyEnd", partyEnd)
@@ -3828,7 +4044,8 @@ function Game.Init()
 				setNight(true)
 			end
 			-- aviso antes da noite (quem estiver nas zonas corre para casa com o ovo)
-			if phase == Config.Cycle - Config.Night - 15 then
+			if phase >= Config.Cycle - Config.Night - 15 and not isNight and nightWarned ~= id then
+				nightWarned = id -- (v66: antes usava "==" e às vezes pulava o aviso)
 				banner(nil, "\u{1F319} NIGHT in 15 seconds! Bring your eggs HOME!", Color3.fromRGB(170, 190, 255))
 			end
 			for player, state in states do
@@ -3855,17 +4072,38 @@ function Game.Init()
 				local root = rootOf(player)
 				local humanoid = humanoidOf(player)
 				local plot = state.Plot
+				local running = false
 				if plot and root and humanoid and not state.Carry and data.PenLevel >= Config.TreadmillUnlockPen then
 					local belt = plot.Belt
 					local rel = belt.CFrame:PointToObjectSpace(root.Position)
-					if math.abs(rel.X) < belt.Size.X / 2 + 0.5 and math.abs(rel.Z) < belt.Size.Z / 2 + 0.5 and rel.Y < 7 and humanoid.MoveDirection.Magnitude > 0.1 then
-						local gain = computeGain(state)
+					if math.abs(rel.X) < belt.Size.X / 2 + 0.5 and math.abs(rel.Z) < belt.Size.Z / 2 + 0.5 and rel.Y < 7 and rel.Y > -1 and humanoid.MoveDirection.Magnitude > 0.1 then
+						running = true
+						-- ESTEIRA 2.0 (v66): SEQUÊNCIA. Correndo sem parar ganha +StreakStep a cada StreakEvery s
+						-- (até +StreakMax). Parou mais que StreakGrace s = zera.
+						state.RunStreak = (state.RunStreak or 0) + 1
+						state.OffBelt = 0
+						local T = Config.Treadmill
+						local mult = 1 + math.min((state.RunStreak // T.StreakEvery) * T.StreakStep, T.StreakMax)
+						local gain = math.floor(computeGain(state) * mult)
 						data.Speed += gain
 						applySpeed(player)
 						net:FireClient(player, "Step", gain)
 						questAdd(player, "Steps")
+						if mult ~= state.RunMult then
+							state.RunMult = mult
+							player:SetAttribute("RunMult", mult)
+						end
 					end
 				end
+				if not running then
+					state.OffBelt = (state.OffBelt or 0) + 1
+					if (state.RunStreak or 0) > 0 and state.OffBelt > Config.Treadmill.StreakGrace then
+						state.RunStreak = 0
+						state.RunMult = 1
+						player:SetAttribute("RunMult", 1)
+					end
+				end
+				player:SetAttribute("RunStreak", state.RunStreak or 0)
 				-- OVO DA AMIZADE: 2 minutos jogando com um amigo = ovo Raro+ pronto (1 por dia)
 				if state.FriendSince and os.clock() - state.FriendSince >= Config.FriendEggSeconds then
 					local today = os.time() // 86400

@@ -3,7 +3,7 @@
 	  - cor do ar / neblina / tom da imagem mudam suave quando você entra numa zona
 	  - partículas em volta da câmera: vaga-lumes na floresta, neve, brasas no vulcão,
 	    estrelas no cosmos, bolhas no oceano, pétalas na cerejeira, brilho dourado no céu...
-	Inspirado em Pet Simulator / Steal an Egg: cada mundo tem "cara" própria.
+	Cada mundo tem "cara" própria.
 ]]
 
 local Players = game:GetService("Players")

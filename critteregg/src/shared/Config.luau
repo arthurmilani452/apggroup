@@ -1,7 +1,7 @@
 --!nonstrict
 --[[
 	CONFIG do jogo novo (estilo "roubar ovos das zonas"). TODOS os números de ajuste ficam aqui.
-	Mecânica inspirada no Steal an Egg (pista reta de zonas, guardião dormindo, esteira de velocidade,
+	Mecânica do gênero "roubar ovos" (pista reta de zonas, guardião dormindo, esteira de velocidade,
 	reset a cada 5 minutos). Nomes, criaturas, textos e visual são NOSSOS (bichinhos do Steal a Critter).
 
 	Eixo do mapa: tudo numa linha reta. +Z = para longe das bases (zonas mais fundas).
@@ -16,7 +16,7 @@ Config.GameName = "Steal a Critter Egg" -- troque à vontade (aparece na placa d
 -- Raridades e mutações (o CritterBuilder também usa)
 ---------------------------------------------------------------------
 Config.Rarities = {
-	-- Size = tamanho do bichinho (quanto mais raro, MAIOR na base, igual ao Steal an Egg)
+	-- Size = tamanho do bichinho (quanto mais raro, MAIOR na base)
 	{ Name = "Common", Color = Color3.fromRGB(200, 200, 200), Weight = 60, Size = 3, Grow = 10 },
 	{ Name = "Uncommon", Color = Color3.fromRGB(90, 220, 90), Weight = 25, Size = 3.5, Grow = 30 },
 	{ Name = "Rare", Color = Color3.fromRGB(70, 150, 255), Weight = 10, Size = 4.3, Grow = 60 },
@@ -67,7 +67,7 @@ Config.Map = {
 }
 
 -- ZONAS (12 pistas). Speed = velocidade recomendada (placa vermelha/verde);
---   v65: nomes e números NOSSOS. Antes eram iguais aos do Steal an Egg (Forest/Lake 900/Desert 10K/...):
+--   v65: nomes e números NOSSOS (os antigos eram iguais aos de outro jogo do gênero):
 --   mecânica parecida tudo bem, mas nome + número idênticos dão risco de denúncia por cópia.
 --   A curva é a mesma de antes, uns 11% mais baixa (começo um pouco mais fácil para as crianças).
 --   MinSpeed = com essa velocidade e um ovo normal o guardião corre igual a você (escapa por pouco).
@@ -79,11 +79,11 @@ local ORANGE_WALL = { rgb(214, 120, 64), rgb(190, 100, 52) }
 local GRASS_TOP = rgb(80, 200, 60)
 Config.Zones = {
 	{ Id = "forest", Name = "Sprout Woods", Speed = 0, MinSpeed = 3, Mult = 1, Pool = { "meadow" }, Rarities = { "Common", "Uncommon", "Rare", "Epic", "Legendary",  "Mythic", "Secret", "Divine", "Celestial" },
-		Guardian = "chirpy", Height = 19, Emoji = "\u{1F332}", Sky = rgb(150, 210, 255),
+		Guardian = "mossy", Height = 19, Emoji = "\u{1F332}", Sky = rgb(150, 210, 255),
 		Floor = { rgb(96, 200, 60), rgb(84, 180, 52) }, Wall = ORANGE_WALL, Top = GRASS_TOP, Props = "forest",
 		Egg = { Style = "grass", Color = rgb(245, 235, 210), Accent = rgb(140, 215, 110) } },
 	{ Id = "lake", Name = "Puddle Pond", Speed = 1_000, MinSpeed = 1_000, Mult = 12, Pool = { "hybrid" }, Rarities = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic" },
-		Guardian = "shellbo", Height = 22, Emoji = "\u{1F9A2}", Sky = rgb(140, 205, 255),
+		Guardian = "shellbo", Height = 22, Emoji = "\u{1F438}", Sky = rgb(140, 205, 255),
 		Floor = { rgb(96, 200, 60), rgb(84, 180, 52) }, Wall = ORANGE_WALL, Top = GRASS_TOP, Props = "lake",
 		Egg = { Style = "spotted", Color = rgb(170, 220, 255), Accent = rgb(255, 255, 255) } },
 	{ Id = "desert", Name = "Sunny Sands", Speed = 9_000, MinSpeed = 8_500, Mult = 150, Pool = { "pirate" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret" },
@@ -138,9 +138,9 @@ Config.IndexSpeed = { Common = 120, Uncommon = 260, Rare = 420, Epic = 720, Lege
 ---------------------------------------------------------------------
 Config.NestsPerZone = 5
 Config.NestRefill = 45 -- ninho roubado ganha ovo novo depois disso (além do reset de 5 min)
-Config.Cycle = 300 -- segundos (alinhado ao relógio UTC: todos os servidores juntos)
-Config.Night = 10 -- últimos segundos do ciclo: noite (todo mundo volta para casa, ovos crescem x25)
-Config.NightGrowth = 25
+Config.Cycle = 270 -- segundos (alinhado ao relógio UTC: todos os servidores juntos)
+Config.Night = 12 -- últimos segundos do ciclo: noite (todo mundo volta para casa, ovos crescem xNightGrowth)
+Config.NightGrowth = 22
 Config.StealHold = 0.6
 -- ninguém segura um ovo mais que isso (segundos): ele volta para o ninho (anti-trapaça e anti-"ovo refém")
 Config.MaxCarrySeconds = 180
@@ -261,6 +261,11 @@ for level = 1, #TREAD_NAMES do
 	})
 end
 Config.TreadmillUnlockPen = 1 -- a esteira fica trancada (holograma) até comprar o cercado nível 1
+-- v66 SEQUÊNCIA DE ROUBOS: a cada Every ovos roubados seguidos sem o guardião pegar = Minutes da renda (mín. MinCash)
+Config.StealStreak = { Every = 5, Minutes = 2, MinCash = 1_000 }
+-- v66 ESTEIRA 2.0: correndo sem parar, +StreakStep a cada StreakEvery segundos (até +StreakMax).
+-- Saiu da esteira por mais de StreakGrace segundos = a sequência zera.
+Config.Treadmill = { StreakEvery = 30, StreakStep = 0.05, StreakMax = 0.5, StreakGrace = 4 }
 
 -- TRILHAS (Trails Shop): multiplicam a velocidade ganha na esteira e deixam um rastro colorido atrás de você
 Config.Trails = {
@@ -367,7 +372,7 @@ Config.Sounds = {
 }
 
 ---------------------------------------------------------------------
--- PvP (igual ao jogo de referência): todo mundo tem um TACO; acertar quem carrega um ovo derruba o ovo
+-- PvP: todo mundo tem um TACO; acertar quem carrega um ovo derruba o ovo
 -- no chão (vira "ovo solto": qualquer um pega). Completar o Index de uma zona dá o taco daquela zona (mais forte).
 ---------------------------------------------------------------------
 Config.Bat = { Cooldown = 0.9, Range = 9, Force = 55, Stun = 0.8 }
@@ -512,6 +517,15 @@ function Config.PartyWindow(t: number): (number, number)
 	end
 	return start, start + length
 end
+
+---------------------------------------------------------------------
+-- v66: ADMIN ABUSE (botão "Admin" no Menu, só para admins): eventos ao vivo em TODOS os servidores.
+-- Admins: o dono do jogo; se o jogo for de um grupo, quem tem cargo >= AdminMinRank (254 = admin, 255 = dono);
+-- e quem estiver em Admins (UserIds, ex.: { 12345678 }).
+---------------------------------------------------------------------
+Config.Admins = {}
+Config.AdminMinRank = 254
+Config.AdminAbuse = { LuckMult = 10, Minutes = 15, GoldenCount = 5, PumpkinCount = 3 }
 
 ---------------------------------------------------------------------
 -- v65: EVENTO DE HALLOWEEN (de From até To, segundos UTC; 0h de Brasília)
