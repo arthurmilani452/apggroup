@@ -1,0 +1,12 @@
+{
+  "name": "CritterEggRun",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": { "Shared": { "$path": "src/shared" } },
+    "ServerScriptService": {
+      "Main": { "$path": "src/server/Main.server.luau" },
+      "Game": { "$path": "src/server/Game" }
+    },
+    "StarterPlayer": { "StarterPlayerScripts": { "$path": "src/client" } }
+  }
+}
