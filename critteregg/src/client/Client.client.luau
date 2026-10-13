@@ -17,7 +17,6 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
-local Lighting = game:GetService("Lighting")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Critters = require(ReplicatedStorage.Shared:WaitForChild("Critters"))
@@ -33,64 +32,67 @@ local TOUCH = UserInputService.TouchEnabled
 -- TEXTOS EM PORTUGUÊS (v66): Roblox em português = botões, Menu, Admin, esteira e dicas em PT-BR.
 -- (os avisos que vêm do servidor continuam em inglês). Textos curtos para caber nos botões.
 ---------------------------------------------------------------------
-local PT_BR = false
-pcall(function()
-	PT_BR = string.lower(string.sub(game:GetService("LocalizationService").RobloxLocaleId, 1, 2)) == "pt"
-end)
-local TEXTS: { [string]: { string } } = {
-	Shop = { "Shop", "Loja" },
-	Index = { "Index", "Índice" },
-	Eggs = { "Eggs", "Ovos" },
-	Pets = { "Pets", "Pets" },
-	Gifts = { "Gifts", "Presentes" },
-	Menu = { "Menu", "Menu" },
-	Daily = { "Daily", "Diário" },
-	Quests = { "Quests", "Missões" },
-	Rebirth = { "Rebirth", "Renascer" },
-	Boosts = { "Boosts", "Boosts" },
-	Codes = { "Codes", "Códigos" },
-	Candy = { "Candy", "Doces" },
-	Invite = { "Invite", "Convidar" },
-	InviteSub = { "+%d%% cash per friend playing", "+%d%% $ por amigo jogando" },
-	Sound = { "Sound", "Som" },
-	SlowMode = { "Slow Mode", "Modo Lento" },
-	On = { "ON", "LIGADO" },
-	Off = { "OFF", "DESLIGADO" },
-	Admin = { "Admin", "Admin" },
-	Ready = { "READY!", "PRONTO!" },
-	AdminInfo = { "Runs in ALL servers - great for live streams!", "Vale em TODOS os servidores - ótimo para lives!" },
-	AdminLuck = { "LUCK x%d (%d min)", "SORTE x%d (%d min)" },
-	AdminGolden = { "GOLDEN RAIN", "CHUVA DOURADA" },
-	AdminParty = { "UPDATE PARTY NOW", "FESTÃO AGORA" },
-	AdminMoney = { "2x MONEY (%d min)", "2x DINHEIRO (%d min)" },
-	AdminPumpkin = { "PUMPKIN RAIN", "CHUVA DE ABÓBORAS" },
-	TapConfirm = { "TAP AGAIN TO CONFIRM", "TOQUE DE NOVO PARA CONFIRMAR" },
-	AutoRun = { "AUTO RUN", "AUTO CORRER" },
-	AutoRunOn = { "AUTO RUN: ON", "AUTO: LIGADO" },
-	PerStep = { "+%s/step", "+%s/passo" },
-	Streak = { "STREAK x%.2f", "SEQUÊNCIA x%.2f" },
-	ToGo = { "%s: %s to go", "%s: faltam %s" },
-	MaxZone = { "MAX SPEED ZONE!", "ZONA MÁXIMA!" },
-	ZoneUnlocked = { "NEW ZONE UNLOCKED: %s!", "ZONA NOVA LIBERADA: %s!" },
-	CarryRun = { "\u{1F3C3} RUN BACK TO THE SAFE ZONE!", "\u{1F3C3} VOLTE PARA A ZONA SEGURA!" },
-	HintCarry = { "\u{1F3C3} Run back to the SAFE ZONE with the egg!", "\u{1F3C3} Volte para a ZONA SEGURA com o ovo!" },
-	HintSteal = { "\u{1F95A} Go into %s and %s on an egg to STEAL it!", "\u{1F95A} Vá até %s e %s num ovo para ROUBAR!" },
-	HoldButton = { "hold the button", "segure o botão" },
-	HoldE = { "hold E", "segure E" },
-	HintHatch = { "\u{1F423} Your egg is READY! Walk to it (or open Eggs) and HATCH it!", "\u{1F423} Seu ovo está PRONTO! Vá até ele (ou abra Ovos) e CHOQUE!" },
-	HintGrowing = { "\u{23F3} Your egg is growing... steal MORE eggs while you wait!", "\u{23F3} Seu ovo está crescendo... roube MAIS ovos enquanto espera!" },
-	HintIndex = { "\u{1F4D6} NEW CRITTER! Open the INDEX (left) and CLAIM your free cash!", "\u{1F4D6} BICHINHO NOVO! Abra o ÍNDICE (esquerda) e PEGUE o dinheiro grátis!" },
-	HintBuyPen = { "\u{1F3E1} Buy PEN LEVEL 1 at the yellow board to unlock your TREADMILL!", "\u{1F3E1} Compre o CERCADO NÍVEL 1 na placa amarela para liberar a ESTEIRA!" },
-	HintSavePen = { "\u{1F4B5} Your pets make money! Save %s to unlock the treadmill.", "\u{1F4B5} Seus pets dão dinheiro! Junte %s para liberar a esteira." },
-	HintTread = { "\u{1F45F} Stand on your TREADMILL and tap AUTO RUN to get FASTER!", "\u{1F45F} Suba na sua ESTEIRA e toque em AUTO CORRER para ficar MAIS RÁPIDO!" },
-	HintBat = { "\u{2694}\u{FE0F} Use your BAT to make egg thieves drop their egg! Traps catch them too.", "\u{2694}\u{FE0F} Use o TACO para o ladrão soltar o ovo! As armadilhas também pegam." },
-}
-local function L(key: string): string
-	local entry = TEXTS[key]
-	if not entry then
-		return key
+local L: (string) -> string
+do
+	local PT_BR = false
+	pcall(function()
+		PT_BR = string.lower(string.sub(game:GetService("LocalizationService").RobloxLocaleId, 1, 2)) == "pt"
+	end)
+	local TEXTS: { [string]: { string } } = {
+		Shop = { "Shop", "Loja" },
+		Index = { "Index", "Índice" },
+		Eggs = { "Eggs", "Ovos" },
+		Pets = { "Pets", "Pets" },
+		Gifts = { "Gifts", "Presentes" },
+		Menu = { "Menu", "Menu" },
+		Daily = { "Daily", "Diário" },
+		Quests = { "Quests", "Missões" },
+		Rebirth = { "Rebirth", "Renascer" },
+		Boosts = { "Boosts", "Boosts" },
+		Codes = { "Codes", "Códigos" },
+		Candy = { "Candy", "Doces" },
+		Invite = { "Invite", "Convidar" },
+		InviteSub = { "+%d%% cash per friend playing", "+%d%% $ por amigo jogando" },
+		Sound = { "Sound", "Som" },
+		SlowMode = { "Slow Mode", "Modo Lento" },
+		On = { "ON", "LIGADO" },
+		Off = { "OFF", "DESLIGADO" },
+		Admin = { "Admin", "Admin" },
+		Ready = { "READY!", "PRONTO!" },
+		AdminInfo = { "Runs in ALL servers - great for live streams!", "Vale em TODOS os servidores - ótimo para lives!" },
+		AdminLuck = { "LUCK x%d (%d min)", "SORTE x%d (%d min)" },
+		AdminGolden = { "GOLDEN RAIN", "CHUVA DOURADA" },
+		AdminParty = { "UPDATE PARTY NOW", "FESTÃO AGORA" },
+		AdminMoney = { "2x MONEY (%d min)", "2x DINHEIRO (%d min)" },
+		AdminPumpkin = { "PUMPKIN RAIN", "CHUVA DE ABÓBORAS" },
+		TapConfirm = { "TAP AGAIN TO CONFIRM", "TOQUE DE NOVO PARA CONFIRMAR" },
+		AutoRun = { "AUTO RUN", "AUTO CORRER" },
+		AutoRunOn = { "AUTO RUN: ON", "AUTO: LIGADO" },
+		PerStep = { "+%s/step", "+%s/passo" },
+		Streak = { "STREAK x%.2f", "SEQUÊNCIA x%.2f" },
+		ToGo = { "%s: %s to go", "%s: faltam %s" },
+		MaxZone = { "MAX SPEED ZONE!", "ZONA MÁXIMA!" },
+		ZoneUnlocked = { "NEW ZONE UNLOCKED: %s!", "ZONA NOVA LIBERADA: %s!" },
+		CarryRun = { "\u{1F3C3} RUN BACK TO THE SAFE ZONE!", "\u{1F3C3} VOLTE PARA A ZONA SEGURA!" },
+		HintCarry = { "\u{1F3C3} Run back to the SAFE ZONE with the egg!", "\u{1F3C3} Volte para a ZONA SEGURA com o ovo!" },
+		HintSteal = { "\u{1F95A} Go into %s and %s on an egg to STEAL it!", "\u{1F95A} Vá até %s e %s num ovo para ROUBAR!" },
+		HoldButton = { "hold the button", "segure o botão" },
+		HoldE = { "hold E", "segure E" },
+		HintHatch = { "\u{1F423} Your egg is READY! Walk to it (or open Eggs) and HATCH it!", "\u{1F423} Seu ovo está PRONTO! Vá até ele (ou abra Ovos) e CHOQUE!" },
+		HintGrowing = { "\u{23F3} Your egg is growing... steal MORE eggs while you wait!", "\u{23F3} Seu ovo está crescendo... roube MAIS ovos enquanto espera!" },
+		HintIndex = { "\u{1F4D6} NEW CRITTER! Open the INDEX (left) and CLAIM your free cash!", "\u{1F4D6} BICHINHO NOVO! Abra o ÍNDICE (esquerda) e PEGUE o dinheiro grátis!" },
+		HintBuyPen = { "\u{1F3E1} Buy PEN LEVEL 1 at the yellow board to unlock your TREADMILL!", "\u{1F3E1} Compre o CERCADO NÍVEL 1 na placa amarela para liberar a ESTEIRA!" },
+		HintSavePen = { "\u{1F4B5} Your pets make money! Save %s to unlock the treadmill.", "\u{1F4B5} Seus pets dão dinheiro! Junte %s para liberar a esteira." },
+		HintTread = { "\u{1F45F} Stand on your TREADMILL and tap AUTO RUN to get FASTER!", "\u{1F45F} Suba na sua ESTEIRA e toque em AUTO CORRER para ficar MAIS RÁPIDO!" },
+		HintBat = { "\u{2694}\u{FE0F} Use your BAT to make egg thieves drop their egg! Traps catch them too.", "\u{2694}\u{FE0F} Use o TACO para o ladrão soltar o ovo! As armadilhas também pegam." },
+	}
+	L = function(key: string): string
+		local entry = TEXTS[key]
+		if not entry then
+			return key
+		end
+		return if PT_BR then entry[2] else entry[1]
 	end
-	return if PT_BR then entry[2] else entry[1]
 end
 
 -- etiqueta [VIP] no chat
@@ -195,14 +197,49 @@ end
 local GREEN_TEXT = Color3.fromRGB(110, 255, 90)
 local PINK_TEXT = Color3.fromRGB(255, 70, 140)
 
+-- JSON dos atributos (Slots, Index, Quests, Boosts) com CACHE (v66 perf): só decodifica de novo quando o texto
+-- do atributo muda (o servidor troca o atributo => o texto muda). Antes cada chamada (4x por segundo no tutorial,
+-- relógios, janelas) criava todas as tabelas de novo. Comparar o texto (e não só ouvir o GetAttributeChangedSignal)
+-- deixa certo mesmo se outro "Changed" rodar antes deste.
+-- ATENÇÃO: a tabela devolvida é COMPARTILHADA: não modifique (para ordenar, use table.clone antes).
+local jsonCache: { [string]: { Raw: string, Value: any } } = {}
 local function decode(attribute: string, default)
 	local raw = player:GetAttribute(attribute)
 	if type(raw) ~= "string" or raw == "" then
 		return default
 	end
-	local ok, value = pcall(HttpService.JSONDecode, HttpService, raw)
-	return if ok then value else default
+	local cached = jsonCache[attribute]
+	if not cached or cached.Raw ~= raw then
+		local ok, value = pcall(HttpService.JSONDecode, HttpService, raw)
+		if not ok then
+			return default
+		end
+		cached = { Raw = raw, Value = value }
+		jsonCache[attribute] = cached
+	end
+	if cached.Value == nil then
+		return default
+	end
+	return cached.Value
 end
+
+-- conjunto de objetos com uma tag (v66 perf): CollectionService:GetTagged cria uma tabela nova a cada chamada
+-- (60x por segundo = lixo para o coletor no celular); este conjunto é atualizado pelos sinais da tag.
+local function taggedSet(tag: string): { [any]: boolean }
+	local set: { [any]: boolean } = {}
+	for _, item in CollectionService:GetTagged(tag) do
+		set[item] = true
+	end
+	CollectionService:GetInstanceAddedSignal(tag):Connect(function(item)
+		set[item] = true
+	end)
+	CollectionService:GetInstanceRemovedSignal(tag):Connect(function(item)
+		set[item] = nil
+	end)
+	return set
+end
+local guardianSet = taggedSet("Guardian")
+local nestEggSet = taggedSet("NestEgg")
 
 -- PREÇO DE VERDADE (v65): com o Regional Pricing a Roblox pode cobrar outro preço em cada país.
 -- Pergunta à Roblox uma vez por item e guarda; até responder, mostra o Price do Config.
@@ -278,77 +315,159 @@ text({ Size = UDim2.fromOffset(56, 52), Position = UDim2.fromOffset(0, 58), Text
 local moneyText = text({ Size = UDim2.new(1, -64, 0, 56), Position = UDim2.fromOffset(62, 56), Text = "$0", TextColor3 = GREEN_TEXT, TextXAlignment = Enum.TextXAlignment.Left, Stroke = 4.5, Parent = stats })
 local incomeText = text({ Size = UDim2.new(1, -64, 0, 22), Position = UDim2.fromOffset(64, 112), Text = "+$0/s", TextColor3 = Color3.fromRGB(255, 230, 120), TextXAlignment = Enum.TextXAlignment.Left, Parent = stats })
 
--- relógios (embaixo, à direita): boosts ativos e noite
-local clocks = create("Frame", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -108, 1, -14), Size = UDim2.fromOffset(300, 120), BackgroundTransparency = 1, Parent = gui })
--- celular: tira dinheiro/velocidade de baixo do joystick e os relógios de baixo do botão de pular
-if game:GetService("UserInputService").TouchEnabled then
-	stats.AnchorPoint = Vector2.new(1, 1)
-	stats.Position = UDim2.new(0.5, -70, 1, -10)
-	clocks.Position = UDim2.new(1, -108, 1, -125)
+-- celular: dinheiro/velocidade embaixo NO MEIO (longe do joystick à esquerda e do botão de pular à direita)
+if TOUCH then
+	stats.AnchorPoint = Vector2.new(0.5, 1)
+	stats.Position = UDim2.new(0.5, 30, 1, -6)
 end
-local boostIcon = text({ Size = UDim2.fromOffset(52, 50), Text = "\u{1F9EA}", Stroke = 0, Visible = false, Parent = clocks })
-local boostText = text({ Size = UDim2.new(1, -60, 0, 50), Position = UDim2.fromOffset(58, 0), Text = "", TextXAlignment = Enum.TextXAlignment.Left, Stroke = 4, Visible = false, Parent = clocks })
-local nightIcon = text({ Size = UDim2.fromOffset(52, 50), Position = UDim2.fromOffset(0, 62), Text = "\u{1F319}", Stroke = 0, Parent = clocks })
-local nightText = text({ Size = UDim2.new(1, -60, 0, 50), Position = UDim2.fromOffset(58, 62), Text = "in 5m 0s", TextXAlignment = Enum.TextXAlignment.Left, Stroke = 4, Parent = clocks })
--- BICHO DA SEMANA (em cima do contador da sorte)
+
+---------------------------------------------------------------------
+-- RELÓGIOS (v66): só 2 "pílulas" (antes eram 5 linhas).
+--   A = noite (como antes).  B = a coisa MAIS importante agora, nesta ordem:
+--   sorte do admin > 2x dinheiro do admin > FESTÃO > evento da sorte > boost > fim de semana 2x > noite chegando
+--   > "UPDATE in ..." > "Lucky in m:ss" > bicho da semana. Nada acontecendo = alterna os 2 primeiros a cada 4 s.
+-- PC: embaixo à direita. Celular: em cima à direita, logo abaixo da barra do Roblox (longe do botão de pular).
+---------------------------------------------------------------------
 do
-	text({ Size = UDim2.fromOffset(52, 50), Position = UDim2.fromOffset(0, -124), Text = "\u{2B50}", Stroke = 0, Parent = clocks })
-	local weeklyText = text({ Size = UDim2.new(1, -60, 0, 50), Position = UDim2.fromOffset(58, -124), Text = "", TextXAlignment = Enum.TextXAlignment.Left, Stroke = 4, TextColor3 = Color3.fromRGB(255, 220, 90), Parent = clocks })
-	task.spawn(function()
-		while true do
-			local t = workspace:GetServerTimeNow()
-			local def = Critters.ById[Config.WeeklyCritter(math.floor(t))]
-			local left = Config.WeeklyEnds(math.floor(t)) - t
-			if def then
-				weeklyText.Text = ("%s x%d! %dd %dh"):format(def.Name, Config.WeeklyMult, math.floor(left / 86400), math.floor(left % 86400 / 3600))
-			end
-			task.wait(30)
-		end
-	end)
-end
--- FESTÃO / ATUALIZAÇÃO DA SEMANA (v65): "UPDATE in 2d 5h" e, na hora, "PARTY x5! 23:10"
-do
-	text({ Size = UDim2.fromOffset(52, 50), Position = UDim2.fromOffset(0, -186), Text = "\u{1F389}", Stroke = 0, Parent = clocks })
-	local partyText = text({ Size = UDim2.new(1, -60, 0, 50), Position = UDim2.fromOffset(58, -186), Text = "", TextXAlignment = Enum.TextXAlignment.Left, Stroke = 4, Parent = clocks })
-	task.spawn(function()
-		while true do
-			local t = workspace:GetServerTimeNow()
-			local start, finish = Config.PartyWindow(math.floor(t))
-			if t >= start then
-				local left = math.max(0, finish - t)
-				partyText.Text = ("PARTY x%d! %d:%02d"):format(Config.Update.PartyLuck, math.floor(left / 60), math.floor(left % 60))
-				partyText.TextColor3 = Color3.fromRGB(255, 200, 80)
-			else
-				local left = start - t
-				partyText.Text = if left >= 86400 then ("UPDATE in %dd %dh"):format(math.floor(left / 86400), math.floor(left % 86400 / 3600))
-					elseif left >= 3600 then ("UPDATE in %dh %dm"):format(math.floor(left / 3600), math.floor(left % 3600 / 60))
-					else ("UPDATE in %d:%02d"):format(math.floor(left / 60), math.floor(left % 60))
-				partyText.TextColor3 = Color3.fromRGB(255, 255, 255)
-			end
-			task.wait(1)
-		end
-	end)
-end
--- evento da sorte (raros x3): contador sempre visível, para a criança esperar por ele
-do
-text({ Size = UDim2.fromOffset(52, 50), Position = UDim2.fromOffset(0, -62), Text = "\u{1F340}", Stroke = 0, Parent = clocks })
-local luckyText = text({ Size = UDim2.new(1, -60, 0, 50), Position = UDim2.fromOffset(58, -62), Text = "", TextXAlignment = Enum.TextXAlignment.Left, Stroke = 4, Parent = clocks })
-task.spawn(function()
-	while true do
-		local t = workspace:GetServerTimeNow()
-		local start = t - t % Config.LuckyEvery
-		local activeLeft = start + Config.LuckyLength - t
-		if activeLeft > 0 then
-			luckyText.Text = ("LUCKY x%d! %d:%02d"):format(Config.LuckyMult, math.floor(activeLeft / 60), math.floor(activeLeft % 60))
-			luckyText.TextColor3 = Color3.fromRGB(120, 255, 120)
-		else
-			local left = start + Config.LuckyEvery - t
-			luckyText.Text = ("Lucky in %d:%02d"):format(math.floor(left / 60), math.floor(left % 60))
-			luckyText.TextColor3 = Color3.fromRGB(255, 255, 255)
-		end
-		task.wait(1)
+	local timers = create("Frame", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -14, 1, -14), Size = UDim2.fromOffset(310, 108), BackgroundTransparency = 1, Parent = gui })
+	local timersLayout = create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Bottom, Parent = timers })
+	if TOUCH then
+		timers.AnchorPoint = Vector2.new(1, 0)
+		timers.Position = UDim2.new(1, -10, 0, 8)
+		timersLayout.VerticalAlignment = Enum.VerticalAlignment.Top
 	end
-end)
+	local function timerChip(order: number): (Frame, TextLabel, TextLabel)
+		local frame = create("Frame", { LayoutOrder = order, Size = UDim2.fromOffset(310, 50), BackgroundColor3 = Theme.Dark, BackgroundTransparency = 0.3, Parent = timers }, { corner(25), stroke(3) })
+		local icon = text({ Size = UDim2.fromOffset(40, 40), Position = UDim2.fromOffset(8, 5), Text = "", Stroke = 0, Parent = frame })
+		local label = text({ Size = UDim2.new(1, -64, 0, 38), Position = UDim2.fromOffset(54, 6), Text = "", TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3, Parent = frame })
+		return frame, icon, label
+	end
+	local tickerChip, tickerIcon, tickerText = timerChip(1)
+	local _, nightIcon, nightText = timerChip(2)
+	nightIcon.Text = "\u{1F319}"
+
+	local function clockText(left: number): string
+		left = math.max(0, math.floor(left))
+		return ("%d:%02d"):format(left // 60, left % 60)
+	end
+
+	local lastTicker = ""
+	local function updateTimers()
+		local t = workspace:GetServerTimeNow()
+		-- A: noite
+		local cycleEnd = workspace:GetAttribute("CycleEnd")
+		local isNight = workspace:GetAttribute("Night") == true
+		local nightLeft: number? = nil
+		if typeof(cycleEnd) == "number" then
+			nightLeft = math.max(0, math.floor(cycleEnd - t))
+			nightIcon.Text = if isNight then "\u{2600}\u{FE0F}" else "\u{1F319}"
+			nightText.Text = "in " .. clockText(cycleEnd - t)
+			nightText.TextColor3 = if isNight then Color3.fromRGB(255, 220, 90) else Color3.new(1, 1, 1)
+		end
+		-- B: lista em ordem de importância (Active = está acontecendo agora)
+		local items = {}
+		local function add(active: boolean, icon: string, message: string, color: Color3)
+			table.insert(items, { Active = active, Icon = icon, Text = message, Color = color })
+		end
+		local adminLuckEnd = workspace:GetAttribute("AdminLuckEnd")
+		if typeof(adminLuckEnd) == "number" and adminLuckEnd > t then
+			local mult = workspace:GetAttribute("AdminLuckMult")
+			add(true, "\u{26A1}", ("LUCK x%d! %s"):format(if type(mult) == "number" then math.floor(mult) else 10, clockText(adminLuckEnd - t)), Color3.fromRGB(255, 120, 230))
+		end
+		local adminMoneyEnd = workspace:GetAttribute("AdminMoneyEnd")
+		if typeof(adminMoneyEnd) == "number" and adminMoneyEnd > t then
+			add(true, "\u{1F4B5}", "2x MONEY! " .. clockText(adminMoneyEnd - t), GREEN_TEXT)
+		end
+		-- FESTÃO / ATUALIZAÇÃO DA SEMANA (v65): "UPDATE in 2d 5h" e, na hora, "PARTY x5! 23:10"
+		local partyStart, partyEnd = Config.PartyWindow(math.floor(t))
+		local attrStart, attrEnd = workspace:GetAttribute("PartyStart"), workspace:GetAttribute("PartyEnd")
+		if typeof(attrStart) == "number" and typeof(attrEnd) == "number" and attrStart <= t and attrEnd > t then
+			partyStart, partyEnd = attrStart, attrEnd -- festão ligado agora pelo admin
+		end
+		local partyOn = t >= partyStart and t < partyEnd
+		if partyOn then
+			local left = math.max(0, partyEnd - t)
+			add(true, "\u{1F389}", ("PARTY x%d! %d:%02d"):format(Config.Update.PartyLuck, math.floor(left / 60), math.floor(left % 60)), Color3.fromRGB(255, 200, 80))
+		end
+		-- evento da sorte (raros x3)
+		local luckyStart = t - t % Config.LuckyEvery
+		local luckyLeft = luckyStart + Config.LuckyLength - t
+		local luckyEnd = workspace:GetAttribute("LuckyEnd")
+		if typeof(luckyEnd) == "number" then
+			luckyLeft = math.max(luckyLeft, luckyEnd - t)
+		end
+		if luckyLeft > 0 then
+			add(true, "\u{1F340}", ("LUCKY x%d! %d:%02d"):format(Config.LuckyMult, math.floor(luckyLeft / 60), math.floor(luckyLeft % 60)), Color3.fromRGB(120, 255, 120))
+		end
+		-- boost mais longo ativo
+		local boosts = decode("Boosts", {})
+		local bestLeft, bestBoost = 0, nil
+		for _, boost in Config.Boosts do
+			local left = (tonumber(boosts[boost.Id]) or 0) - t
+			if left > bestLeft then
+				bestLeft, bestBoost = left, boost
+			end
+		end
+		if bestBoost then
+			add(true, bestBoost.Icon, ("%s %s"):format(bestBoost.Name, clockText(bestLeft)), bestBoost.Color)
+		end
+		-- (não ativos)
+		if workspace:GetAttribute("Weekend") == true then
+			add(false, "\u{1F4B5}", "WEEKEND 2x MONEY!", GREEN_TEXT)
+		end
+		if nightLeft and not isNight and nightLeft <= 45 then
+			add(false, "\u{1F319}", ("NIGHT in %ds! Go home!"):format(nightLeft), Color3.fromRGB(160, 180, 255))
+		end
+		if not partyOn then
+			local left = partyStart - t
+			add(false, "\u{1F389}", if left >= 86400 then ("UPDATE in %dd %dh"):format(math.floor(left / 86400), math.floor(left % 86400 / 3600))
+				elseif left >= 3600 then ("UPDATE in %dh %dm"):format(math.floor(left / 3600), math.floor(left % 3600 / 60))
+				else ("UPDATE in %d:%02d"):format(math.floor(left / 60), math.floor(left % 60)), Color3.new(1, 1, 1))
+		end
+		if luckyLeft <= 0 then
+			local left = luckyStart + Config.LuckyEvery - t
+			add(false, "\u{1F340}", ("Lucky in %d:%02d"):format(math.floor(left / 60), math.floor(left % 60)), Color3.new(1, 1, 1))
+		end
+		-- BICHO DA SEMANA
+		local weekly = Critters.ById[Config.WeeklyCritter(math.floor(t))]
+		if weekly then
+			local left = Config.WeeklyEnds(math.floor(t)) - t
+			add(false, "\u{2B50}", ("%s x%d! %dd %dh"):format(weekly.Name, Config.WeeklyMult, math.floor(left / 86400), math.floor(left % 86400 / 3600)), Color3.fromRGB(255, 220, 90))
+		end
+		local pick = nil
+		for _, item in items do
+			if item.Active then
+				pick = item
+				break
+			end
+		end
+		if not pick and #items > 0 then
+			pick = items[math.floor(os.clock() / 4) % math.min(#items, 2) + 1]
+		end
+		tickerChip.Visible = pick ~= nil
+		if pick then
+			tickerIcon.Text = pick.Icon
+			tickerText.Text = pick.Text
+			tickerText.TextColor3 = pick.Color
+			-- trocou de assunto: pulinho para chamar a atenção
+			local key = pick.Icon .. string.sub(pick.Text, 1, 6)
+			if key ~= lastTicker then
+				lastTicker = key
+				Theme.popIn(tickerChip)
+			end
+		end
+	end
+	local timersWarned = false
+	task.spawn(function()
+		while true do
+			local ok, err = pcall(updateTimers)
+			if not ok and not timersWarned then
+				timersWarned = true
+				warn("[HUD] relógios:", err)
+			end
+			task.wait(0.5)
+		end
+	end)
 end
 
 ---------------------------------------------------------------------
@@ -356,25 +475,94 @@ end
 ---------------------------------------------------------------------
 local windows: { [string]: Frame } = {}
 local onOpen: { [string]: () -> () } = {}
+-- refreshers[nome] = atualiza a janela SEM mudar aba/seleção (usado depois de compras, roubos, chocar...)
+local refreshers: { [string]: () -> () } = {}
+local currentWindow: string? = nil -- nome com que a janela aberta foi aberta (ex.: "Trails" abre o Shop)
 local function open(name: string, toggle: boolean?)
-	for key, window in windows do
-		if key ~= name then
-			window.Visible = false
-		end
-	end
 	local window = windows[name]
-	if not window then
+	-- (v66: compara a JANELA e não o nome: Trails/Boosts são o Shop e Sell é o Pets; antes o botão Shop
+	-- escondia o próprio Shop pelo apelido "Trails" e nunca fechava no 2º toque)
+	if toggle and window and window.Visible then
+		window.Visible = false
+		currentWindow = nil
 		return
 	end
-	if toggle and window.Visible then
-		window.Visible = false
+	for _, other in windows do
+		if other ~= window then
+			other.Visible = false
+		end
+	end
+	if not window then
+		currentWindow = nil
 		return
 	end
 	window.Visible = true
+	currentWindow = name
 	Theme.popIn(window)
 	if onOpen[name] then
 		onOpen[name]()
 	end
+end
+
+-- PRÉVIAS 3D PREGUIÇOSAS (v66 perf): ViewportFrame + cópia do modelo é a peça mais cara da tela.
+-- O cartão nasce sem prévia; ela só é criada quando o cartão aparece na área visível da lista,
+-- no máximo 3 por frame (abrir o Index/Pets não trava mais o celular).
+local function lazyPreviews(list: ScrollingFrame)
+	local pending: { [GuiObject]: () -> () } = {}
+	local scheduled = false
+	local pump: () -> ()
+	local function schedule()
+		if not scheduled then
+			scheduled = true
+			task.delay(0, pump)
+		end
+	end
+	pump = function()
+		scheduled = false
+		if next(pending) == nil then
+			return
+		end
+		local top = list.AbsolutePosition.Y - 160
+		local bottom = list.AbsolutePosition.Y + list.AbsoluteSize.Y + 160
+		local built, more = 0, false
+		for card, build in pending do
+			if not card.Parent then
+				pending[card] = nil
+			else
+				local y = card.AbsolutePosition.Y
+				if y + card.AbsoluteSize.Y >= top and y <= bottom then
+					if built >= 3 then
+						more = true
+						break
+					end
+					pending[card] = nil
+					built += 1
+					local ok, err = pcall(build)
+					if not ok then
+						warn("[HUD] prévia 3D:", err)
+					end
+				end
+			end
+		end
+		if more then
+			schedule()
+		end
+	end
+	list:GetPropertyChangedSignal("CanvasPosition"):Connect(schedule)
+	list:GetPropertyChangedSignal("AbsoluteSize"):Connect(schedule)
+	return {
+		Add = function(card: GuiObject, build: () -> ())
+			pending[card] = build
+			schedule()
+		end,
+		Remove = function(card: GuiObject)
+			pending[card] = nil
+		end,
+		Clear = function()
+			table.clear(pending)
+		end,
+		Pump = schedule,
+	}
 end
 
 local function scroller(parent: Instance, props: { [string]: any }?, grid: Vector2?): ScrollingFrame
@@ -416,10 +604,11 @@ local function shopRow(parent: Instance, order: number, icon: string, title: str
 	local iconBox = create("Frame", { Size = UDim2.fromOffset(78, 78), Position = UDim2.fromOffset(9, 9), BackgroundColor3 = accent or Color3.fromRGB(90, 90, 110), ZIndex = 13, Parent = row }, { corner(10), stroke(3) })
 	Theme.gloss(iconBox, 0.3)
 	text({ Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1), Text = icon, Stroke = 0, ZIndex = 14, Parent = iconBox })
-	text({ Size = UDim2.new(1, -310, 0, 40), Position = UDim2.fromOffset(100, 10), Text = title, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 13, Parent = row })
-	text({ Size = UDim2.new(1, -310, 0, 30), Position = UDim2.fromOffset(100, 54), Text = sub, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Color3.fromRGB(190, 215, 255), Stroke = 2, ZIndex = 13, Parent = row })
-	local btn = button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(190, 66), BackgroundColor3 = buttonColor, ZIndex = 13, Parent = row }, buttonText, onClick)
-	return row, btn
+	local titleLabel = text({ Size = UDim2.new(1, -310, 0, 40), Position = UDim2.fromOffset(100, 10), Text = title, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 13, Parent = row })
+	local subLabel = text({ Size = UDim2.new(1, -310, 0, 30), Position = UDim2.fromOffset(100, 54), Text = sub, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Color3.fromRGB(190, 215, 255), Stroke = 2, ZIndex = 13, Parent = row })
+	local btn, btnLabel = button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(190, 66), BackgroundColor3 = buttonColor, ZIndex = 13, Parent = row }, buttonText, onClick)
+	-- (v66: devolve também os textos, para atualizar a linha no lugar sem refazer)
+	return row, btn, btnLabel, subLabel, titleLabel
 end
 
 ---------------------------------------------------------------------
@@ -515,9 +704,8 @@ refreshShop = function()
 		local rebirthLabel
 		_, rebirthLabel = button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.fromOffset(420, 80), BackgroundColor3 = if money >= cost then Theme.Purple else Theme.Gray, ZIndex = 13, Parent = row }, "REBIRTH  " .. Format.Money(cost), function()
 			-- v65: lê o dinheiro de AGORA (antes usava o valor de quando abriu a aba e pulava a confirmação)
-			if (player:GetAttribute("Money") or 0) < cost then
-				net:FireServer("Rebirth") -- o servidor avisa quanto falta
-			elseif os.clock() < confirmUntil then
+			-- sem dinheiro: o servidor avisa quanto falta; com dinheiro: só vale o 2º toque
+			if (player:GetAttribute("Money") or 0) < cost or os.clock() < confirmUntil then
 				net:FireServer("Rebirth")
 			else
 				confirmUntil = os.clock() + 4
@@ -543,6 +731,7 @@ refreshShop = function()
 	end
 end
 onOpen.Shop = refreshShop
+refreshers.Shop = refreshShop
 
 ---------------------------------------------------------------------
 -- INDEX: zonas à esquerda, cartões no meio, detalhes e prêmios à direita
@@ -594,11 +783,36 @@ local function zoneDefs(zoneIndex: number)
 	return list
 end
 
+-- (v66 perf) os cartões e os botões das zonas ficam prontos e só mudam texto/borda; a zona só é refeita
+-- quando você troca de zona, e a prévia 3D de cada cartão nasce só quando ele aparece na tela (lazyPreviews)
 local refreshIndex
+local indexShown: string? = nil -- cartão mostrado à direita (mesmo não descoberto)
+local detailKey = ""
+local zoneButtons: { [number]: { Button: TextButton, Label: TextLabel, Stroke: UIStroke? } } = {}
+local indexCards: { [string]: any } = {}
+local indexCardsZone = 0
+local indexLazy = lazyPreviews(cardGrid)
+local CLAIM_YELLOW = Color3.fromRGB(255, 230, 80)
+
+-- borda do cartão: amarela = prêmio para pegar; branca e grossa = o que está aberto à direita
+local function paintIndexCards()
+	for id, entry in indexCards do
+		local shown = id == indexShown
+		entry.Stroke.Color = if entry.Found == 1 then CLAIM_YELLOW elseif shown then Theme.White else Theme.Dark
+		entry.Stroke.Thickness = if shown then 5 else 3
+	end
+end
+
 local function selectPet(def, found: number?)
 	indexSelected = if found then def.Id else nil
-	clear(detailView)
-	Theme.preview(detailView, def, not found, true)
+	indexShown = def.Id
+	-- a prévia girando só é refeita se mudou o bichinho (ou se ele acabou de ser descoberto)
+	local key = def.Id .. (if found then "+" else "-")
+	if key ~= detailKey then
+		detailKey = key
+		clear(detailView)
+		Theme.preview(detailView, def, not found, true)
+	end
 	detailName.Text = if found then def.Name else "???"
 	detailRarity.Text = def.Rarity
 	detailRarity.TextColor3 = Theme.rarityColor(def.Rarity)
@@ -608,6 +822,43 @@ local function selectPet(def, found: number?)
 	detailReward.Text = ("Reward: %s  +%s Speed"):format(Format.Money(cash), Format.Short(speed))
 	claimButton.Visible = found == 1
 	claimLabel.Text = "CLAIM"
+	paintIndexCards()
+end
+
+-- (re)cria a prévia do cartão quando ele aparecer na tela (sombra preta se ainda não foi descoberto)
+local function queueIndexPreview(entry)
+	if entry.View then
+		entry.View:Destroy()
+		entry.View = nil
+	end
+	indexLazy.Add(entry.Card, function()
+		if entry.Card.Parent and not entry.View then
+			entry.View = Theme.preview(entry.Card, entry.Def, not entry.Found, false)
+			entry.ViewFound = entry.Found ~= nil
+		end
+	end)
+end
+
+local function buildIndexCard(def, order: number)
+	local card = create("TextButton", { LayoutOrder = order, Text = "", AutoButtonColor = false, BackgroundColor3 = Theme.cardColor(def.Rarity), ZIndex = 13, Parent = cardGrid }, { corner(10), stroke(3) })
+	Theme.gloss(card, 0.35)
+	local entry = {
+		Def = def,
+		Card = card,
+		Stroke = card:FindFirstChildOfClass("UIStroke"),
+		Name = text({ Size = UDim2.new(1, -8, 0, 26), Position = UDim2.fromOffset(4, 4), Text = "???", ZIndex = 15, Parent = card }),
+		Claim = text({ AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -4, 1, -4), Size = UDim2.fromOffset(60, 22), Text = "CLAIM!", TextColor3 = CLAIM_YELLOW, Visible = false, ZIndex = 15, Parent = card }),
+		Found = nil,
+		View = nil,
+		ViewFound = false,
+	}
+	Theme.springy(card)
+	card.Activated:Connect(function()
+		selectPet(def, entry.Found)
+	end)
+	indexCards[def.Id] = entry
+	queueIndexPreview(entry)
+	return entry
 end
 
 refreshIndex = function()
@@ -620,7 +871,6 @@ refreshIndex = function()
 	end
 	claimAllLabel.Text = ("CLAIM ALL (%d)!"):format(unclaimed)
 	claimAllButton.BackgroundColor3 = if unclaimed > 0 then Theme.Blue else Theme.Gray
-	clear(zoneList)
 	for order, zone in Config.Zones do
 		local defs = zoneDefs(order)
 		local count = 0
@@ -629,38 +879,55 @@ refreshIndex = function()
 				count += 1
 			end
 		end
-		local btn = button({ LayoutOrder = order, Size = UDim2.new(1, -10, 0, 64), BackgroundColor3 = zone.Floor[1], ZIndex = 13, Parent = zoneList }, ("%s %s\n%d/%d"):format(zone.Emoji or "", zone.Name, count, #defs), function()
-			indexZone = order
-			refreshIndex()
-		end)
-		btn.BackgroundTransparency = if order == indexZone then 0 else 0.35
-		local s = btn:FindFirstChildOfClass("UIStroke")
-		if s and order == indexZone then
-			s.Color = Color3.new(1, 1, 1)
+		local entry = zoneButtons[order]
+		if not entry then
+			local btn, label = button({ LayoutOrder = order, Size = UDim2.new(1, -10, 0, 64), BackgroundColor3 = zone.Floor[1], ZIndex = 13, Parent = zoneList }, "", function()
+				if indexZone ~= order then
+					indexZone = order
+					refreshIndex()
+				end
+			end)
+			entry = { Button = btn, Label = label, Stroke = btn:FindFirstChildOfClass("UIStroke") }
+			zoneButtons[order] = entry
+		end
+		entry.Label.Text = ("%s %s\n%d/%d"):format(zone.Emoji or "", zone.Name, count, #defs)
+		entry.Button.BackgroundTransparency = if order == indexZone then 0 else 0.35
+		if entry.Stroke then
+			entry.Stroke.Color = if order == indexZone then Theme.White else Theme.Dark
 		end
 	end
-	clear(cardGrid)
 	local defs = zoneDefs(indexZone)
+	-- trocou de zona: refaz os cartões (só os desta zona existem; prévias nascem aos poucos)
+	if indexCardsZone ~= indexZone then
+		indexCardsZone = indexZone
+		indexLazy.Clear()
+		clear(cardGrid)
+		table.clear(indexCards)
+		cardGrid.CanvasPosition = Vector2.zero
+		for order, def in defs do
+			buildIndexCard(def, order)
+		end
+	end
 	local count = 0
 	local first = nil
-	for order, def in defs do
+	for _, def in defs do
 		local found = index[def.Id]
 		if found then
 			count += 1
 		end
-		local card = create("TextButton", { LayoutOrder = order, Text = "", AutoButtonColor = false, BackgroundColor3 = Theme.cardColor(def.Rarity), ZIndex = 13, Parent = cardGrid }, { corner(10), stroke(3, if found == 1 then Color3.fromRGB(255, 230, 80) else Theme.Dark) })
-		Theme.gloss(card, 0.35)
-		Theme.preview(card, def, not found, false)
-		text({ Size = UDim2.new(1, -8, 0, 26), Position = UDim2.fromOffset(4, 4), Text = if found then def.Name else "???", ZIndex = 15, Parent = card })
-		if found == 1 then
-			text({ AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -4, 1, -4), Size = UDim2.fromOffset(60, 22), Text = "CLAIM!", TextColor3 = Color3.fromRGB(255, 230, 80), ZIndex = 15, Parent = card })
+		local entry = indexCards[def.Id]
+		if entry then
+			entry.Found = found
+			entry.Name.Text = if found then def.Name else "???"
+			entry.Claim.Visible = found == 1
+			-- acabou de descobrir: troca a sombra pela prévia colorida
+			if entry.View and entry.ViewFound ~= (found ~= nil) then
+				queueIndexPreview(entry)
+			end
 		end
-		Theme.springy(card)
-		card.Activated:Connect(function()
-			selectPet(def, found)
-		end)
 		first = first or { def, found }
 	end
+	indexLazy.Pump()
 	progressFill.Size = UDim2.fromScale(if #defs > 0 then count / #defs else 0, 1)
 	-- o taco da zona não pede Divine/Celestial (igual ao servidor)
 	local needed, have = 0, 0
@@ -680,7 +947,7 @@ refreshIndex = function()
 	if first then
 		local keep = false
 		for _, def in defs do
-			if def.Id == indexSelected then
+			if def.Id == indexShown then
 				keep = true
 				selectPet(def, index[def.Id])
 			end
@@ -691,6 +958,7 @@ refreshIndex = function()
 	end
 end
 onOpen.Index = refreshIndex
+refreshers.Index = refreshIndex
 
 ---------------------------------------------------------------------
 -- EGGS (ovos crescendo) e PETS / SELL
@@ -714,31 +982,60 @@ local function timeText(left: number): string
 	return ("%ds"):format(left)
 end
 
+-- (v66 perf) as linhas ficam prontas: a cada segundo só mudam o tempo e a cor do botão. Só refaz quando entra
+-- ou sai um ovo (antes destruía e recriava tudo 1x por segundo e o toque em HATCH se perdia no meio).
+local eggRows: { [string]: any } = {}
+local eggSignature: string? = nil
 local function refreshEggs()
-	clear(eggsList)
-	local slots = decode("Slots", {})
-	local any = false
-	for _, slot in slots do
-		local def = Critters.ById[slot.id]
-		if slot.k == "Egg" and def then
-			any = true
+	local eggs, keys = {}, {}
+	for _, slot in decode("Slots", {}) do
+		if type(slot) == "table" and slot.k == "Egg" and Critters.ById[slot.id] then
+			table.insert(eggs, slot)
+			table.insert(keys, ("%s:%s:%s:%s"):format(tostring(slot.i), tostring(slot.id), tostring(slot.s), tostring(slot.inc)))
+		end
+	end
+	local signature = table.concat(keys, "|")
+	if signature ~= eggSignature then
+		eggSignature = signature
+		clear(eggsList)
+		table.clear(eggRows)
+		for n, slot in eggs do
+			local def = Critters.ById[slot.id]
 			local row = create("Frame", { LayoutOrder = slot.l or 0, Size = UDim2.new(1, -8, 0, 86), BackgroundColor3 = Color3.fromRGB(62, 62, 74), ZIndex = 12, Parent = eggsList }, { corner(12), stroke(3) })
 			local box = create("Frame", { Size = UDim2.fromOffset(70, 70), Position = UDim2.fromOffset(8, 8), BackgroundColor3 = Theme.cardColor(def.Rarity), ZIndex = 13, Parent = row }, { corner(10), stroke(3) })
 			text({ Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1), Text = "\u{1F95A}", Stroke = 0, ZIndex = 14, Parent = box })
 			local label = Config.SizeLabel(slot.s or 1)
 			text({ Size = UDim2.new(1, -330, 0, 38), Position = UDim2.fromOffset(90, 6), Text = ("%s%s Egg"):format(if label then label .. " " else "", def.Name), TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 13, Parent = row })
 			text({ Size = UDim2.new(1, -330, 0, 28), Position = UDim2.fromOffset(90, 48), Text = ("%s  \u{2022}  %s/s"):format(def.Rarity, Format.Money(slot.inc or 0)), TextColor3 = Theme.rarityColor(def.Rarity), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 2, ZIndex = 13, Parent = row })
-			local ready = (slot.l or 0) <= 0
-			button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(220, 62), BackgroundColor3 = if ready then Theme.Green else Theme.Gray, ZIndex = 13, Parent = row }, if ready then "HATCH!" else timeText(slot.l or 0), function()
-				net:FireServer("Hatch", slot.i)
+			local slotIndex = slot.i
+			local hatchButton, hatchLabel = button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(220, 62), BackgroundColor3 = Theme.Gray, ZIndex = 13, Parent = row }, "", function()
+				net:FireServer("Hatch", slotIndex)
 			end)
+			eggRows[keys[n]] = { Row = row, Button = hatchButton, Label = hatchLabel }
+		end
+		if #eggs == 0 then
+			text({ Size = UDim2.new(1, -20, 0, 60), Text = "No eggs growing. Go STEAL some eggs!", TextColor3 = Color3.fromRGB(200, 210, 230), ZIndex = 13, Parent = eggsList })
 		end
 	end
-	if not any then
-		text({ Size = UDim2.new(1, -20, 0, 60), Text = "No eggs growing. Go STEAL some eggs!", TextColor3 = Color3.fromRGB(200, 210, 230), ZIndex = 13, Parent = eggsList })
+	for n, slot in eggs do
+		local entry = eggRows[keys[n]]
+		if entry then
+			local left = slot.l or 0
+			local ready = left <= 0
+			entry.Row.LayoutOrder = left
+			entry.Label.Text = if ready then "HATCH!" else timeText(left)
+			entry.Button.BackgroundColor3 = if ready then Theme.Green else Theme.Gray
+		end
 	end
 end
 onOpen.Eggs = refreshEggs
+refreshers.Eggs = refreshEggs
+-- o tempo dos ovos vem no atributo Slots (o servidor troca 1x por segundo enquanto há ovo crescendo)
+player:GetAttributeChangedSignal("Slots"):Connect(function()
+	if eggsWindow.Visible then
+		refreshEggs()
+	end
+end)
 
 local petsWindow, petsBody = Theme.window(gui, "Pets", "My Pets", Theme.Orange, Vector2.new(860, 560))
 windows.Pets = petsWindow
@@ -748,11 +1045,21 @@ button({ Size = UDim2.new(1, -16, 0, 60), Position = UDim2.new(0, 8, 1, -68), Ba
 	net:FireServer("SellAll")
 end)
 
-local function petCard(parent: Instance, slot, def, order: number, extra: (Frame) -> ())
+local petsLazy = lazyPreviews(petsGrid)
+-- lazy = a prévia 3D nasce só quando o cartão aparece na tela (v66 perf)
+local function petCard(parent: Instance, slot, def, order: number, extra: (Frame) -> (), lazy)
 	local card = create("Frame", { LayoutOrder = order, BackgroundColor3 = Theme.cardColor(def.Rarity), ZIndex = 13, Parent = parent }, { corner(10), stroke(3) })
 	Theme.gloss(card, 0.35)
 	local view = create("Frame", { Size = UDim2.new(1, 0, 0, 100), BackgroundTransparency = 1, ZIndex = 13, Parent = card })
-	Theme.preview(view, def, false, false)
+	if lazy then
+		lazy.Add(card, function()
+			if view.Parent then
+				Theme.preview(view, def, false, false)
+			end
+		end)
+	else
+		Theme.preview(view, def, false, false)
+	end
 	local label = Config.SizeLabel(slot.s or 1)
 	text({ Size = UDim2.new(1, -8, 0, 24), Position = UDim2.fromOffset(4, 4), Text = (if slot.m then slot.m .. " " else "") .. def.Name, ZIndex = 15, Parent = card })
 	if label then
@@ -764,8 +1071,10 @@ local function petCard(parent: Instance, slot, def, order: number, extra: (Frame
 end
 
 local function refreshPets()
+	petsLazy.Clear()
 	clear(petsGrid)
-	local slots = decode("Slots", {})
+	-- (cópia: a tabela do decode é compartilhada e o sort mudaria a ordem para as outras janelas)
+	local slots = table.clone(decode("Slots", {}))
 	local order = 0
 	table.sort(slots, function(a, b)
 		return (a.inc or 0) > (b.inc or 0)
@@ -795,7 +1104,7 @@ local function refreshPets()
 					-- some na hora (a lista é refeita quando chega a resposta)
 					card.Visible = false
 				end)
-			end)
+			end, petsLazy)
 		end
 	end
 	if order == 0 then
@@ -812,6 +1121,8 @@ onOpen.Sell = function()
 	petsTitle.Text = "\u{1F4B0} Sell Pets"
 	refreshPets()
 end
+refreshers.Pets = refreshPets
+refreshers.Sell = refreshPets
 
 ---------------------------------------------------------------------
 -- FUSE
@@ -829,54 +1140,92 @@ fuseButton, fuseLabel = button({ Size = UDim2.new(1, -16, 0, 60), Position = UDi
 		task.delay(0.4, refreshFuse)
 	end
 end)
-refreshFuse = function()
-	clear(fuseGrid)
-	local slots = decode("Slots", {})
-	local rarity = nil
+-- (v66 perf) os cartões ficam prontos: tocar num pet só muda a borda/transparência (antes refazia TODOS os
+-- cartões, cada um com prévia 3D, a cada toque). Só refaz quando a lista de pets muda.
+local fuseLazy = lazyPreviews(fuseGrid)
+local fuseCards: { [number]: any } = {} -- por slot.i: { Card, Stroke, Def, Key }
+local fuseSignature: string? = nil
+local function fuseRarity(): string?
 	for _, i in fuseSelected do
-		for _, slot in slots do
-			if slot.i == i then
-				local def = Critters.ById[slot.id]
-				rarity = def and def.Rarity
-			end
+		local entry = fuseCards[i]
+		if entry then
+			return entry.Def.Rarity
 		end
 	end
-	local order = 0
-	for _, slot in slots do
-		local def = Critters.ById[slot.id]
-		if slot.k == "Pet" and def then
-			order += 1
-			local chosen = table.find(fuseSelected, slot.i) ~= nil
-			local card = petCard(fuseGrid, slot, def, order, function(card)
-				local pick = create("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 16, Parent = card })
-				pick.Activated:Connect(function()
-					local at = table.find(fuseSelected, slot.i)
-					if at then
-						table.remove(fuseSelected, at)
-					elseif #fuseSelected < Config.FuseCount and (rarity == nil or rarity == def.Rarity) then
-						table.insert(fuseSelected, slot.i)
-					end
-					refreshFuse()
-				end)
-			end)
-			local s = card:FindFirstChildOfClass("UIStroke")
-			if s and chosen then
-				s.Color = Color3.fromRGB(80, 255, 255)
-				s.Thickness = 5
-			end
-			if rarity and def.Rarity ~= rarity and not chosen then
-				card.BackgroundTransparency = 0.6
-			end
+	return nil
+end
+local function paintFuse()
+	local rarity = fuseRarity()
+	for i, entry in fuseCards do
+		local chosen = table.find(fuseSelected, i) ~= nil
+		if entry.Stroke then
+			entry.Stroke.Color = if chosen then Color3.fromRGB(80, 255, 255) else Theme.Dark
+			entry.Stroke.Thickness = if chosen then 5 else 3
 		end
+		entry.Card.BackgroundTransparency = if rarity and entry.Def.Rarity ~= rarity and not chosen then 0.6 else 0
 	end
 	local nextRarity = rarity and Config.Rarities[(Config.RarityIndex[rarity] or 1) + 1]
 	fuseLabel.Text = if #fuseSelected == Config.FuseCount and nextRarity then ("\u{2728} FUSE \u{2192} %s EGG!"):format(string.upper(nextRarity.Name)) else ("Pick 3 pets of the SAME rarity (%d/3)"):format(#fuseSelected)
 	fuseButton.BackgroundColor3 = if #fuseSelected == Config.FuseCount then Theme.Green else Theme.Gray
 end
+refreshFuse = function()
+	local pets, keys = {}, {}
+	for _, slot in decode("Slots", {}) do
+		if type(slot) == "table" and slot.k == "Pet" and Critters.ById[slot.id] then
+			table.insert(pets, slot)
+			table.insert(keys, ("%s:%s:%s:%s:%s"):format(tostring(slot.i), tostring(slot.id), tostring(slot.m), tostring(slot.s), tostring(slot.inc)))
+		end
+	end
+	local signature = table.concat(keys, "|")
+	if signature ~= fuseSignature then
+		fuseSignature = signature
+		local oldKeys: { [number]: string } = {}
+		for i, entry in fuseCards do
+			oldKeys[i] = entry.Key
+		end
+		fuseLazy.Clear()
+		clear(fuseGrid)
+		table.clear(fuseCards)
+		for order, slot in pets do
+			local def = Critters.ById[slot.id]
+			local slotIndex = slot.i
+			local card = petCard(fuseGrid, slot, def, order, function(cardFrame)
+				local pick = create("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 16, Parent = cardFrame })
+				pick.Activated:Connect(function()
+					local at = table.find(fuseSelected, slotIndex)
+					if at then
+						table.remove(fuseSelected, at)
+					else
+						local rarity = fuseRarity()
+						if #fuseSelected < Config.FuseCount and (rarity == nil or rarity == def.Rarity) then
+							table.insert(fuseSelected, slotIndex)
+						end
+					end
+					paintFuse()
+				end)
+			end, fuseLazy)
+			fuseCards[slotIndex] = { Card = card, Stroke = card:FindFirstChildOfClass("UIStroke"), Def = def, Key = keys[order] }
+		end
+		-- a lista mudou: só continua marcado o pet que ainda é o mesmo naquela vaga
+		for k = #fuseSelected, 1, -1 do
+			local i = fuseSelected[k]
+			if not fuseCards[i] or fuseCards[i].Key ~= oldKeys[i] then
+				table.remove(fuseSelected, k)
+			end
+		end
+	end
+	paintFuse()
+end
 onOpen.Fuse = function()
 	fuseSelected = {}
 	refreshFuse()
 end
+refreshers.Fuse = refreshFuse
+player:GetAttributeChangedSignal("Slots"):Connect(function()
+	if fuseWindow.Visible then
+		refreshFuse() -- (só refaz os cartões se a lista de pets mudou)
+	end
+end)
 
 -- TRAILS e BOOSTS abrem o Shop na aba certa
 windows.Trails = shopWindow
@@ -889,6 +1238,8 @@ onOpen.Boosts = function()
 	shopTab = "Boosts"
 	refreshShop()
 end
+refreshers.Trails = refreshShop
+refreshers.Boosts = refreshShop
 
 ---------------------------------------------------------------------
 -- PRÊMIO DIÁRIO (7 dias seguidos)
@@ -923,6 +1274,7 @@ local function refreshDaily()
 	dailyClaim.BackgroundColor3 = if ready then Theme.Green else Theme.Gray
 end
 onOpen.Daily = refreshDaily
+refreshers.Daily = refreshDaily
 
 ---------------------------------------------------------------------
 -- MISSÕES DO DIA
@@ -952,6 +1304,7 @@ local function refreshQuests()
 	end
 end
 onOpen.Quests = refreshQuests
+refreshers.Quests = refreshQuests
 player:GetAttributeChangedSignal("Quests"):Connect(function()
 	if questWindow.Visible then
 		refreshQuests()
@@ -959,105 +1312,91 @@ player:GetAttributeChangedSignal("Quests"):Connect(function()
 end)
 
 ---------------------------------------------------------------------
--- Botões da tela
+-- Botões da tela (v66): SÓ 5 botões à esquerda (Loja, Índice, Ovos, Pets, Presentes) + 1 botão Menu à direita.
+-- (antes: 8 coisas à esquerda + 6 quadrados à direita; no celular cobriam o joystick e o botão de pular)
 ---------------------------------------------------------------------
-local function wideButton(y: number, icon: string, label: string, color: Color3, onClick): TextButton
-	local btn, txt = button({ AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 14, 0.5, y), Size = UDim2.fromOffset(196, 66), BackgroundColor3 = color, Parent = gui }, label, onClick)
-	txt.Size = UDim2.new(1, -72, 1, -10)
-	txt.Position = UDim2.fromOffset(66, 5)
-	txt.TextXAlignment = Enum.TextXAlignment.Left
-	text({ Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(8, 7), Text = icon, Stroke = 0, Parent = btn })
-	return btn
-end
-wideButton(-90, "\u{1F6D2}", "Shop", Theme.Green, function()
-	shopTab = "Upgrades"
-	open("Shop", true)
-end)
-local indexButton = wideButton(-14, "\u{1F4D6}", "Index", Theme.Blue, function()
-	open("Index", true)
-end)
--- PAINEL DE RENASCIMENTO: botão fixo com barra de progresso até o próximo rebirth
+local sideButton: (number, string, string, Color3, () -> ()) -> TextButton
 do
-	local rebirthButton = wideButton(-182, "\u{1F504}", "Rebirth", Theme.Purple, function()
-		shopTab = "Rebirth"
+	local leftColumn = create("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 14, 0.5, 0), Size = UDim2.fromOffset(180, 5 * 58 + 4 * 10), BackgroundTransparency = 1, Parent = gui }, {
+		create("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	if TOUCH then
+		-- celular: um pouco acima do meio (o joystick fica embaixo à esquerda)
+		leftColumn.Position = UDim2.new(0, 10, 0.44, 0)
+	end
+	-- botão largo da coluna da esquerda (ícone + nome)
+	sideButton = function(order: number, icon: string, label: string, color: Color3, onClick): TextButton
+		local btn, txt = button({ LayoutOrder = order, Size = UDim2.fromOffset(180, 58), BackgroundColor3 = color, Parent = leftColumn }, label, onClick)
+		txt.Size = UDim2.new(1, -64, 1, -10)
+		txt.Position = UDim2.fromOffset(58, 5)
+		txt.TextXAlignment = Enum.TextXAlignment.Left
+		text({ Size = UDim2.fromOffset(46, 46), Position = UDim2.fromOffset(7, 6), Text = icon, Stroke = 0, Parent = btn })
+		return btn
+	end
+end
+do
+	sideButton(1, "\u{1F6D2}", L("Shop"), Theme.Green, function()
+		shopTab = "Upgrades"
 		open("Shop", true)
 	end)
-	local barBack = create("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 4), Size = UDim2.new(1, 0, 0, 18), BackgroundColor3 = Color3.fromRGB(40, 30, 60), Parent = rebirthButton }, { corner(9), stroke(2) })
-	local barFill = create("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Color3.fromRGB(255, 120, 255), Parent = barBack }, { corner(9) })
-	local barText = text({ Size = UDim2.fromScale(1, 1), Text = "", Stroke = 2, ZIndex = 3, Parent = barBack })
-	local rebirthBadge = create("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -6, 0, 6), Size = UDim2.fromOffset(30, 30), BackgroundColor3 = Theme.Red, Visible = false, Parent = rebirthButton }, { corner(15), stroke(3, Color3.new(1, 1, 1)) })
-	text({ Size = UDim2.fromScale(1, 1), Text = "!", Parent = rebirthBadge })
-	task.spawn(function()
-		while true do
-			local rebirths = player:GetAttribute("Rebirths") or 0
-			local cost = Config.RebirthCost(rebirths)
-			local money = player:GetAttribute("Money") or 0
-			local p = math.clamp(money / cost, 0, 1)
-			barFill.Size = UDim2.fromScale(p, 1)
-			barText.Text = if p >= 1 then "READY! \u{1F504} " .. (rebirths + 1) else ("%d%%  (x%d)"):format(math.floor(p * 100), rebirths)
-			rebirthBadge.Visible = p >= 1
-			task.wait(0.5)
-		end
+	local indexButton = sideButton(2, "\u{1F4D6}", L("Index"), Theme.Blue, function()
+		open("Index", true)
 	end)
-end
-
-local indexBadge = create("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -6, 0, 6), Size = UDim2.fromOffset(32, 32), BackgroundColor3 = Theme.Red, Visible = false, Parent = indexButton }, { corner(16), stroke(3, Color3.new(1, 1, 1)) })
-local indexBadgeText = text({ Size = UDim2.fromScale(1, 1), Text = "0", Parent = indexBadge })
-
--- Slow Mode (botão liga/desliga)
-local slowOn = false
-local slowFrame = create("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 14, 0.5, 52), Size = UDim2.fromOffset(196, 40), BackgroundTransparency = 1, Parent = gui })
-local switch = create("TextButton", { Size = UDim2.fromOffset(80, 36), Text = "", BackgroundColor3 = Color3.fromRGB(60, 45, 45), AutoButtonColor = false, Parent = slowFrame }, { corner(8), stroke(3) })
-local knob = create("Frame", { Size = UDim2.fromOffset(32, 28), Position = UDim2.fromOffset(4, 4), BackgroundColor3 = Theme.Green, Parent = switch }, { corner(6) })
-text({ Size = UDim2.new(1, -90, 1, 0), Position = UDim2.fromOffset(90, 0), Text = "Slow Mode", TextXAlignment = Enum.TextXAlignment.Left, Parent = slowFrame })
-switch.Activated:Connect(function()
-	slowOn = not slowOn
-	net:FireServer("SlowMode", slowOn)
-	TweenService:Create(knob, TweenInfo.new(0.15), { Position = UDim2.fromOffset(if slowOn then 44 else 4, 4) }):Play()
-	switch.BackgroundColor3 = if slowOn then Color3.fromRGB(40, 110, 50) else Color3.fromRGB(60, 45, 45)
-end)
-
-local function squareButton(y: number, icon: string, color: Color3, label: string, onClick)
-	local btn = button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, y), Size = UDim2.fromOffset(84, 84), BackgroundColor3 = color, Parent = gui }, "", onClick)
-	text({ Size = UDim2.fromScale(0.72, 0.72), Position = UDim2.fromScale(0.14, 0.06), Text = icon, Stroke = 0, Parent = btn })
-	text({ Size = UDim2.new(1, -6, 0, 20), Position = UDim2.new(0, 3, 1, -24), Text = label, Parent = btn })
-	return btn
-end
-squareButton(-104, "\u{1F95A}", Theme.Red, "Eggs", function()
-	open("Eggs", true)
-end)
-squareButton(-8, "\u{1F43E}", Theme.Orange, "Pets", function()
-	open("Pets", true)
-end)
-squareButton(88, "\u{1F9EA}", Theme.Green, "Boosts", function()
-	shopTab = "Boosts"
-	open("Shop", true)
-end)
-local dailyButton = squareButton(184, "\u{1F381}", Theme.Purple, "Daily", function()
-	open("Daily", true)
-end)
-local dailyBadge = create("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 6, 0, 6), Size = UDim2.fromOffset(30, 30), BackgroundColor3 = Theme.Red, Visible = false, Parent = dailyButton }, { corner(15), stroke(3, Color3.new(1, 1, 1)) })
-text({ Size = UDim2.fromScale(1, 1), Text = "!", Parent = dailyBadge })
-local questButton = squareButton(280, "\u{1F4DC}", Theme.Blue, "Quests", function()
-	open("Quests", true)
-end)
-local questBadge = create("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 6, 0, 6), Size = UDim2.fromOffset(30, 30), BackgroundColor3 = Theme.Red, Visible = false, Parent = questButton }, { corner(15), stroke(3, Color3.new(1, 1, 1)) })
-text({ Size = UDim2.fromScale(1, 1), Text = "!", Parent = questBadge })
-local function updateQuestBadge()
-	local q = decode("Quests", { p = {}, c = {} })
-	local ready = false
-	for _, info in Config.Quests do
-		if ((q.p and q.p[info.Key]) or 0) >= info.Goal and not (q.c and q.c[info.Key]) then
-			ready = true
+	local eggsButton = sideButton(3, "\u{1F95A}", L("Eggs"), Theme.Red, function()
+		open("Eggs", true)
+	end)
+	sideButton(4, "\u{1F43E}", L("Pets"), Theme.Orange, function()
+		open("Pets", true)
+	end)
+	-- selos com número: prêmios do Index esperando / ovos prontos para chocar
+	-- (v66: só recalcula quando o atributo muda; antes decodificava o JSON 4x por segundo)
+	local indexBadge, indexBadgeText = Theme.badge(indexButton, "0")
+	local eggsBadge, eggsBadgeText = Theme.badge(eggsButton, "0")
+	local function countIndex()
+		local unclaimed = 0
+		for _, value in decode("Index", {}) do
+			if value == 1 then
+				unclaimed += 1
+			end
 		end
+		indexBadge.Visible = unclaimed > 0
+		indexBadgeText.Text = tostring(unclaimed)
 	end
-	questBadge.Visible = ready
+	local function countEggs()
+		local ready = 0
+		for _, slot in decode("Slots", {}) do
+			if type(slot) == "table" and slot.k == "Egg" and (slot.l or 0) <= 0 then
+				ready += 1
+			end
+		end
+		eggsBadge.Visible = ready > 0
+		eggsBadgeText.Text = tostring(ready)
+	end
+	player:GetAttributeChangedSignal("Index"):Connect(countIndex)
+	player:GetAttributeChangedSignal("Slots"):Connect(countEggs)
+	task.defer(countIndex)
+	task.defer(countEggs)
 end
-player:GetAttributeChangedSignal("Quests"):Connect(updateQuestBadge)
-task.defer(updateQuestBadge)
+
+-- missão pronta para pegar (selo no quadrado Missões do Menu)
+local questReady = false
+do
+	local function updateQuestBadge()
+		local q = decode("Quests", { p = {}, c = {} })
+		local ready = false
+		for _, info in Config.Quests do
+			if ((q.p and q.p[info.Key]) or 0) >= info.Goal and not (q.c and q.c[info.Key]) then
+				ready = true
+			end
+		end
+		questReady = ready
+	end
+	player:GetAttributeChangedSignal("Quests"):Connect(updateQuestBadge)
+	task.defer(updateQuestBadge)
+end
 
 ---------------------------------------------------------------------
--- PRESENTES POR TEMPO JOGADO (botão "Gifts" com contador)
+-- PRESENTES POR TEMPO JOGADO (botão "Gifts" na coluna da esquerda, com contador embaixo)
 ---------------------------------------------------------------------
 do
 	local giftWindow, giftBody = Theme.window(gui, "Gifts", "\u{1F381} Free Gifts", Theme.Pink, Vector2.new(820, 560))
@@ -1070,38 +1409,52 @@ do
 	local function giftClaimed(index: number): boolean
 		return table.find(string.split(player:GetAttribute("GiftsClaimed") or "", ","), tostring(index)) ~= nil
 	end
+	-- (v66 perf) as linhas são criadas 1 vez (na 1ª abertura); a cada segundo só mudam textos e cores.
+	-- Antes a lista era destruída e refeita 1x por segundo e o toque em CLAIM se perdia.
+	local giftRows: { [number]: { Button: TextButton, Label: TextLabel, Sub: TextLabel } } = {}
 	local function refreshGifts()
-		clear(giftList)
+		if next(giftRows) == nil then
+			for index, info in Config.Gifts do
+				local _, giftButton, giftLabel, giftSub = shopRow(giftList, index, if info.Egg then "\u{1F95A}" else "\u{1F381}", ("Gift %d%s"):format(index, if info.Egg then "  - RARE EGG!" else ""),
+					"", "", Color3.fromRGB(90, 90, 110), function()
+						-- confere na hora do toque (a linha não é mais refeita)
+						if not giftClaimed(index) and info.Minutes * 60 - playedSeconds() <= 0 then
+							net:FireServer("Gift", index)
+						end
+					end, Color3.fromRGB(255, 110, 190))
+				giftRows[index] = { Button = giftButton, Label = giftLabel, Sub = giftSub }
+			end
+		end
 		local played = playedSeconds()
 		local income = player:GetAttribute("Income") or 0
+		local claimedList = string.split(player:GetAttribute("GiftsClaimed") or "", ",")
 		for index, info in Config.Gifts do
-			local left = info.Minutes * 60 - played
-			local claimed = giftClaimed(index)
-			local cash = math.max(info.MinCash, math.floor(income * 60 * info.Cash))
-			local label = if claimed then "CLAIMED" elseif left <= 0 then "CLAIM!" else ("%d:%02d"):format(math.floor(left / 60), math.floor(left % 60))
-			local color = if claimed then Theme.Gray elseif left <= 0 then Theme.Green else Color3.fromRGB(90, 90, 110)
-			shopRow(giftList, index, if info.Egg then "\u{1F95A}" else "\u{1F381}", ("Gift %d%s"):format(index, if info.Egg then "  - RARE EGG!" else ""),
-				("+%s  +%s Speed"):format(Format.Money(cash), Format.Short(info.Speed)), label, color, function()
-					if not claimed and left <= 0 then
-						net:FireServer("Gift", index)
-					end
-				end, Color3.fromRGB(255, 110, 190))
+			local row = giftRows[index]
+			if row then
+				local left = info.Minutes * 60 - played
+				local claimed = table.find(claimedList, tostring(index)) ~= nil
+				local cash = math.max(info.MinCash, math.floor(income * 60 * info.Cash))
+				row.Sub.Text = ("+%s  +%s Speed"):format(Format.Money(cash), Format.Short(info.Speed))
+				row.Label.Text = if claimed then "CLAIMED" elseif left <= 0 then "CLAIM!" else ("%d:%02d"):format(math.floor(left / 60), math.floor(left % 60))
+				row.Button.BackgroundColor3 = if claimed then Theme.Gray elseif left <= 0 then Theme.Green else Color3.fromRGB(90, 90, 110)
+			end
 		end
 	end
 	onOpen.Gifts = refreshGifts
-	local giftButton = squareButton(-212, "\u{1F381}", Theme.Pink, "Gifts", function()
+	refreshers.Gifts = refreshGifts
+	local giftButton = sideButton(5, "\u{1F381}", L("Gifts"), Theme.Pink, function()
 		open("Gifts", true)
 	end)
-	local giftBadge = create("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 6, 0, 6), Size = UDim2.fromOffset(30, 30), BackgroundColor3 = Theme.Red, Visible = false, Parent = giftButton }, { corner(15), stroke(3, Color3.new(1, 1, 1)) })
-	text({ Size = UDim2.fromScale(1, 1), Text = "!", Parent = giftBadge })
-	local giftTimer = text({ AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 2), Size = UDim2.fromOffset(110, 24), Text = "", TextColor3 = Color3.fromRGB(255, 200, 235), Parent = giftButton })
+	local giftBadge = Theme.badge(giftButton, "!")
+	local giftTimer = text({ AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 2), Size = UDim2.fromOffset(130, 24), Text = "", TextColor3 = Color3.fromRGB(255, 200, 235), Parent = giftButton })
 	task.spawn(function()
 		while true do
 			task.wait(1)
 			local played = playedSeconds()
 			local ready, nextLeft = false, nil
+			local claimedList = string.split(player:GetAttribute("GiftsClaimed") or "", ",")
 			for index, info in Config.Gifts do
-				if not giftClaimed(index) then
+				if not table.find(claimedList, tostring(index)) then
 					local left = info.Minutes * 60 - played
 					if left <= 0 then
 						ready = true
@@ -1111,17 +1464,16 @@ do
 				end
 			end
 			giftBadge.Visible = ready
-			giftTimer.Text = if ready then "READY!" elseif nextLeft then ("%d:%02d"):format(math.floor(nextLeft / 60), math.floor(nextLeft % 60)) else ""
+			giftTimer.Text = if ready then L("Ready") elseif nextLeft then ("%d:%02d"):format(math.floor(nextLeft / 60), math.floor(nextLeft % 60)) else ""
 			if giftWindow.Visible then
 				refreshGifts()
 			end
 		end
 	end)
-	
 end
 
 ---------------------------------------------------------------------
--- CÓDIGOS (v65): botão à esquerda (em cima do Rebirth) + janela para digitar
+-- CÓDIGOS (v65): janela para digitar (v66: abre pelo Menu)
 ---------------------------------------------------------------------
 do
 	local codeWindow, codeBody = Theme.window(gui, "Codes", "\u{1F39F} Codes", Theme.Cyan, Vector2.new(640, 330))
@@ -1147,9 +1499,6 @@ do
 			net:FireServer("Redeem", string.sub(box.Text, 1, 30))
 		end
 	end)
-	wideButton(-258, "\u{1F39F}", "Codes", Theme.Cyan, function()
-		open("Codes", true)
-	end)
 	net.OnClientEvent:Connect(function(kind)
 		if kind == "CodeOk" then
 			box.Text = ""
@@ -1159,7 +1508,7 @@ do
 end
 
 ---------------------------------------------------------------------
--- HALLOWEEN (v65): botão com os doces + Loja de Doces (só aparece durante o evento)
+-- HALLOWEEN (v65): Loja de Doces (v66: abre pelo quadrado "Doces" do Menu, que só aparece durante o evento)
 ---------------------------------------------------------------------
 do
 	local candyWindow, candyBody = Theme.window(gui, "Halloween", "\u{1F383} Candy Shop", Theme.Orange, Vector2.new(820, 560))
@@ -1183,14 +1532,9 @@ do
 		end
 	end
 	onOpen.Halloween = refreshCandy
-	local candyButton = wideButton(-334, "\u{1F383}", "Candy", Theme.Orange, function()
-		open("Halloween", true)
-	end)
-	local candyLabel = candyButton:FindFirstChild("Label") :: TextLabel
+	refreshers.Halloween = refreshCandy
 	local function update()
 		local on = workspace:GetAttribute("Halloween") == true
-		candyButton.Visible = on
-		candyLabel.Text = ("Candy %d"):format(player:GetAttribute("Candy") or 0)
 		if not on then
 			candyWindow.Visible = false
 		elseif candyWindow.Visible then
@@ -1249,23 +1593,211 @@ do
 	end
 end
 
--- som ligado/desligado e convidar amigos (embaixo do Slow Mode)
-local soundOn = true
-local soundButton = button({ AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 14, 0.5, 108), Size = UDim2.fromOffset(92, 48), BackgroundColor3 = Theme.Purple, Parent = gui }, "\u{1F50A}", function()
-	soundOn = not soundOn
-	player:SetAttribute("Muted", not soundOn)
-	local music = SoundService:FindFirstChild("Music")
-	if music then
-		music.Volume = if soundOn then (Config.Sounds.Music.Volume or 0.2) else 0
+---------------------------------------------------------------------
+-- MENU (v66): UM botão na direita, no meio da altura (nunca em cima do botão de pular do celular).
+-- "!" vermelho quando tem algo pronto lá dentro. Abre uma grade de quadrados grandes:
+-- Diário, Missões, Rebirth, Boosts, Códigos, Doces (só no Halloween), Convidar, Som, Modo Lento e Admin (só admins).
+---------------------------------------------------------------------
+local refreshMenuBadge: () -> () = function() end -- (a de verdade fica dentro do bloco abaixo)
+do
+	local MENU_COLOR = Color3.fromRGB(70, 90, 210)
+	local soundOn = true
+	local slowOn = false
+	local adminMenuSeen = false -- admin: "!" no Menu até abrir uma vez (para achar o painel)
+	local menuWindow, menuBody = Theme.window(gui, "Menu", L("Menu"), MENU_COLOR, Vector2.new(840, 440))
+	windows.Menu = menuWindow
+	local menuGrid = scroller(menuBody, nil, Vector2.new(150, 150))
+	local menuTiles: { [string]: any } = {}
+	-- quadrado do Menu: ícone grande + nome + texto pequeno (opcional) + selo "!".
+	-- keepOpen = liga/desliga (Som, Modo Lento): o Menu continua aberto
+	local function menuTile(key: string, order: number, icon: string, color: Color3, onClick: () -> (), keepOpen: boolean?)
+		local tile = button({ LayoutOrder = order, BackgroundColor3 = color, ZIndex = 13, Parent = menuGrid }, "", function()
+			if not keepOpen then
+				menuWindow.Visible = false
+			end
+			onClick()
+			refreshMenuBadge()
+		end)
+		local iconLabel = text({ Size = UDim2.new(1, -24, 0, 64), Position = UDim2.fromOffset(12, 8), Text = icon, Stroke = 0, ZIndex = 14, Parent = tile })
+		text({ Size = UDim2.new(1, -12, 0, 32), Position = UDim2.fromOffset(6, 76), Text = L(key), ZIndex = 14, Parent = tile })
+		-- (2 linhas: o texto do Convidar é comprido e ficaria minúsculo no celular)
+		local sub = text({ Size = UDim2.new(1, -12, 0, 38), Position = UDim2.fromOffset(6, 108), Text = "", TextWrapped = true, TextColor3 = Color3.fromRGB(255, 245, 210), Stroke = 2, ZIndex = 14, Parent = tile })
+		create("UITextSizeConstraint", { MaxTextSize = 24, Parent = sub })
+		local badge = Theme.badge(tile, "!")
+		local entry = { Tile = tile, Icon = iconLabel, Sub = sub, Badge = badge }
+		menuTiles[key] = entry
+		return entry
 	end
-end)
-local _ = soundButton
--- (v65: o botão dizia "+25%", mas o bônus é por AMIGO JOGANDO junto, não por convite enviado)
-button({ AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 114, 0.5, 108), Size = UDim2.fromOffset(96, 48), BackgroundColor3 = Theme.Orange, Parent = gui }, "\u{1F465} Invite", function()
-	pcall(function()
-		game:GetService("SocialService"):PromptGameInvite(player)
+	menuTile("Daily", 1, "\u{1F381}", Theme.Purple, function()
+		open("Daily")
 	end)
-end)
+	menuTile("Quests", 2, "\u{1F4DC}", Theme.Blue, function()
+		open("Quests")
+	end)
+	menuTile("Rebirth", 3, "\u{1F504}", Color3.fromRGB(200, 70, 220), function()
+		shopTab = "Rebirth"
+		open("Shop")
+	end)
+	menuTile("Boosts", 4, "\u{1F9EA}", Theme.Green, function()
+		open("Boosts") -- abre o Shop na aba Boosts
+	end)
+	menuTile("Codes", 5, "\u{1F39F}", Theme.Cyan, function()
+		open("Codes")
+	end)
+	menuTile("Candy", 6, "\u{1F383}", Theme.Orange, function()
+		open("Halloween")
+	end)
+	-- (v65: o bônus é por AMIGO JOGANDO junto, não por convite enviado)
+	local inviteTile = menuTile("Invite", 7, "\u{1F465}", Color3.fromRGB(255, 120, 60), function()
+		pcall(function()
+			game:GetService("SocialService"):PromptGameInvite(player)
+		end)
+	end)
+	inviteTile.Sub.Text = L("InviteSub"):format(math.floor((Config.FriendBoost or 0.25) * 100 + 0.5))
+	menuTile("Sound", 8, "\u{1F50A}", Color3.fromRGB(110, 90, 200), function()
+		soundOn = not soundOn
+		player:SetAttribute("Muted", not soundOn)
+		local music = SoundService:FindFirstChild("Music")
+		if music then
+			music.Volume = if soundOn then (Config.Sounds.Music.Volume or 0.2) else 0
+		end
+	end, true)
+	menuTile("SlowMode", 9, "\u{1F422}", Color3.fromRGB(70, 150, 90), function()
+		slowOn = not slowOn
+		net:FireServer("SlowMode", slowOn)
+	end, true)
+	menuTile("Admin", 10, "\u{26A1}", Theme.Red, function()
+		open("Admin")
+	end)
+
+	-- botão Menu (3 risquinhos desenhados: o símbolo ☰ não existe em todas as fontes)
+	local menuButton = button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, if TOUCH then -10 else -14, 0.5, 0), Size = UDim2.fromOffset(76, 76), BackgroundColor3 = MENU_COLOR, Parent = gui }, "", function()
+		if player:GetAttribute("IsAdmin") == true then
+			adminMenuSeen = true
+		end
+		open("Menu", true)
+	end)
+	for k = 0, 2 do
+		create("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 11 + k * 12), Size = UDim2.fromOffset(40, 7), BackgroundColor3 = Theme.White, BorderSizePixel = 0, Parent = menuButton }, { corner(3), stroke(2) })
+	end
+	text({ Size = UDim2.new(1, -8, 0, 22), Position = UDim2.new(0, 4, 1, -26), Text = L("Menu"), Parent = menuButton })
+	local menuBadge = Theme.badge(menuButton, "!")
+
+	-- atualiza os quadrados (selos, textos pequenos, quem aparece) e devolve se tem algo pronto
+	local function updateMenu(): boolean
+		local money = player:GetAttribute("Money") or 0
+		local rebirths = player:GetAttribute("Rebirths") or 0
+		local progress = math.clamp(money / math.max(Config.RebirthCost(rebirths), 1), 0, 1)
+		local dailyReady = player:GetAttribute("DailyReady") == true
+		local halloween = workspace:GetAttribute("Halloween") == true
+		local candy = player:GetAttribute("Candy") or 0
+		local candyReady = false
+		if halloween then
+			for _, item in Config.Halloween.Shop do
+				if candy >= item.Cost then
+					candyReady = true
+				end
+			end
+		end
+		local admin = player:GetAttribute("IsAdmin") == true
+		menuTiles.Daily.Badge.Visible = dailyReady
+		menuTiles.Daily.Sub.Text = if dailyReady then L("Ready") else ""
+		menuTiles.Quests.Badge.Visible = questReady
+		menuTiles.Quests.Sub.Text = if questReady then L("Ready") else ""
+		menuTiles.Rebirth.Badge.Visible = progress >= 1
+		menuTiles.Rebirth.Sub.Text = if progress >= 1 then L("Ready") else ("%d%%"):format(math.floor(progress * 100))
+		menuTiles.Candy.Tile.Visible = halloween
+		menuTiles.Candy.Badge.Visible = candyReady
+		menuTiles.Candy.Sub.Text = ("\u{1F36C} %d"):format(candy)
+		menuTiles.Sound.Icon.Text = if soundOn then "\u{1F50A}" else "\u{1F507}"
+		menuTiles.Sound.Sub.Text = if soundOn then L("On") else L("Off")
+		menuTiles.Sound.Sub.TextColor3 = if soundOn then GREEN_TEXT else Color3.fromRGB(255, 120, 120)
+		menuTiles.SlowMode.Sub.Text = if slowOn then L("On") else L("Off")
+		menuTiles.SlowMode.Sub.TextColor3 = if slowOn then GREEN_TEXT else Color3.fromRGB(255, 120, 120)
+		menuTiles.Admin.Tile.Visible = admin
+		return dailyReady or questReady or progress >= 1 or candyReady or (admin and not adminMenuSeen)
+	end
+	refreshMenuBadge = function()
+		menuBadge.Visible = updateMenu()
+	end
+	onOpen.Menu = refreshMenuBadge
+	refreshers.Menu = refreshMenuBadge
+	task.defer(refreshMenuBadge)
+
+	---------------------------------------------------------------------
+	-- ADMIN (v66, só admins): liga eventos AO VIVO em todos os servidores (o servidor confere quem é admin).
+	-- Toque 2 vezes para confirmar (um toque sem querer mexeria em TODOS os servidores).
+	---------------------------------------------------------------------
+	do
+		local abuse = Config.AdminAbuse or { LuckMult = 10, Minutes = 15 }
+		local adminWindow, adminBody = Theme.window(gui, "Admin", "\u{26A1} " .. L("Admin"), Theme.Red, Vector2.new(640, 560))
+		windows.Admin = adminWindow
+		text({ Size = UDim2.new(1, -24, 0, 36), Position = UDim2.fromOffset(12, 10), Text = L("AdminInfo"), TextColor3 = Color3.fromRGB(255, 220, 120), Stroke = 2, ZIndex = 13, Parent = adminBody })
+		local list = create("Frame", { Size = UDim2.new(1, -24, 1, -64), Position = UDim2.fromOffset(12, 54), BackgroundTransparency = 1, ZIndex = 12, Parent = adminBody }, {
+			create("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+		})
+		local commands = {
+			{ "Luck", L("AdminLuck"):format(math.floor(abuse.LuckMult or 10), math.floor(abuse.Minutes or 15)), Theme.Green },
+			{ "Golden", L("AdminGolden"), Color3.fromRGB(235, 175, 30) },
+			{ "Party", L("AdminParty"), Theme.Purple },
+			{ "Money", L("AdminMoney"):format(math.floor(abuse.Minutes or 15)), Color3.fromRGB(40, 160, 80) },
+			{ "Pumpkin", L("AdminPumpkin"), Theme.Orange },
+		}
+		for order, info in commands do
+			local cmd, label, color = info[1], info[2], info[3]
+			local confirmUntil = 0
+			local commandLabel
+			_, commandLabel = button({ LayoutOrder = order, Size = UDim2.new(1, 0, 0, 70), BackgroundColor3 = color, ZIndex = 13, Parent = list }, label, function()
+				if player:GetAttribute("IsAdmin") ~= true then
+					return
+				end
+				if os.clock() > confirmUntil then
+					confirmUntil = os.clock() + 3
+					commandLabel.Text = L("TapConfirm")
+					task.delay(3, function()
+						if commandLabel.Parent and os.clock() >= confirmUntil then
+							commandLabel.Text = label
+						end
+					end)
+					return
+				end
+				confirmUntil = 0
+				commandLabel.Text = label
+				net:FireServer("Admin", { cmd = cmd })
+			end)
+		end
+		player:GetAttributeChangedSignal("IsAdmin"):Connect(function()
+			if player:GetAttribute("IsAdmin") ~= true then
+				adminWindow.Visible = false
+			end
+			refreshMenuBadge()
+		end)
+	end
+
+	-- v66: janela maior que a tela (celular com a tela no 0.6) encolhe para caber com margem
+	local function fitAllWindows()
+		local screen = gui.AbsoluteSize
+		if screen.X < 50 or screen.Y < 50 then
+			return
+		end
+		local scale = math.max(uiScale.Scale, 0.1)
+		local done: { [Frame]: boolean } = {}
+		for _, window in windows do
+			if not done[window] then
+				done[window] = true
+				local width, height = window.Size.X.Offset, window.Size.Y.Offset
+				if width > 0 and height > 0 then
+					-- a janela fica centrada em 52% da altura: cabe se a metade de baixo couber
+					local fit = math.min(1, (screen.X - 24) / (width * scale), (screen.Y * 0.96 - 24) / (height * scale))
+					Theme.fit(window, math.max(fit, 0.35))
+				end
+			end
+		end
+	end
+	fitWindows = fitAllWindows
+	fitAllWindows()
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
+end
 
 task.delay(6, function()
 	if player:GetAttribute("DailyReady") == true then
@@ -1404,7 +1936,10 @@ local hatchQueue = {}
 local hatchBusy = false
 local hatchLayer = create("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, Visible = false, ZIndex = 40, Active = false, Parent = gui })
 
-local function confetti(color: Color3)
+-- camada só de efeitos (confete da zona nova): não bloqueia toques
+local fxLayer = create("Frame", { Name = "Fx", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 45, Active = false, Parent = gui })
+
+local function confetti(color: Color3, layer: GuiObject?)
 	for _ = 1, 40 do
 		local piece = create("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
@@ -1414,7 +1949,7 @@ local function confetti(color: Color3)
 			BackgroundColor3 = if math.random() < 0.5 then color else Color3.fromHSV(math.random(), 0.8, 1),
 			BorderSizePixel = 0,
 			ZIndex = 45,
-			Parent = hatchLayer,
+			Parent = layer or hatchLayer,
 		})
 		local target = UDim2.fromScale(0.5 + (math.random() - 0.5) * 0.9, 0.45 + (math.random() - 0.3) * 0.9)
 		TweenService:Create(piece, TweenInfo.new(1.4 + math.random() * 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = target, Rotation = piece.Rotation + math.random(-360, 360), BackgroundTransparency = 1 }):Play()
@@ -1531,7 +2066,10 @@ end
 local swinging: { [Model]: number } = {}
 local stunText = text({ AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.62), Size = UDim2.fromOffset(500, 70), Text = "\u{1F4AB} STUNNED!", TextColor3 = Color3.fromRGB(255, 220, 90), Stroke = 5, Visible = false, ZIndex = 30, Parent = gui })
 
-local carryText = text({ AnchorPoint = if game:GetService("UserInputService").TouchEnabled then Vector2.new(0.5, 0) else Vector2.new(0.5, 1), Position = if game:GetService("UserInputService").TouchEnabled then UDim2.new(0.5, 0, 0, 70) else UDim2.new(0.5, 0, 1, -30), Size = UDim2.fromOffset(760, 54), Text = "\u{1F3C3} RUN BACK TO THE SAFE ZONE!", TextColor3 = Color3.fromRGB(255, 225, 80), Stroke = 5, Visible = false, Parent = gui })
+-- (celular, v66: EMBAIXO no meio, logo acima do dinheiro/velocidade; antes ficava em cima, por baixo da faixa
+-- grande "RUN!!" (y 40..126). Ali embaixo não encosta em nada: carregando ovo, a dica do tutorial e o painel
+-- da esteira ficam escondidos; o joystick e o botão de pular ficam nos cantos)
+local carryText = text({ AnchorPoint = Vector2.new(0.5, 1), Position = if TOUCH then UDim2.new(0.5, 0, 1, -150) else UDim2.new(0.5, 0, 1, -30), Size = UDim2.fromOffset(if TOUCH then 600 else 760, if TOUCH then 48 else 54), Text = L("CarryRun"), TextColor3 = Color3.fromRGB(255, 225, 80), Stroke = 5, Visible = false, Parent = gui })
 
 -- tela escura da noite (o muro e o céu fazem o resto)
 local nightShade = create("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(10, 15, 50), BackgroundTransparency = 1, ZIndex = 0, Parent = gui })
@@ -1660,33 +2198,37 @@ net.OnClientEvent:Connect(function(kind, a, b)
 		task.delay(2.5, function()
 			showToast("\u{1F44D} Enjoying the game? Leave a LIKE - it helps a lot!", "info")
 		end)
+	elseif kind == "ZoneUnlocked" and type(a) == "number" then
+		-- v66: a velocidade passou do portão de uma zona nova pela 1ª vez = festa grande
+		local zone = Config.Zones[a]
+		if zone then
+			local color = Color3.fromRGB(120, 255, 160)
+			showEpic(L("ZoneUnlocked"):format(string.upper(zone.Name)) .. " " .. (zone.Emoji or ""), color)
+			confetti(color, fxLayer)
+			task.delay(0.6, function()
+				confetti(Theme.Gold, fxLayer)
+				sfx("Pop")
+			end)
+			for k = 0, 3 do
+				task.delay(0.15 * k, function()
+					sfx("Coin", 1 + k * 0.12)
+				end)
+			end
+		end
 	elseif kind == "NightTeleport" then
 		task.delay(0.1, faceCameraForward)
 		nightShade.BackgroundTransparency = 0
 		TweenService:Create(nightShade, TweenInfo.new(1.5), { BackgroundTransparency = 1 }):Play()
 	end
-	-- qualquer mudança: atualiza a janela aberta
+	-- qualquer mudança: atualiza a janela aberta (v66: pelo NOME com que ela foi aberta, guardado no open();
+	-- antes o laço parava na 1ª janela visível e os apelidos Trails/Boosts/Sell faziam pular a atualização)
 	if kind == "Purchased" or kind == "Stole" or kind == "Hatched" or kind == "Sold" or kind == "Refresh" then
 		task.delay(0.2, function()
-			for name, window in windows do
-				if window.Visible and onOpen[name] and windows[name] == window then
-					if name == "Shop" then
-						refreshShop()
-					elseif name == "Index" then
-						refreshIndex()
-					elseif name == "Eggs" then
-						refreshEggs()
-					elseif name == "Fuse" then
-						refreshFuse()
-					elseif name == "Pets" or name == "Sell" then
-						refreshPets()
-					elseif name == "Daily" then
-						refreshDaily()
-					elseif name == "Quests" then
-						refreshQuests()
-					end
-					break
-				end
+			local name = currentWindow
+			local window = name and windows[name]
+			local refresh = name and refreshers[name]
+			if window and window.Visible and refresh then
+				refresh()
 			end
 		end)
 	end
@@ -1745,7 +2287,7 @@ workspace:GetAttributeChangedSignal("Night"):Connect(function()
 	end
 end)
 
-local tutorialText = text({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, if game:GetService("UserInputService").TouchEnabled then -160 else -96), Size = UDim2.fromOffset(820, 46), Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Stroke = 4, Visible = false, Parent = gui })
+local tutorialText = text({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, if TOUCH then -160 else -96), Size = UDim2.fromOffset(820, 46), Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Stroke = 4, Visible = false, Parent = gui })
 local tutorialStep = ""
 
 -- devolve (alvo da seta, texto) conforme o progresso do jogador
@@ -1769,7 +2311,7 @@ local function tutorial(root: BasePart): (Vector3?, string?)
 	local speed = player:GetAttribute("Speed") or 0
 	local function nearestForestEgg(): Vector3?
 		local best, target = math.huge, nil
-		for _, egg in CollectionService:GetTagged("NestEgg") do
+		for egg in nestEggSet do
 			if egg:GetAttribute("Zone") == 1 and egg.PrimaryPart then
 				local d = (egg.PrimaryPart.Position - root.Position).Magnitude
 				if d < best then
@@ -1781,19 +2323,19 @@ local function tutorial(root: BasePart): (Vector3?, string?)
 		return target
 	end
 	if player:GetAttribute("Carrying") then
-		return Vector3.new(root.Position.X, 2, -8), "\u{1F3C3} Run back to the SAFE ZONE with the egg!"
+		return Vector3.new(root.Position.X, 2, -8), L("HintCarry")
 	end
 	if stolen == 0 then
-		return nearestForestEgg(), ("\u{1F95A} Go into %s and %s on an egg to STEAL it!"):format(string.upper(Config.Zones[1].Name), if game:GetService("UserInputService").TouchEnabled then "hold the button" else "hold E")
+		return nearestForestEgg(), L("HintSteal"):format(string.upper(Config.Zones[1].Name), if TOUCH then L("HoldButton") else L("HoldE"))
 	end
 	if typeof(x) ~= "number" or typeof(front) ~= "number" then
 		return nil, nil
 	end
 	if ready > 0 then
-		return Vector3.new(x, 3, front - 12), "\u{1F423} Your egg is READY! Walk to it (or open Eggs) and HATCH it!"
+		return Vector3.new(x, 3, front - 12), L("HintHatch")
 	end
 	if pets == 0 and eggs > 0 then
-		return nearestForestEgg(), "\u{23F3} Your egg is growing... steal MORE eggs while you wait!"
+		return nearestForestEgg(), L("HintGrowing")
 	end
 	local unclaimedIndex = 0
 	for _, value in decode("Index", {}) do
@@ -1802,19 +2344,19 @@ local function tutorial(root: BasePart): (Vector3?, string?)
 		end
 	end
 	if pen == 0 and unclaimedIndex > 0 then
-		return nil, "\u{1F4D6} NEW CRITTER! Open the INDEX (left) and CLAIM your free cash!"
+		return nil, L("HintIndex")
 	end
 	if pen == 0 and pets > 0 then
 		if money >= (Config.PenLevels[1] and Config.PenLevels[1].Cost or 1000) then
-			return Vector3.new(x - 12, 4, front + 6), "\u{1F3E1} Buy PEN LEVEL 1 at the yellow board to unlock your TREADMILL!"
+			return Vector3.new(x - 12, 4, front + 6), L("HintBuyPen")
 		end
-		return nil, "\u{1F4B5} Your pets make money! Save " .. Format.Money(Config.PenLevels[1] and Config.PenLevels[1].Cost or 1000) .. " to unlock the treadmill."
+		return nil, L("HintSavePen"):format(Format.Money(Config.PenLevels[1] and Config.PenLevels[1].Cost or 1000))
 	end
 	if pen >= 1 and speed < 300 then
-		return Vector3.new(x + 13, 3, front + 22), "\u{1F45F} Run on your TREADMILL to get FASTER!"
+		return Vector3.new(x + 13, 3, front + 22), L("HintTread")
 	end
 	if speed >= 300 and speed < 1000 and stolen < 6 then
-		return nil, "\u{2694}\u{FE0F} Use your BAT to make egg thieves drop their egg! Traps catch them too."
+		return nil, L("HintBat")
 	end
 	return nil, nil
 end
@@ -1855,23 +2397,57 @@ task.spawn(function()
 		track(model)
 	end)
 	live.ChildRemoved:Connect(function(model)
+		local info = wanderers[model]
+		if info and info.Pop then
+			info.Pop.Board:Destroy()
+		end
 		wanderers[model] = nil
 	end)
 end)
 
--- "+$" saindo dos bichinhos do SEU cercado
-local function moneyPop(model: Model)
+-- "+$" saindo dos bichinhos do SEU cercado.
+-- (v66 perf) UMA placa por bichinho, criada na 1ª vez e reaproveitada (antes: BillboardGui + texto + 2 tweens
+-- novos para CADA pet a cada 3 s, mesmo com você do outro lado do mapa). Quem chama só pede perto de você.
+local POP_TIME = TweenInfo.new(1.4)
+local POP_START = Vector3.new(0, 3, 0)
+local function moneyPop(model: Model, info)
 	local root = model.PrimaryPart
 	local income = model:GetAttribute("Income")
 	if not root or type(income) ~= "number" then
 		return
 	end
-	local board = create("BillboardGui", { Size = UDim2.fromScale(5, 1.6), StudsOffsetWorldSpace = Vector3.new(0, 3, 0), Adornee = root, MaxDistance = 70, Parent = gui })
-	local label = text({ Size = UDim2.fromScale(1, 1), Text = "+" .. Format.Money(income * 3), TextColor3 = GREEN_TEXT, Parent = board })
-	TweenService:Create(board, TweenInfo.new(1.4), { StudsOffsetWorldSpace = Vector3.new(0, 7, 0) }):Play()
-	TweenService:Create(label, TweenInfo.new(1.4), { TextTransparency = 1 }):Play()
+	local pop = info.Pop
+	if not pop or pop.Root ~= root or not pop.Board.Parent then
+		if pop then
+			pop.Board:Destroy()
+		end
+		local board = create("BillboardGui", { Size = UDim2.fromScale(5, 1.6), StudsOffsetWorldSpace = POP_START, Adornee = root, MaxDistance = 70, Enabled = false, Parent = gui })
+		local label = text({ Size = UDim2.fromScale(1, 1), Text = "", TextColor3 = GREEN_TEXT, Parent = board })
+		local labelStroke = label:FindFirstChildOfClass("UIStroke")
+		local tweens = { TweenService:Create(board, POP_TIME, { StudsOffsetWorldSpace = Vector3.new(0, 7, 0) }), TweenService:Create(label, POP_TIME, { TextTransparency = 1 }) }
+		if labelStroke then
+			table.insert(tweens, TweenService:Create(labelStroke, POP_TIME, { Transparency = 1 }))
+		end
+		pop = { Root = root, Board = board, Label = label, Stroke = labelStroke, Tweens = tweens, Serial = 0 }
+		info.Pop = pop
+	end
+	-- volta para o começo e toca de novo as mesmas animações
+	pop.Label.Text = "+" .. Format.Money(income * 3)
+	pop.Label.TextTransparency = 0
+	if pop.Stroke then
+		pop.Stroke.Transparency = 0
+	end
+	pop.Board.StudsOffsetWorldSpace = POP_START
+	pop.Board.Enabled = true
+	for _, tween in pop.Tweens do
+		tween:Play()
+	end
+	pop.Serial += 1
+	local serial = pop.Serial
 	task.delay(1.5, function()
-		board:Destroy()
+		if pop.Serial == serial then
+			pop.Board.Enabled = false
+		end
 	end)
 end
 
@@ -1882,7 +2458,10 @@ end
 local Rig = {}
 Rig.__index = Rig
 
--- guarda o tamanho e a posição de cada peça em relação ao "chão" do modelo
+-- guarda a posição de cada peça em relação ao "chão" do modelo (e, das que têm SpecialMesh, como esticar)
+local function absVector(v: Vector3): Vector3
+	return Vector3.new(math.abs(v.X), math.abs(v.Y), math.abs(v.Z))
+end
 function Rig.new(model: Model)
 	local pivot = model:GetPivot()
 	local box, size = model:GetBoundingBox()
@@ -1891,33 +2470,91 @@ function Rig.new(model: Model)
 	local parts = {}
 	for _, item in model:GetDescendants() do
 		if item:IsA("BasePart") then
+			local offset = base:ToObjectSpace(item.CFrame)
+			local rot = offset - offset.Position
+			local entry: any = { Part = item, Offset = offset, Pos = offset.Position, Rot = rot }
+			-- (MeshPart nunca recebe SpecialMesh: o squash dela é só pela posição das peças)
 			local mesh = item:FindFirstChildOfClass("SpecialMesh")
-			table.insert(parts, { Part = item, Offset = base:ToObjectSpace(item.CFrame), Size = item.Size, Mesh = mesh, MeshScale = mesh and mesh.Scale })
+			if mesh then
+				entry.Mesh = mesh
+				entry.MeshScale = mesh.Scale
+				entry.AX = absVector(rot.RightVector)
+				entry.AY = absVector(rot.UpVector)
+				entry.AZ = absVector(rot.LookVector)
+			end
+			table.insert(parts, entry)
 		end
 	end
-	return setmetatable({ Model = model, Parts = parts, Lift = pivot.Position.Y - bottomY, Height = size.Y }, Rig)
+	return setmetatable({
+		Model = model,
+		Parts = parts,
+		Lift = pivot.Position.Y - bottomY,
+		Height = size.Y,
+		Live = {}, -- peças válidas (conferidas 2x por segundo)
+		List = {}, -- as mesmas peças, para o BulkMoveTo
+		Frames = {}, -- CFrames deste frame (tabela reaproveitada: não cria lixo)
+		CheckAt = 0,
+		Squashed = false,
+	}, Rig)
 end
 
--- ground = CFrame no chão (posição + direção); sx/sy/sz = amassar/esticar
-function Rig:Pose(ground: CFrame, sx: number, sy: number, sz: number)
+-- ground = CFrame no chão (posição + direção); sx/sy/sz = amassar/esticar.
+-- squash = também estica as peças com SpecialMesh (só de perto).
+-- (v66 perf) NUNCA muda o Size das peças (MeshPart redimensionada 60x/s trava o celular): o "amassar" vem da
+-- posição das peças + SpecialMesh.Scale. Todas as peças andam num único workspace:BulkMoveTo.
+function Rig:Pose(ground: CFrame, sx: number, sy: number, sz: number, squash: boolean?)
+	local clock = os.clock()
+	local live, list, frames = self.Live, self.List, self.Frames
+	if clock >= self.CheckAt then
+		self.CheckAt = clock + 0.5
+		table.clear(live)
+		table.clear(list)
+		table.clear(frames)
+		for _, info in self.Parts do
+			local part = info.Part
+			if part.Parent and part.Anchored then
+				table.insert(live, info)
+				table.insert(list, part)
+			end
+		end
+	end
+	local n = #live
+	if n == 0 then
+		return
+	end
+	local scaled = sx ~= 1 or sy ~= 1 or sz ~= 1
 	local scale = Vector3.new(sx, sy, sz)
-	for _, info in self.Parts do
-		local part = info.Part
-		if part.Parent and part.Anchored then
-			local offset = info.Offset
-			part.CFrame = ground * (CFrame.new(offset.Position * scale) * (offset - offset.Position))
-			if sx ~= 1 or sy ~= 1 or sz ~= 1 then
-				-- aproxima: escala no eixo do próprio pedaço
-				local rel = (offset - offset.Position)
-				local lx = math.abs(rel.RightVector.X) * sx + math.abs(rel.RightVector.Y) * sy + math.abs(rel.RightVector.Z) * sz
-				local ly = math.abs(rel.UpVector.X) * sx + math.abs(rel.UpVector.Y) * sy + math.abs(rel.UpVector.Z) * sz
-				local lz = math.abs(rel.LookVector.X) * sx + math.abs(rel.LookVector.Y) * sy + math.abs(rel.LookVector.Z) * sz
-				local k = Vector3.new(lx, ly, lz)
-				if info.Mesh then
-					info.Mesh.Scale = info.MeshScale * k
-				else
-					part.Size = info.Size * k
-				end
+	for k = 1, n do
+		local info = live[k]
+		frames[k] = if scaled then ground * (CFrame.new(info.Pos * scale) * info.Rot) else ground * info.Offset
+	end
+	local ok = pcall(workspace.BulkMoveTo, workspace, list, frames, Enum.BulkMoveMode.FireCFrameChanged)
+	if not ok then
+		-- (alguma peça sumiu no meio do caminho: move uma a uma e reconfere a lista no próximo frame)
+		self.CheckAt = 0
+		for k = 1, n do
+			local part = list[k]
+			if part.Parent then
+				part.CFrame = frames[k]
+			end
+		end
+	end
+	if squash and scaled then
+		-- aproxima: escala no eixo do próprio pedaço
+		self.Squashed = true
+		for k = 1, n do
+			local info = live[k]
+			local mesh = info.Mesh
+			if mesh then
+				mesh.Scale = info.MeshScale * Vector3.new(info.AX:Dot(scale), info.AY:Dot(scale), info.AZ:Dot(scale))
+			end
+		end
+	elseif self.Squashed then
+		-- parou de esticar (ou ficou longe): devolve o tamanho normal 1 vez
+		self.Squashed = false
+		for _, info in self.Parts do
+			if info.Mesh then
+				info.Mesh.Scale = info.MeshScale
 			end
 		end
 	end
@@ -1944,7 +2581,8 @@ local function guardianInfo(model: Model)
 	return info
 end
 
-local function animateGuardian(model: Model, info, dt: number, t: number)
+-- near = perto da câmera (< ANIM_NEAR): animação completa. Longe: segue o caminho sem amassar.
+local function animateGuardian(model: Model, info, dt: number, t: number, near: boolean)
 	local rig = info.Rig
 	local goal = model:GetAttribute("Goal")
 	if typeof(goal) ~= "CFrame" then
@@ -2003,11 +2641,22 @@ local function animateGuardian(model: Model, info, dt: number, t: number)
 		sy *= 1 + math.sin(p * math.pi) * 0.12
 	end
 	info.Lean += (pitch - info.Lean) * damp(6, dt)
+	if near then
+		info.RestPosed = false
+	else
+		-- longe: dormindo e parado a pose quase não muda: posa 1 vez e não mexe mais nas peças
+		local resting = sleeping and info.Jump <= 0 and info.Speed < 0.3 and (target - info.Pos).Magnitude < 0.05
+		if resting and info.RestPosed then
+			return
+		end
+		info.RestPosed = resting
+		sx, sy = 1, 1
+	end
 	local ground = CFrame.lookAt(info.Pos, info.Pos + info.Look)
 		* CFrame.Angles(0, math.rad(yawWiggle), 0)
 		* CFrame.new(0, y, 0)
 		* CFrame.Angles(math.rad(info.Lean), 0, math.rad(roll))
-	rig:Pose(ground, sx, sy, sx)
+	rig:Pose(ground, sx, sy, sx, near)
 end
 
 -- PETS DO CERCADO ----------------------------------------------------
@@ -2034,7 +2683,8 @@ local function petInfo(model: Model)
 	return info
 end
 
-local function animatePet(model: Model, info, dt: number, t: number, root: BasePart?)
+-- full = perto (estica o SpecialMesh); mais longe só a posição das peças
+local function animatePet(model: Model, info, dt: number, t: number, root: BasePart?, full: boolean)
 	local rig = info.Rig
 	local clock = os.clock()
 	if not info.Target and clock >= info.Next then
@@ -2111,7 +2761,7 @@ local function animatePet(model: Model, info, dt: number, t: number, root: BaseP
 		* CFrame.Angles(0, math.rad(spin), 0)
 		* CFrame.new(0, y, 0)
 		* CFrame.Angles(math.rad(pitch), 0, math.rad(roll))
-	rig:Pose(ground, sx, sy, sx)
+	rig:Pose(ground, sx, sy, sx, full)
 end
 
 -- OVOS NOS NINHOS: balançam de vez em quando (os prontos no cercado balançam mais)
@@ -2145,21 +2795,36 @@ local function animateEgg(model: Model, dt: number, t: number)
 	end
 end
 
+-- (v66 perf) distâncias da animação: perto = completa; guardião longe = segue o caminho a 15 fps sem amassar;
+-- pet entre PET_SQUASH e ANIM_NEAR = 30 fps sem esticar o mesh; mais longe que ANIM_NEAR = parado.
+local ANIM_NEAR = 120
+local GUARDIAN_FAR = 450
+local PET_SQUASH = 50
+local nearEggs: { Model } = {}
+local nearEggsAt = 0
 RunService.RenderStepped:Connect(function(dt)
 	local t = os.clock()
 	local camera = workspace.CurrentCamera
 	local camPos = camera and camera.CFrame.Position or Vector3.zero
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	for _, model in CollectionService:GetTagged("Guardian") do
+	for model in guardianSet do
 		if model.Parent then
 			local info = guardianInfo(model)
 			if info then
-				local far = (info.Pos - camPos).Magnitude > 450
-				if not far then
-					animateGuardian(model, info, dt, t)
+				local distance = (info.Pos - camPos).Magnitude
+				if distance < ANIM_NEAR then
+					info.Acc = 0
+					animateGuardian(model, info, dt, t, true)
+				elseif distance < GUARDIAN_FAR then
+					-- longe: continua andando (um chefão correndo atrás de alguém), mas 15x por segundo e sem amassar
+					info.Acc = (info.Acc or 0) + dt
+					if info.Acc >= 1 / 15 then
+						animateGuardian(model, info, info.Acc, t, false)
+						info.Acc = 0
+					end
 				else
-					-- longe: só acompanha a posição (sem animação)
+					-- muito longe: só acompanha a posição (sem animação)
 					local goal = model:GetAttribute("Goal")
 					if typeof(goal) == "CFrame" then
 						info.Pos = goal.Position - Vector3.new(0, info.Rig.Lift, 0)
@@ -2176,8 +2841,19 @@ RunService.RenderStepped:Connect(function(dt)
 	for model in wanderers do
 		if model.Parent then
 			local info = petInfo(model)
-			if info and (info.Pos - camPos).Magnitude < 120 then
-				animatePet(model, info, dt, t, root)
+			if info then
+				local distance = (info.Pos - camPos).Magnitude
+				if distance < PET_SQUASH then
+					info.Acc = 0
+					animatePet(model, info, dt, t, root, true)
+				elseif distance < ANIM_NEAR then
+					-- (começa num ponto aleatório para os pets não andarem todos no mesmo frame)
+					info.Acc = (info.Acc or math.random() / 30) + dt
+					if info.Acc >= 1 / 30 then
+						animatePet(model, info, info.Acc, t, root, false)
+						info.Acc = 0
+					end
+				end
 			end
 		else
 			petState[model] = nil
@@ -2208,8 +2884,19 @@ RunService.RenderStepped:Connect(function(dt)
 			end
 		end
 	end
-	for _, model in CollectionService:GetTagged("NestEgg") do
-		if model.Parent and not model:GetAttribute("Loose") and (model:GetPivot().Position - camPos).Magnitude < 140 then
+	-- ovos dos ninhos: a lista dos que estão perto da câmera é refeita 3x por segundo
+	-- (antes: GetTagged + GetPivot de TODOS os ovos do mapa a cada frame)
+	if t >= nearEggsAt then
+		nearEggsAt = t + 0.33
+		table.clear(nearEggs)
+		for model in nestEggSet do
+			if model.Parent and (model:GetPivot().Position - camPos).Magnitude < 140 then
+				table.insert(nearEggs, model)
+			end
+		end
+	end
+	for _, model in nearEggs do
+		if nestEggSet[model] and model.Parent and not model:GetAttribute("Loose") then
 			animateEgg(model, dt, t)
 		end
 	end
@@ -2257,52 +2944,209 @@ RunService.Stepped:Connect(function()
 	end
 end)
 
+---------------------------------------------------------------------
+-- ESTEIRA 2.0 (v66, tela): em cima da SUA esteira aparece um painel com +X/passo, a SEQUÊNCIA (correndo sem
+-- parar rende mais: RunMult/RunStreak do servidor) e quanto falta para a próxima zona, e o botão AUTO CORRER
+-- (a criança não precisa ficar segurando o joystick). O AUTO CORRER desliga sozinho ao sair da esteira,
+-- pegar um ovo ou mexer o personagem.
+---------------------------------------------------------------------
+local treadHud = create("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = if TOUCH then UDim2.new(0.5, 0, 1, -150) else UDim2.new(0.5, 0, 1, -14), Size = UDim2.fromOffset(440, 150), BackgroundTransparency = 1, Visible = false, Parent = gui })
+local autoRun = false
+local setAutoRun: (boolean) -> ()
+local movingByHand: () -> boolean
+local updateTreadHud: (number) -> ()
+do
+	local treadGain = text({ Size = UDim2.new(0.5, -4, 0, 40), Text = "", TextColor3 = PINK_TEXT, Stroke = 4, Parent = treadHud })
+	local treadStreak = text({ Size = UDim2.new(0.5, -4, 0, 40), Position = UDim2.new(0.5, 4, 0, 0), Text = "", TextColor3 = Color3.fromRGB(255, 170, 60), Stroke = 4, Parent = treadHud })
+	local zoneBar = create("Frame", { Size = UDim2.new(1, 0, 0, 34), Position = UDim2.fromOffset(0, 46), BackgroundColor3 = Color3.fromRGB(20, 20, 26), Parent = treadHud }, { corner(10), stroke(3) })
+	local zoneFill = create("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Theme.Green, Parent = zoneBar }, { corner(10) })
+	Theme.gloss(zoneFill, 0.3)
+	local zoneText = text({ Size = UDim2.new(1, -12, 1, -6), Position = UDim2.fromOffset(6, 3), Text = "", Stroke = 3, ZIndex = 2, Parent = zoneBar })
+
+	local autoButton, autoLabel = button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.fromOffset(260, 62), BackgroundColor3 = Theme.Gray, Parent = treadHud }, L("AutoRun"), function()
+		setAutoRun(not autoRun)
+	end)
+	setAutoRun = function(on: boolean)
+		autoRun = on
+		autoButton.BackgroundColor3 = if on then Theme.Green else Theme.Gray
+		autoLabel.Text = if on then L("AutoRunOn") else L("AutoRun")
+	end
+
+	-- o módulo de controle do próprio Roblox diz se a criança está mexendo (teclado, joystick da tela ou controle)
+	local controls: any = nil
+	task.spawn(function()
+		pcall(function()
+			local requireModule: any = require
+			local playerModule = requireModule(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule", 30))
+			controls = playerModule:GetControls()
+		end)
+	end)
+	movingByHand = function(): boolean
+		if not controls then
+			return false
+		end
+		local ok, vector = pcall(function()
+			return controls:GetMoveVector()
+		end)
+		return ok and typeof(vector) == "Vector3" and vector.Magnitude > 0.2
+	end
+	local MOVE_KEYS = {
+		[Enum.KeyCode.W] = true, [Enum.KeyCode.A] = true, [Enum.KeyCode.S] = true, [Enum.KeyCode.D] = true,
+		[Enum.KeyCode.Up] = true, [Enum.KeyCode.Down] = true, [Enum.KeyCode.Left] = true, [Enum.KeyCode.Right] = true,
+	}
+	-- (digitando no chat não conta; o movimento em si também é visto pelo módulo de controle, logo abaixo)
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if autoRun and not processed and MOVE_KEYS[input.KeyCode] then
+			setAutoRun(false)
+		end
+	end)
+	-- corre "para a frente" da esteira (quem corre olha para -Z, igual à trava de baixo).
+	-- Roda DEPOIS do controle do Roblox (que mandaria "parado" quando ninguém toca no joystick).
+	RunService:BindToRenderStep("CritterAutoRun", Enum.RenderPriority.Input.Value + 1, function()
+		if autoRun then
+			local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				humanoid:Move(Vector3.new(0, 0, -1), false)
+			end
+		end
+	end)
+
+	updateTreadHud = function(speed: number)
+		local mult = player:GetAttribute("RunMult")
+		if type(mult) ~= "number" or mult <= 0 then
+			mult = 1
+		end
+		local streak = player:GetAttribute("RunStreak")
+		local streaking = type(streak) == "number" and streak > 0
+		treadGain.Text = L("PerStep"):format(Format.Short(math.floor((tonumber(player:GetAttribute("Gain")) or 0) * mult)))
+		treadStreak.Text = "\u{1F525} " .. L("Streak"):format(mult)
+		treadStreak.TextColor3 = if mult > 1 then Color3.fromRGB(255, 170, 60) elseif streaking then Color3.fromRGB(255, 220, 150) else Color3.fromRGB(200, 200, 210)
+		-- próxima zona = a primeira que pede mais velocidade do que você tem
+		local nextIndex = nil
+		for index, zone in Config.Zones do
+			if zone.Speed > speed then
+				nextIndex = index
+				break
+			end
+		end
+		if nextIndex then
+			local zone = Config.Zones[nextIndex]
+			local from = if nextIndex > 1 then Config.Zones[nextIndex - 1].Speed else 0
+			zoneFill.Size = UDim2.fromScale(math.clamp((speed - from) / math.max(zone.Speed - from, 1), 0, 1), 1)
+			zoneText.Text = L("ToGo"):format(zone.Name, Format.Short(math.ceil(zone.Speed - speed)))
+		else
+			zoneFill.Size = UDim2.fromScale(1, 1)
+			zoneText.Text = L("MaxZone")
+		end
+	end
+end
+
 local lastSlow = 0
-local eggsTick = 0
 local stripeOffset = 0
 local currentZone = 0
 local myBelt: BasePart? = nil
 local beltPin: Vector3? = nil
+local beltSearch = 0
+local onMyBelt = false -- em cima da própria esteira (parado ou correndo)
+
+-- listras da SUA esteira (v66): só as suas andam, só com você correndo, na cor do nível da esteira.
+-- (listra invisível = a esteira 3D do Toolbox está por cima: pula)
+local stripes = { List = {}, Of = nil :: BasePart?, Level = 0, Shown = -1 }
+local function collectStripes(belt: BasePart)
+	for _, info in stripes.List do
+		if info.Part.Parent then
+			info.Part.Position = info.Start -- devolve as da esteira antiga para o lugar
+		end
+	end
+	stripes.List = {}
+	stripes.Of = belt
+	stripes.Level = 0
+	stripes.Shown = -1
+	local holder = belt.Parent
+	if holder then
+		for _, item in holder:GetDescendants() do
+			if item:IsA("BasePart") and item:GetAttribute("BeltStripe") and item.Transparency < 1 then
+				table.insert(stripes.List, { Part = item, Start = item.Position })
+			end
+		end
+	end
+end
+RunService.RenderStepped:Connect(function()
+	if stripeOffset == stripes.Shown then
+		return
+	end
+	stripes.Shown = stripeOffset
+	for _, info in stripes.List do
+		local z = info.Start.Z + stripeOffset
+		info.Part.Position = Vector3.new(info.Start.X, info.Start.Y, if z > info.Start.Z + 1.6 then z - 3.2 else z)
+	end
+end)
+
+-- acha a SUA esteira (v66 perf): só dentro do SEU cercado (atributo PlotX do servidor) e no máximo 1x por
+-- segundo, e para de procurar quando acha. Antes: workspace.Map:GetDescendants() (milhares de peças) a cada
+-- frame até achar; quem ficou sem cercado (servidor cheio) varria o mapa para sempre.
+local function findMyBelt(): BasePart?
+	local plotX = player:GetAttribute("PlotX")
+	local map = workspace:FindFirstChild("Map")
+	if typeof(plotX) ~= "number" or not map then
+		return nil -- ainda sem cercado: nem procura
+	end
+	-- o cercado certo = o "PlotN" cuja esteira está mais perto do X do seu cercado
+	local best, bestDistance = nil, math.huge
+	for _, plot in map:GetChildren() do
+		if string.sub(plot.Name, 1, 4) == "Plot" then
+			local tread = plot:FindFirstChild("Treadmill")
+			local belt = (tread and tread:FindFirstChild("Belt")) or plot:FindFirstChild("Belt", true)
+			if belt and belt:IsA("BasePart") then
+				local distance = math.abs(belt.Position.X - plotX)
+				if distance < bestDistance then
+					best, bestDistance = belt, distance
+				end
+			end
+		end
+	end
+	if best and best:GetAttribute("OwnerId") == player.UserId then
+		return best
+	end
+	return nil
+end
+
+-- Z z Z dos guardiões: a placa "Info" de cada um é achada 1 vez (antes: busca recursiva 4x por segundo)
+local guardianZzz: { [Instance]: BillboardGui } = setmetatable({}, { __mode = "k" }) :: any
+local lastSignSpeed: number? = nil
+local signsAt = 0
+
 RunService.Heartbeat:Connect(function(dt)
 	local clock = os.clock()
 	local character = player.Character
 	local carrying = player:GetAttribute("Carrying")
 	carryText.Visible = carrying ~= nil
-	-- bichinhos passeando + "+$"
-	for model, info in wanderers do
-		if model.Parent and model:GetAttribute("Owner") == player.UserId and clock >= info.Popup then
-			info.Popup = clock + 3
-			moneyPop(model)
-		end
-	end
-	-- listras da esteira andando (só visual)
-	stripeOffset = (stripeOffset + dt * 8) % 3.2
 	-- ESTEIRA: correndo para a frente em cima da SUA esteira = corre no lugar (não é mais arremessado).
 	-- Andando para o lado ou para trás você sai normalmente.
+	local running = false
+	onMyBelt = false
 	pcall(function()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		local onBelt = false
-		if root and humanoid and not carrying then
-			local map = workspace:FindFirstChild("Map")
-			if map and not myBelt then
-				for _, item in map:GetDescendants() do
-					if item:IsA("BasePart") and item.Name == "Belt" and item:GetAttribute("OwnerId") == player.UserId then
-						myBelt = item
-						break
-					end
-				end
+		if root and humanoid and humanoid.Health > 0 and not carrying then
+			if not myBelt and clock >= beltSearch then
+				beltSearch = clock + 1
+				myBelt = findMyBelt()
 			end
-			if myBelt and (myBelt:GetAttribute("OwnerId") ~= player.UserId) then
+			if myBelt and (myBelt:GetAttribute("OwnerId") ~= player.UserId or not myBelt.Parent) then
 				myBelt = nil
 			end
 			if myBelt and myBelt:GetAttribute("Unlocked") then
+				if stripes.Of ~= myBelt then
+					collectStripes(myBelt)
+				end
 				local rel = myBelt.CFrame:PointToObjectSpace(root.Position)
 				local inside = math.abs(rel.X) < myBelt.Size.X / 2 + 0.5 and math.abs(rel.Z) < myBelt.Size.Z / 2 + 0.5 and rel.Y > -1 and rel.Y < 7
 				local move = humanoid.MoveDirection * Vector3.new(1, 0, 1)
 				local forward = move.Magnitude > 0.1 and move.Unit:Dot(Vector3.new(0, 0, -1)) > 0.4
-				if inside and forward then
-					onBelt = true
+				onMyBelt = inside
+				if inside and (forward or autoRun) then
+					running = true
 					if not beltPin then
 						local center = myBelt.Position
 						beltPin = Vector3.new(center.X, 0, center.Z + 2)
@@ -2313,10 +3157,21 @@ RunService.Heartbeat:Connect(function(dt)
 				end
 			end
 		end
-		if not onBelt then
-			beltPin = nil
-		end
 	end)
+	if not running then
+		beltPin = nil
+	end
+	-- AUTO CORRER desliga sozinho: saiu da esteira, pegou um ovo ou mexeu o personagem
+	if autoRun and (not onMyBelt or carrying or movingByHand()) then
+		setAutoRun(false)
+	end
+	if treadHud.Visible ~= onMyBelt then
+		treadHud.Visible = onMyBelt
+		if onMyBelt then
+			updateTreadHud(player:GetAttribute("Speed") or 0)
+			Theme.popIn(treadHud)
+		end
+	end
 	if clock - lastSlow < 0.25 then
 		return
 	end
@@ -2325,60 +3180,56 @@ RunService.Heartbeat:Connect(function(dt)
 	speedText.Text = Format.Short(speed)
 	moneyText.Text = Format.Money(player:GetAttribute("Money") or 0)
 	incomeText.Text = "+" .. Format.Money(player:GetAttribute("Income") or 0) .. "/s"
-	-- Index: quantos prêmios esperando
-	local index = decode("Index", {})
-	local unclaimed = 0
-	for _, value in index do
-		if value == 1 then
-			unclaimed += 1
+	-- "!" do Menu (Diário, Missões, Rebirth, Doces, Admin) e textos dos quadrados
+	refreshMenuBadge()
+	-- "+$" saindo dos SEUS bichinhos, a cada 3 s, só dos que estão a menos de 70 studs de você
+	-- (v66 perf: antes 60x por segundo lia o dono de todos os bichos do servidor e criava placas mesmo longe)
+	local myRoot = character and character:FindFirstChild("HumanoidRootPart")
+	for model, info in wanderers do
+		if clock >= info.Popup then
+			info.Popup = clock + 3
+			if myRoot and model.Parent and (info.Base - myRoot.Position).Magnitude < 70 and model:GetAttribute("Owner") == player.UserId then
+				moneyPop(model, info)
+			end
 		end
 	end
-	indexBadge.Visible = unclaimed > 0
-	dailyBadge.Visible = player:GetAttribute("DailyReady") == true
-	indexBadgeText.Text = tostring(unclaimed)
-	-- relógio da noite
-	local finish = workspace:GetAttribute("CycleEnd")
-	if typeof(finish) == "number" then
-		local left = math.max(0, math.floor(finish - workspace:GetServerTimeNow()))
-		local isNight = workspace:GetAttribute("Night") == true
-		nightIcon.Text = if isNight then "\u{2600}\u{FE0F}" else "\u{1F319}"
-		nightText.Text = ("in %d:%02d"):format(left // 60, left % 60)
-		nightText.TextColor3 = if isNight then Color3.fromRGB(255, 220, 90) else Color3.new(1, 1, 1)
+	-- painel da esteira
+	if treadHud.Visible then
+		updateTreadHud(speed)
 	end
-	-- boost mais longo ativo
-	local boosts = decode("Boosts", {})
-	local bestLeft, bestIcon = 0, nil
-	for _, boost in Config.Boosts do
-		local left = (boosts[boost.Id] or 0) - workspace:GetServerTimeNow()
-		if left > bestLeft then
-			bestLeft, bestIcon = left, boost.Icon
+	-- listras da sua esteira na cor do nível dela
+	local treadLevel = player:GetAttribute("TreadLevel") or 1
+	if treadLevel ~= stripes.Level and #stripes.List > 0 then
+		stripes.Level = treadLevel
+		local treadInfo = Config.Treadmills[treadLevel] or Config.Treadmills[1]
+		for _, stripe in stripes.List do
+			stripe.Part.Color = treadInfo.Color
 		end
-	end
-	boostIcon.Visible = bestLeft > 0
-	boostText.Visible = bestLeft > 0
-	if bestLeft > 0 then
-		boostIcon.Text = bestIcon or "\u{1F9EA}"
-		boostText.Text = ("in %d:%02d"):format(bestLeft // 60, math.floor(bestLeft % 60))
 	end
 	-- placas das zonas: verde se você já tem a velocidade recomendada
-	for _, board in CollectionService:GetTagged("ZoneSign") do
-		local need = board:GetAttribute("Need")
-		local signGui = board:FindFirstChild("SignGui")
-		local line = signGui and signGui:FindFirstChild("Line2")
-		if line and typeof(need) == "number" then
-			line.TextColor3 = if speed >= need then Color3.fromRGB(110, 255, 110) else Color3.fromRGB(255, 70, 80)
+	-- (só quando a velocidade muda, ou a cada 2 s para placas novas)
+	if speed ~= lastSignSpeed or clock >= signsAt then
+		lastSignSpeed = speed
+		signsAt = clock + 2
+		for _, board in CollectionService:GetTagged("ZoneSign") do
+			local need = board:GetAttribute("Need")
+			local signGui = board:FindFirstChild("SignGui")
+			local line = signGui and signGui:FindFirstChild("Line2")
+			if line and typeof(need) == "number" then
+				line.TextColor3 = if speed >= need then Color3.fromRGB(110, 255, 110) else Color3.fromRGB(255, 70, 80)
+			end
 		end
-	end
-	for _, anchor in CollectionService:GetTagged("ZoneSpeedTag") do
-		local need = anchor:GetAttribute("Need")
-		local bb = anchor:FindFirstChild("Billboard")
-		local line = bb and bb:FindFirstChild("Line2")
-		if line and typeof(need) == "number" and need > 0 then
-			line.TextColor3 = if speed >= need then Color3.fromRGB(110, 255, 110) else Color3.fromRGB(255, 70, 80)
+		for _, anchor in CollectionService:GetTagged("ZoneSpeedTag") do
+			local need = anchor:GetAttribute("Need")
+			local bb = anchor:FindFirstChild("Billboard")
+			local line = bb and bb:FindFirstChild("Line2")
+			if line and typeof(need) == "number" and need > 0 then
+				line.TextColor3 = if speed >= need then Color3.fromRGB(110, 255, 110) else Color3.fromRGB(255, 70, 80)
+			end
 		end
 	end
 	-- ovos dos ninhos: mostra se você consegue fugir com ele (verde) ou se é pesado demais (vermelho)
-	for _, egg in CollectionService:GetTagged("NestEgg") do
+	for egg in nestEggSet do
 		local need = egg:GetAttribute("Need")
 		local eggRoot = egg.PrimaryPart
 		local tagOld = eggRoot and eggRoot:FindFirstChild("SpeedTag")
@@ -2401,9 +3252,14 @@ RunService.Heartbeat:Connect(function(dt)
 		end
 	end
 	-- Z z Z balançando
-	for _, guardian in CollectionService:GetTagged("Guardian") do
-		local info = guardian:FindFirstChild("Info", true)
-		if info and info:IsA("BillboardGui") then
+	for guardian in guardianSet do
+		local info = guardianZzz[guardian]
+		if not info or not info.Parent then
+			local found = guardian:FindFirstChild("Info", true)
+			info = if found and found:IsA("BillboardGui") then found else nil
+			guardianZzz[guardian] = info
+		end
+		if info then
 			info.StudsOffset = if guardian:GetAttribute("Sleeping") then Vector3.new(0, math.sin(clock * 2) * 0.8, 0) else Vector3.zero
 		end
 	end
@@ -2425,7 +3281,7 @@ RunService.Heartbeat:Connect(function(dt)
 	if root then
 		target, hint = tutorial(root)
 	end
-	tutorialText.Visible = hint ~= nil and not carrying
+	tutorialText.Visible = hint ~= nil and not carrying and not treadHud.Visible -- (na esteira o painel já explica)
 	if hint and hint ~= tutorialStep then
 		tutorialStep = hint
 		tutorialText.Text = hint
@@ -2438,44 +3294,19 @@ RunService.Heartbeat:Connect(function(dt)
 	else
 		beam.Enabled = false
 	end
-	-- janela aberta com timers: atualiza 1x por segundo
-	eggsTick += 1
-	if windows.Eggs.Visible and eggsTick % 4 == 0 then
-		refreshEggs()
-	end
+	-- (a janela Eggs se atualiza sozinha quando o atributo Slots muda: ver refreshEggs)
 end)
-
--- listras da esteira (só visual)
-local stripes = {}
-task.delay(5, function()
-	local map = workspace:FindFirstChild("Map")
-	if map then
-		for _, item in map:GetDescendants() do
-			if item:IsA("BasePart") and item:GetAttribute("BeltStripe") then
-				table.insert(stripes, { Part = item, Start = item.Position })
-			end
-		end
-	end
-end)
-RunService.RenderStepped:Connect(function()
-	for _, info in stripes do
-		local z = info.Start.Z + stripeOffset
-		info.Part.Position = Vector3.new(info.Start.X, info.Start.Y, if z > info.Start.Z + 1.6 then z - 3.2 else z)
-	end
-end)
-
 
 ---------------------------------------------------------------------
 -- MODO FOTO (só no Studio): P = esconde a tela, Z/X = troca de cena, V = voo de câmera, C = volta ao normal
 ---------------------------------------------------------------------
 if RunService:IsStudio() then
-	local UserInputService = game:GetService("UserInputService")
 	local StarterGui = game:GetService("StarterGui")
-	local L = Config.Map.LaneLength
+	local LANE = Config.Map.LaneLength
 	local function zoneShot(index: number, side: number?)
-		local z0 = L * (index - 1)
+		local z0 = LANE * (index - 1)
 		local s = side or 1
-		return CFrame.lookAt(Vector3.new(38 * s, 34, z0 + 125), Vector3.new(0, 12, z0 + L * 0.75))
+		return CFrame.lookAt(Vector3.new(38 * s, 34, z0 + 125), Vector3.new(0, 12, z0 + LANE * 0.75))
 	end
 	local shots = {
 		CFrame.lookAt(Vector3.new(0, 70, 60), Vector3.new(0, 4, -120)),
@@ -2498,7 +3329,7 @@ if RunService:IsStudio() then
 	-- closes dos chefões (para ícone e thumbnails)
 	for _, index in { 1, 6, 9, 10, 4, 11 } do
 		local zone = Config.Zones[index]
-		local z = L * (index - 1) + L * 0.75
+		local z = LANE * (index - 1) + LANE * 0.75
 		local h = zone.Height or 20
 		table.insert(shots, CFrame.lookAt(Vector3.new(h * 0.45, h * 0.62, z - h * 1.35), Vector3.new(0, h * 0.5, z)))
 	end

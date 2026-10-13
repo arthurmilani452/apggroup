@@ -175,21 +175,9 @@ function Theme.window(parent: Instance, name: string, title: string, color: Colo
 		ZIndex = 11,
 		Parent = window,
 	}, { Theme.corner(10), Theme.stroke(3) })
-	-- pontinhos de "studs" no fundo do corpo
-	local dots = create("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 11, ClipsDescendants = true, Parent = body })
-	for row = 0, 11 do
-		for col = 0, 20 do
-			create("Frame", {
-				Size = UDim2.fromOffset(8, 8),
-				Position = UDim2.fromOffset(10 + col * 34, 10 + row * 34),
-				BackgroundColor3 = Color3.new(1, 1, 1),
-				BackgroundTransparency = 0.95,
-				BorderSizePixel = 0,
-				ZIndex = 11,
-				Parent = dots,
-			}, { Theme.corner(3) })
-		end
-	end
+	-- fundo do corpo: só um degradê leve (v66 perf). Antes eram 252 "pontinhos" (Frame + UICorner = 504 peças
+	-- por janela, ~6000 no total) desenhados toda vez que a janela abria; no celular fraco isso pesava.
+	Theme.gloss(body, 0.22)
 	return window, body
 end
 

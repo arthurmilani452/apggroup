@@ -1,14 +1,16 @@
-# Como publicar a v65.1
+# Como publicar a v66
 
 ## 1. Abrir no Studio
-1. Baixe o **StealACritterEgg-v65.1.rbxl**: o Claude manda no chat, e ele também fica na pasta `place/`.
+1. Baixe o **StealACritterEgg-v66.rbxl**: o Claude manda no chat, e ele também fica na pasta `place/`.
 2. Abra o **Roblox Studio** e vá em **File > Open from File...**. Escolha o arquivo.
 3. Para testar o salvamento no Studio: **Game Settings > Security > Enable Studio Access to API Services**.
 
-> Prefere o Rojo? Copie a pasta `src` da v65 por cima da sua. Depois abra o seu jogo no Studio, clique em **Plugins > Rojo > Connect** e siga a partir do passo 3 da seção "Publicar".
+> Prefere o Rojo? Copie a pasta `src` da v66 por cima da sua. Depois abra o seu jogo no Studio, clique em **Plugins > Rojo > Connect** e siga a partir do passo 3 da seção "Publicar".
 
-## 2. Testar (5 minutos)
-Aperte **Play** e confira a lista "Como testar no Studio" do `MUDANCAS-v65.md`: roubar, Halloween, Codes, taco e presentes.
+## 2. Testar (10 minutos)
+Aperte **Play** e confira a lista "Como testar no Studio" do `MUDANCAS-v66.md`: tela no celular, Menu, esteira com AUTO RUN, Admin e zona nova.
+
+Teste também no modo celular: **Test > Device**, escolha um Android pequeno.
 
 ## 3. Publicar POR CIMA do jogo que já existe
 1. **File > Publish to Roblox As...**
@@ -26,10 +28,12 @@ Os servidores que já estão abertos continuam na versão velha. No **Creator Hu
 As crianças passam para a versão nova sem perder nada.
 
 ## 5. Antes de 17/10 (Halloween) — no Creator Hub
+- **Tamanho do servidor = 7.** O mapa tem 7 cercados; com mais gente, alguém fica sem cercado. Vá em **Places > (o lugar) > Settings > Max Players = 7**.
 - **Monetization:** confira se cada passe/produto do `Config` está listado **neste** jogo. Se não estiver, crie de novo e cole o número novo no `Config`.
 - **Events > Create Event:**
   - "Halloween Event", de 17/10 a 02/11;
-  - "Update Party", todo sábado às 14h.
+  - "Update Party", todo sábado às 14h;
+  - "Admin Abuse", no dia e hora em que você vai entrar e usar o botão Admin (Menu ☰ > Admin).
 
   Aparece o botão "Avise-me" na página do jogo.
 - **Questionário de maturidade:** responda que **não** há itens pagos sorteados (agora não há mesmo).
@@ -40,6 +44,7 @@ As crianças passam para a versão nova sem perder nada.
 
 ## 6. Toda semana
 1. Solte a atualização no sábado às 14h. O Festão começa sozinho.
+   Entre no jogo e use o **Admin Abuse** (Menu ☰ > Admin): sorte x10, chuva de ovos dourados, 2x dinheiro. Vale para todos os servidores.
 2. Crie 1 código novo em `Game.luau`, procurando `local CODES`.
 3. Olhe **Analytics**:
    - **Funnels > Onboarding:** onde as crianças desistem;
