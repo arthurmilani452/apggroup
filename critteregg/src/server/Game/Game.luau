@@ -9,7 +9,8 @@
 	  Esteira ...... correr nela dá Speed (destrava com o cercado nível 1); Speed vira WalkSpeed
 	  Lojinhas ..... SELL (vender), FUSE (3 iguais -> 1 melhor), TRAILS (multiplicam a esteira),
 	                 BOOSTS (2x por 10 min), BAÚ GRÁTIS (a cada 15 min)
-	  Index ........ cada bichinho novo dá prêmio (dinheiro + velocidade) para resgatar
+	  Index ........ cada bichinho novo dá prêmio (dinheiro + velocidade) para resgatar;
+	                 v67: 3 estrelas por zona (★1 = taco da zona) e níveis de Colecionador (+3% de dinheiro cada)
 	  Ciclo ........ 5 min (relógio UTC); nos últimos 10 s é NOITE: muro sobe, todos voltam, ovos x25 (Config.NightGrowth)
 ]]
 
@@ -312,6 +313,8 @@ local function computeIncome(state)
 	-- prêmios ("X minutos de renda") usam a renda SEM os multiplicadores de 2x (v66):
 	-- antes, passe 2x + boost + fim de semana + admin multiplicavam cada presente até 16x
 	state.BaseIncome = total
+	-- (v67) COLECIONADOR: +3% por nível, DEPOIS da renda base (os prêmios em minutos de renda não mudam)
+	total *= 1 + Config.CollectorCash * (state.Data.Collector or 0)
 	if boostOn(state, "Money2") then
 		total *= 2
 	end
@@ -392,6 +395,7 @@ local function publish(player: Player, full: boolean?)
 	player:SetAttribute("Slots", slotsJson(state))
 	player:SetAttribute("Rebirths", data.Rebirths or 0)
 	player:SetAttribute("Bat", data.Bat or 0)
+	player:SetAttribute("Collector", data.Collector or 0) -- (v67) nível de Colecionador (as estrelas a tela conta do Index)
 	player:SetAttribute("TrapsOut", state.TrapCount or 0)
 	player:SetAttribute("FriendBoost", state.FriendBoost or 0)
 	player:SetAttribute("DailyStreak", data.DailyStreak or 0)
@@ -528,6 +532,122 @@ local function redrawPen(player: Player)
 	end
 end
 
+-- v67 ESTRELAS + COLECIONADOR (Config.IndexStars / Config.Collector): confere as 3 estrelas de cada zona e o nível de
+-- Colecionador e paga só o que é novo (cada estrela 1 vez: data.Stars["zona:estrela"]). quiet = entrando no jogo:
+-- tudo numa faixa só e sem aviso épico (save antigo ganha de uma vez as estrelas que já tinha). Quem chama faz o publish.
+local checkCollection: (Player, boolean?) -> ()
+do
+	local BadgeService = game:GetService("BadgeService")
+	local STAR = "\u{2605}"
+
+	-- emblemas do Colecionador (Config.Badges): só os que têm Id; Id colado depois = ganha na próxima entrada
+	local function awardBadges(player: Player, data)
+		data.BadgesGot = if type(data.BadgesGot) == "table" then data.BadgesGot else {}
+		for level, id in Config.Badges.Collector do
+			local key = tostring(id)
+			if level <= (data.Collector or 0) and type(id) == "number" and id > 0 and not data.BadgesGot[key] then
+				task.spawn(function()
+					local ok = pcall(BadgeService.AwardBadge, BadgeService, player.UserId, id)
+					if ok then
+						data.BadgesGot[key] = true
+					end
+				end)
+			end
+		end
+	end
+
+	checkCollection = function(player: Player, quiet: boolean?)
+		local state = states[player]
+		if not state then
+			return
+		end
+		local data = state.Data
+		data.Stars = if type(data.Stars) == "table" then data.Stars else {}
+		state.NudgeSent = state.NudgeSent or {}
+		local got, cash, bats = 0, 0, 0
+		local last, nudge, nudgeLeft = nil, nil, math.huge
+		for z, zone in Config.Zones do
+			local done, missing = Config.ZoneStars(z, Critters.ByWorld, data.Index)
+			for tier, info in Config.IndexStars do
+				local key = z .. ":" .. tier
+				if done[tier] and not data.Stars[key] then
+					data.Stars[key] = true
+					got += 1
+					last = ("%s%d %s"):format(STAR, tier, string.upper(zone.Name))
+					if info.Bat then
+						bats += 1
+					end
+					if info.Minutes then
+						cash += math.max(info.MinCash or 0, math.floor((state.BaseIncome or 0) * 60 * info.Minutes))
+					end
+					if not quiet then
+						custom(player, "IndexStar", tier)
+					end
+					if info.Epic and not quiet then
+						-- o último bichinho da ★3 quase sempre é um Mítico/Secret que acabou de dar aviso épico: espera a
+						-- pausa entre avisos (Config.EpicCooldown) acabar, senão este virava só um aviso roxo
+						local pause = math.max(0, Config.EpicCooldown - (os.clock() - lastEpic))
+						task.delay(pause, epic, ("\u{1F31F} %s got %s%d in %s!"):format(player.DisplayName, STAR, tier, string.upper(zone.Name)), Color3.fromRGB(255, 215, 60), true)
+					end
+				elseif not done[tier] and missing[tier] > 0 and missing[tier] <= Config.StarNudge and not state.NudgeSent[key] and missing[tier] < nudgeLeft then
+					-- quase lá: guarda a estrela que falta menos (1 aviso por conferida)
+					nudge, nudgeLeft = { Key = key, Text = ("\u{1F50E} Only %d left for %s%d in %s! Look in the Index."):format(missing[tier], STAR, tier, zone.Name) }, missing[tier]
+				end
+			end
+		end
+		-- Colecionador: nunca desce (mesmo se mudarem os números do Config)
+		local found, total = Config.CollectionCount(Critters.ByWorld, data.Index)
+		local before = data.Collector or 0
+		local level = math.min(math.max(Config.CollectorLevel(found, total), before), #Config.Collector)
+		data.Collector = level
+		if level ~= before then
+			computeIncome(state)
+		end
+		if level > before or quiet then
+			awardBadges(player, data)
+		end
+		if level > before and not quiet then
+			custom(player, "CollectorLevel", level)
+		end
+		if cash > 0 then
+			data.Money += cash
+			econ(player, true, cash, "Gameplay", "IndexStar")
+		end
+		-- uma faixa só com tudo o que veio
+		local parts = {}
+		if got > 0 then
+			table.insert(parts, if got == 1 and last then "\u{2B50} " .. last .. "!" else ("\u{2B50} %d NEW STARS!"):format(got))
+		end
+		if cash > 0 then
+			table.insert(parts, "+" .. Format.Money(cash))
+		end
+		if bats > 0 then
+			table.insert(parts, if bats == 1 then "Zone Bat unlocked (Index)" else ("%d Zone Bats unlocked (Index)"):format(bats))
+		end
+		local text = table.concat(parts, "  ")
+		if level > before then
+			text ..= (if text ~= "" then "\n" else "") .. ("\u{1F4D6} COLLECTOR %s: +%d%% cash forever!"):format(Config.CollectorNames[level] or tostring(level), math.floor(level * Config.CollectorCash * 100 + 0.5))
+		end
+		if text ~= "" then
+			-- entrando: depois das faixas da entrada (dinheiro offline, convite, Halloween, escada de convites)
+			task.delay(if quiet then 16 else 0, function()
+				if player.Parent then
+					banner(player, text, Color3.fromRGB(255, 215, 60))
+					net:FireClient(player, "Sfx", "Delivered")
+				end
+			end)
+		end
+		if nudge then
+			state.NudgeSent[nudge.Key] = true
+			task.delay(if quiet then 22 elseif text ~= "" then 3.5 else 0, function()
+				if player.Parent then
+					toast(player, nudge.Text, "info")
+				end
+			end)
+		end
+	end
+end
+
 local function discover(player: Player, def, zoneIndex: number?)
 	local state = states[player]
 	local stored = state.Data.Index[def.Id]
@@ -545,6 +665,18 @@ local function discover(player: Player, def, zoneIndex: number?)
 	local natural = zoneOfDef[def.Id] or zoneIndex or 1
 	state.Data.Index[def.Id] = if zoneIndex then math.min(natural, zoneIndex) else natural
 	toast(player, ("\u{1F4D6} NEW in your Index: %s! Claim the reward in the Index."):format(def.Name), "success")
+	-- (v67) estrelas e Colecionador: confere depois que o ovo abre na tela (o "Chocar todos" vira 1 conferida só)
+	if not state.CollectionDue then
+		state.CollectionDue = true
+		task.delay(Config.HatchTime + 2.5, function()
+			if states[player] == state then
+				state.CollectionDue = nil
+				checkCollection(player)
+				publish(player)
+				net:FireClient(player, "Refresh") -- (a janela do Índice aberta mostra as estrelas novas)
+			end
+		end)
+	end
 	return true
 end
 
@@ -2136,25 +2268,19 @@ local function batInfo(state)
 	return Config.Bats[state.Data.Bat or 0] or Config.Bats[0]
 end
 
-local function zoneComplete(state, zoneIndex: number): boolean
-	local zone = Config.Zones[zoneIndex]
-	if not zone then
+-- v67: o taco da zona sai com a estrela que tem Bat (★1 = todos os Comum+Incomum+Raro da zona; Config.IndexStars).
+-- Antes pedia a zona inteira menos Divine/Celestial: com 3 Secret (~1 em 7.500 ovos cada) quase ninguém conseguia
+local function batUnlocked(state, zoneIndex: number): boolean
+	if not Config.Zones[zoneIndex] then
 		return false
 	end
-	local any = false
-	for _, rarity in zone.Rarities do
-		-- v65: Divine e Celestial não contam (a zona 1 pedia um Celestial: 1 em 83 mil ovos)
-		if (Config.RarityIndex[rarity] or 1) >= Config.RarityIndex.Divine then
-			continue
-		end
-		for _, def in poolFor(zone, rarity) do
-			any = true
-			if not state.Data.Index[def.Id] then
-				return false
-			end
+	local done = Config.ZoneStars(zoneIndex, Critters.ByWorld, state.Data.Index)
+	for tier, info in Config.IndexStars do
+		if info.Bat then
+			return done[tier] == true
 		end
 	end
-	return any
+	return false
 end
 
 
@@ -2600,8 +2726,8 @@ local function equipBat(player: Player, zoneIndex: any)
 	if type(zoneIndex) ~= "number" or not Config.Bats[zoneIndex] then
 		return
 	end
-	if zoneIndex > 0 and not zoneComplete(state, zoneIndex) then
-		return toast(player, "Complete this zone's Index to unlock its bat!", "warning")
+	if zoneIndex > 0 and not batUnlocked(state, zoneIndex) then
+		return toast(player, ("Find every Common, Uncommon and Rare of %s (\u{2605}1) to unlock its bat!"):format(Config.Zones[zoneIndex].Name), "warning")
 	end
 	state.Data.Bat = zoneIndex
 	giveTools(player)
@@ -3954,6 +4080,8 @@ local function onPlayerAdded(player: Player)
 	end
 	data.Savers = data.Savers or 0 -- escudos da sequência (Streak Saver)
 	data.DailyTotal = data.DailyTotal or 0 -- dias pegos no total (calendário de 28 dias; nunca diminui)
+	data.Stars = if type(data.Stars) == "table" then data.Stars else {} -- (v67) estrelas já pagas ("zona:estrela")
+	data.Collector = data.Collector or 0 -- (v67) nível de Colecionador (+3% de dinheiro cada)
 	local away = data.__Away or 0
 	data.__Away = nil
 	for id, value in data.Index do
@@ -4020,6 +4148,8 @@ local function onPlayerAdded(player: Player)
 			end)
 		end
 	end
+	-- (v67) estrelas e Colecionador: save antigo ganha o que já tinha (1 faixa só, sem aviso épico)
+	checkCollection(player, true)
 	publish(player, true)
 	player:SetAttribute("Quests", questJson(state))
 	task.spawn(applyPasses, player)

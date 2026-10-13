@@ -132,6 +132,15 @@ do
 		-- v67: EMOÇÃO (carimbo na entrega e fuga por pouco)
 		Safe = { "SAFE!", "SALVO!" },
 		CloseCall = { "\u{1F605} CLOSE CALL! +%s", "\u{1F605} UFA! POR UM TRIZ! +%s" },
+		-- v67: ESTRELAS DE COLEÇÃO e COLECIONADOR (janela do Índice)
+		CollectStrip = { "\u{1F4D6} COLLECTION %d/%d  \u{2022}  +%d%% cash\nNext at %d: +%d%% more cash, forever!", "\u{1F4D6} COLEÇÃO %d/%d  \u{2022}  +%d%% dinheiro\nCom %d: +%d%% de dinheiro, para sempre!" },
+		CollectMax = { "\u{1F4D6} COLLECTION %d/%d  \u{2022}  +%d%% cash\nCOLLECTOR %s - MAX LEVEL!", "\u{1F4D6} COLEÇÃO %d/%d  \u{2022}  +%d%% dinheiro\nCOLECIONADOR %s - NÍVEL MÁXIMO!" },
+		StarsAll = { "ALL STARS! %d/%d", "TODAS AS ESTRELAS! %d/%d" },
+		StarLeft = { "%s: %d/%d (%d left)", "%s: %d/%d (faltam %d)" },
+		BatLocked = { "\u{1F512} Get \u{2605}1 for the Bat", "\u{1F512} Pegue \u{2605}1 para o Taco" },
+		BatEquip = { "EQUIP BAT!", "USAR TACO!" },
+		BatEquipped = { "EQUIPPED", "EQUIPADO" },
+		FindHint = { "\u{1F50E} Steal %s eggs to find it!", "\u{1F50E} Roube ovos de %s para achar!" },
 	}
 	L = function(key: string): string
 		local entry = TEXTS[key]
@@ -840,7 +849,11 @@ do
 	local indexZone = 1
 	local indexSelected = nil
 	local zoneList = scroller(indexBody, { Size = UDim2.new(0, 190, 1, -16) })
-	local cardArea = create("Frame", { Size = UDim2.new(1, -530, 1, -96), Position = UDim2.fromOffset(206, 8), BackgroundTransparency = 1, ZIndex = 12, Parent = indexBody })
+	local cardArea = create("Frame", { Size = UDim2.new(1, -530, 1, -152), Position = UDim2.fromOffset(206, 64), BackgroundTransparency = 1, ZIndex = 12, Parent = indexBody })
+	-- v67 COLEÇÃO: faixa em cima dos cartões (total achado, nível de Colecionador e quanto falta para o próximo)
+	local collectBack = create("Frame", { Size = UDim2.new(1, -530, 0, 50), Position = UDim2.fromOffset(206, 8), BackgroundColor3 = Color3.fromRGB(20, 20, 26), ZIndex = 12, Parent = indexBody }, { corner(10), stroke(3) })
+	local collectFill = create("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Theme.Gold, BackgroundTransparency = 0.35, ZIndex = 13, Parent = collectBack }, { corner(10) })
+	local collectText = text({ Size = UDim2.new(1, -16, 1, -6), Position = UDim2.fromOffset(8, 3), Text = "", ZIndex = 14, Stroke = 3, Parent = collectBack })
 	local cardGrid = scroller(cardArea, { Size = UDim2.fromScale(1, 1), Position = UDim2.new() }, Vector2.new(128, 140))
 	local progressBack = create("Frame", { Size = UDim2.new(1, -730, 0, 66), Position = UDim2.new(0, 206, 1, -80), BackgroundColor3 = Color3.fromRGB(20, 20, 26), ZIndex = 12, Parent = indexBody }, { corner(10), stroke(3) })
 	local progressFill = create("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Theme.Green, ZIndex = 13, Parent = progressBack }, { corner(10) })
@@ -856,6 +869,8 @@ do
 	local detailRarity = text({ Size = UDim2.new(1, -20, 0, 32), Position = UDim2.fromOffset(10, 254), Text = "", ZIndex = 13, Parent = detail })
 	local detailIncome = text({ Size = UDim2.new(1, -20, 0, 32), Position = UDim2.fromOffset(10, 288), Text = "", TextColor3 = GREEN_TEXT, ZIndex = 13, Parent = detail })
 	local detailReward = text({ Size = UDim2.new(1, -20, 0, 30), Position = UDim2.fromOffset(10, 330), Text = "", TextColor3 = Color3.fromRGB(255, 230, 120), Stroke = 2, ZIndex = 13, Parent = detail })
+	-- (v67) a dica (Hint) do bichinho que falta; fica onde o CLAIM aparece (o CLAIM só existe para quem já achou)
+	local detailHint = text({ Size = UDim2.new(1, -20, 0, 40), Position = UDim2.fromOffset(10, 364), Text = "", TextColor3 = Theme.Gold, TextWrapped = true, Stroke = 2, Visible = false, ZIndex = 13, Parent = detail })
 	local claimButton, claimLabel = button({ Size = UDim2.new(1, -40, 0, 56), Position = UDim2.new(0, 20, 1, -132), BackgroundColor3 = Theme.Green, ZIndex = 13, Parent = detail }, "CLAIM", function()
 		if indexSelected then
 			net:FireServer("ClaimIndex", indexSelected)
@@ -893,13 +908,19 @@ do
 	local indexLazy = lazyPreviews(cardGrid)
 	local CLAIM_YELLOW = Color3.fromRGB(255, 230, 80)
 
-	-- borda do cartão: amarela = prêmio para pegar; branca e grossa = o que está aberto à direita
+	-- borda do cartão: amarela = prêmio para pegar; branca e grossa = o que está aberto à direita;
+	-- (v67) dourada = falta pouco para a estrela dele (Config.StarNudge) e ainda não achou
 	local function paintIndexCards()
 		for id, entry in indexCards do
 			local shown = id == indexShown
-			entry.Stroke.Color = if entry.Found == 1 then CLAIM_YELLOW elseif shown then Theme.White else Theme.Dark
-			entry.Stroke.Thickness = if shown then 5 else 3
+			entry.Stroke.Color = if entry.Found == 1 then CLAIM_YELLOW elseif shown then Theme.White elseif entry.Near then Theme.Gold else Theme.Dark
+			entry.Stroke.Thickness = if shown then 5 elseif entry.Near then 4 else 3
 		end
+	end
+
+	-- (v67) dica do bichinho que falta: a do Critters (Hint) ou "roube ovos da zona"
+	local function hintFor(def): string
+		return if def.Hint then "\u{1F50E} " .. def.Hint else L("FindHint"):format(Config.Zones[indexZone].Name)
 	end
 
 	local function selectPet(def, found: number?)
@@ -919,6 +940,8 @@ do
 		detailIncome.Text = if found then Format.Money(income) .. "/s" else "Steal it to find out!"
 		local cash, speed = Config.IndexReward(def, indexZone)
 		detailReward.Text = ("Reward: %s  +%s Speed"):format(Format.Money(cash), Format.Short(speed))
+		detailHint.Visible = not found
+		detailHint.Text = if found then "" else hintFor(def)
 		claimButton.Visible = found == 1
 		claimLabel.Text = "CLAIM"
 		paintIndexCards()
@@ -947,6 +970,9 @@ do
 			Stroke = card:FindFirstChildOfClass("UIStroke"),
 			Name = text({ Size = UDim2.new(1, -8, 0, 26), Position = UDim2.fromOffset(4, 4), Text = "???", ZIndex = 15, Parent = card }),
 			Claim = text({ AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -4, 1, -4), Size = UDim2.fromOffset(60, 22), Text = "CLAIM!", TextColor3 = CLAIM_YELLOW, Visible = false, ZIndex = 15, Parent = card }),
+			-- (v67) dica embaixo da sombra quando falta pouco para a estrela
+			Hint = text({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -3), Size = UDim2.new(1, -8, 0, 34), Text = "", TextColor3 = Theme.Gold, TextWrapped = true, Stroke = 2, Visible = false, ZIndex = 15, Parent = card }),
+			Near = false,
 			Found = nil,
 			View = nil,
 			ViewFound = false,
@@ -958,6 +984,15 @@ do
 		indexCards[def.Id] = entry
 		queueIndexPreview(entry)
 		return entry
+	end
+
+	-- (v67) ★ = estrela da zona que já tem; ☆ = que falta (Config.IndexStars, a mesma conta do servidor)
+	local function starText(done): string
+		local out = ""
+		for tier in Config.IndexStars do
+			out ..= if done[tier] then "\u{2605}" else "\u{2606}"
+		end
+		return out
 	end
 
 	refreshIndex = function()
@@ -989,7 +1024,7 @@ do
 				entry = { Button = btn, Label = label, Stroke = btn:FindFirstChildOfClass("UIStroke") }
 				zoneButtons[order] = entry
 			end
-			entry.Label.Text = ("%s %s\n%d/%d"):format(zone.Emoji or "", zone.Name, count, #defs)
+			entry.Label.Text = ("%s %s\n%s %d/%d"):format(zone.Emoji or "", zone.Name, starText((Config.ZoneStars(order, Critters.ByWorld, index))), count, #defs)
 			entry.Button.BackgroundTransparency = if order == indexZone then 0 else 0.35
 			if entry.Stroke then
 				entry.Stroke.Color = if order == indexZone then Theme.White else Theme.Dark
@@ -1009,6 +1044,7 @@ do
 		end
 		local count = 0
 		local first = nil
+		local done, missing = Config.ZoneStars(indexZone, Critters.ByWorld, index)
 		for _, def in defs do
 			local found = index[def.Id]
 			if found then
@@ -1019,6 +1055,11 @@ do
 				entry.Found = found
 				entry.Name.Text = if found then def.Name else "???"
 				entry.Claim.Visible = found == 1
+				-- (v67) quase lá: a estrela deste bichinho só precisa de Config.StarNudge ou menos = borda dourada + dica
+				local tier = Config.StarTier[def.Rarity]
+				entry.Near = not found and tier ~= nil and not done[tier] and missing[tier] <= Config.StarNudge
+				entry.Hint.Visible = entry.Near
+				entry.Hint.Text = if entry.Near then hintFor(def) else ""
 				-- acabou de descobrir: troca a sombra pela prévia colorida
 				if entry.View and entry.ViewFound ~= (found ~= nil) then
 					queueIndexPreview(entry)
@@ -1027,22 +1068,47 @@ do
 			first = first or { def, found }
 		end
 		indexLazy.Pump()
-		progressFill.Size = UDim2.fromScale(if #defs > 0 then count / #defs else 0, 1)
-		-- o taco da zona não pede Divine/Celestial (igual ao servidor)
-		local needed, have = 0, 0
-		for _, def in defs do
-			if (Config.RarityIndex[def.Rarity] or 1) < Config.RarityIndex.Divine then
-				needed += 1
-				if index[def.Id] then
-					have += 1
-				end
+		-- (v67) barra de baixo = a próxima estrela da zona (a 1ª que falta); todas = a zona inteira
+		local tiers = Config.ZoneTiers(indexZone, Critters.ByWorld)
+		local nextTier = nil
+		for tier, list in tiers do
+			if not done[tier] and #list > 0 then
+				nextTier = tier
+				break
 			end
 		end
-		local complete = needed > 0 and have == needed
+		if nextTier then
+			local need = #tiers[nextTier]
+			progressFill.Size = UDim2.fromScale((need - missing[nextTier]) / need, 1)
+			progressText.Text = L("StarLeft"):format("\u{2605}" .. nextTier, need - missing[nextTier], need, missing[nextTier])
+		else
+			progressFill.Size = UDim2.fromScale(1, 1)
+			progressText.Text = "\u{2605}\u{2605}\u{2605} " .. L("StarsAll"):format(count, #defs)
+		end
+		-- o taco da zona sai com a ★1 (igual ao servidor: batUnlocked)
+		local complete = false
+		for tier, info in Config.IndexStars do
+			if info.Bat then
+				complete = done[tier] == true
+			end
+		end
 		local equipped = (player:GetAttribute("Bat") or 0) == indexZone
-		batLabel.Text = if equipped then "EQUIPPED" elseif complete then "EQUIP BAT!" else "\u{1F512} Zone Bat"
+		batLabel.Text = if equipped then L("BatEquipped") elseif complete then L("BatEquip") else L("BatLocked")
 		batButton.BackgroundColor3 = if equipped then Theme.Gray elseif complete then Theme.Orange else Color3.fromRGB(80, 80, 90)
-		progressText.Text = ("%d/%d"):format(count, #defs)
+		-- (v67) faixa da COLEÇÃO: total achado e o próximo nível de Colecionador (+3% cada)
+		local found, total = Config.CollectionCount(Critters.ByWorld, index)
+		local level = math.max(Config.CollectorLevel(found, total), tonumber(player:GetAttribute("Collector")) or 0)
+		local bonus = math.floor(level * Config.CollectorCash * 100 + 0.5)
+		local nextNeed = Config.Collector[level + 1]
+		if nextNeed then
+			nextNeed = math.min(nextNeed, total)
+			local prev = Config.Collector[level] or 0
+			collectFill.Size = UDim2.fromScale(math.clamp((found - prev) / math.max(nextNeed - prev, 1), 0, 1), 1)
+			collectText.Text = L("CollectStrip"):format(found, total, bonus, nextNeed, math.floor(Config.CollectorCash * 100 + 0.5))
+		else
+			collectFill.Size = UDim2.fromScale(1, 1)
+			collectText.Text = L("CollectMax"):format(found, total, bonus, Config.CollectorNames[level] or tostring(level))
+		end
 		if first then
 			local keep = false
 			for _, def in defs do

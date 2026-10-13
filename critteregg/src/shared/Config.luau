@@ -425,7 +425,7 @@ Config.Sounds = {
 
 ---------------------------------------------------------------------
 -- PvP: todo mundo tem um TACO; acertar quem carrega um ovo derruba o ovo
--- no chão (vira "ovo solto": qualquer um pega). Completar o Index de uma zona dá o taco daquela zona (mais forte).
+-- no chão (vira "ovo solto": qualquer um pega). ★1 no Índice de uma zona dá o taco daquela zona (mais forte; v67).
 ---------------------------------------------------------------------
 Config.Bat = { Cooldown = 0.9, Range = 9, Force = 55, Stun = 0.8 }
 Config.Bats = {} -- [0] = taco inicial; [z] = taco da zona z
@@ -443,6 +443,125 @@ for z, zone in Config.Zones do
 	Config.Bats[z].Color = zone.Floor and zone.Floor[1] or Color3.fromRGB(150, 100, 60)
 end
 Config.Bats[0].Color = Color3.fromRGB(170, 120, 70)
+
+---------------------------------------------------------------------
+-- v67 ESTRELAS DE COLEÇÃO: cada zona tem 3 estrelas no Índice (Divine e Celestial nunca contam).
+--   ★1 = todos os Comum+Incomum+Raro da zona -> libera o TACO da zona. Antes o taco pedia a zona INTEIRA
+--        (a Sprout Woods pedia 3 Secret, ~1 em 7.500 ovos cada): só o taco da zona 2 dava para pegar.
+--   ★2 = todos os Épico+Lendário -> Minutes da renda; ★3 = todos os Mítico+Secret -> Minutes da renda + aviso épico.
+--   Estrela sem nenhum bichinho na zona (a Blossom Grove não tem Mítico) vale quando as outras da zona valerem.
+--   Dinheiro = minutos da renda BASE (sem os 2x), no mínimo MinCash. Cada estrela paga 1 vez (data.Stars).
+---------------------------------------------------------------------
+Config.IndexStars = {
+	{ Rarities = { "Common", "Uncommon", "Rare" }, Bat = true },
+	{ Rarities = { "Epic", "Legendary" }, Minutes = 10, MinCash = 10_000 },
+	{ Rarities = { "Mythic", "Secret" }, Minutes = 30, MinCash = 50_000, Epic = true },
+}
+Config.StarNudge = 2 -- faltando isso ou menos para uma estrela: aviso + borda amarela + dica nos cartões que faltam
+-- COLECIONADOR: quantos bichinhos das zonas você já descobriu (os mesmos das estrelas). Cada nível = +CollectorCash
+--   de dinheiro para sempre. Vale DEPOIS da renda base: presentes, diário e missões não mudam. O último = todos.
+Config.Collector = { 10, 25, 50, 75, 100, 125, 141 }
+Config.CollectorCash = 0.03
+Config.CollectorNames = { "I", "II", "III", "IV", "V", "VI", "VII" }
+-- emblemas (opcional): crie 1 emblema por nível no Creator Hub e cole os Ids aqui (0 = sem emblema)
+Config.Badges = { Collector = { 0, 0, 0, 0, 0, 0, 0 } }
+
+Config.StarTier = {} -- [raridade] = estrela (Divine/Celestial = nil)
+for tier, info in Config.IndexStars do
+	for _, rarity in info.Rarities do
+		Config.StarTier[rarity] = tier
+	end
+end
+
+-- bichinhos de cada estrela da zona: { [estrela] = { defs } }. byWorld = Critters.ByWorld (o Config não lê o Critters)
+local tierCache = setmetatable({}, { __mode = "k" })
+function Config.ZoneTiers(zoneIndex: number, byWorld): { { any } }
+	local cache = tierCache[byWorld]
+	if not cache then
+		cache = {}
+		tierCache[byWorld] = cache
+	end
+	if cache[zoneIndex] then
+		return cache[zoneIndex]
+	end
+	local tiers = {}
+	for tier in Config.IndexStars do
+		tiers[tier] = {}
+	end
+	local zone = Config.Zones[zoneIndex]
+	for _, rarity in (zone and zone.Rarities) or {} do
+		local tier = Config.StarTier[rarity]
+		if tier then
+			for _, world in zone.Pool do
+				for _, def in (byWorld[world] and byWorld[world][rarity]) or {} do
+					table.insert(tiers[tier], def)
+				end
+			end
+		end
+	end
+	cache[zoneIndex] = tiers
+	return tiers
+end
+
+-- estrelas da zona. index = { [Id] = qualquer coisa } (o Index do save ou o da tela).
+-- Devolve done[estrela] (completa?), missing[estrela] (quantos faltam) e quantas estrelas tem
+function Config.ZoneStars(zoneIndex: number, byWorld, index): ({ boolean }, { number }, number)
+	local tiers = Config.ZoneTiers(zoneIndex, byWorld)
+	local done, missing = {}, {}
+	local all, any = true, false
+	for tier, list in tiers do
+		local left = 0
+		for _, def in list do
+			if not index[def.Id] then
+				left += 1
+			end
+		end
+		missing[tier] = left
+		done[tier] = #list > 0 and left == 0
+		any = any or #list > 0
+		all = all and left == 0
+	end
+	local stars = 0
+	for tier, list in tiers do
+		if #list == 0 then
+			done[tier] = all and any -- estrela vazia: vale junto com as outras
+		end
+		if done[tier] then
+			stars += 1
+		end
+	end
+	return done, missing, stars
+end
+
+-- quantos bichinhos das zonas você já achou (found) de quantos existem (total)
+function Config.CollectionCount(byWorld, index): (number, number)
+	local found, total, seen = 0, 0, {}
+	for zoneIndex in Config.Zones do
+		for _, list in Config.ZoneTiers(zoneIndex, byWorld) do
+			for _, def in list do
+				if not seen[def.Id] then
+					seen[def.Id] = true
+					total += 1
+					if index[def.Id] then
+						found += 1
+					end
+				end
+			end
+		end
+	end
+	return found, total
+end
+
+-- nível de Colecionador (0..#Config.Collector). total = quantos existem (se sair bichinho do jogo, o último ainda dá)
+function Config.CollectorLevel(found: number, total: number?): number
+	local level = 0
+	for i, need in Config.Collector do
+		if found >= math.min(need, total or need) then
+			level = i
+		end
+	end
+	return level
+end
 
 -- ARMADILHA DE URSO: até 3 por jogador, não pode na SAFE ZONE nem a menos de MinZ studs dela, só pega quem está carregando ovo
 -- v65: Stun 5 -> 3 s (para criança 5 s parada é muito) e MinZ: nada de armadilha colada na SAFE ZONE

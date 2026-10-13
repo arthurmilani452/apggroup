@@ -8,6 +8,7 @@ SIMULADOR DE PROGRESSÃO do Steal a Critter Egg (só Python 3, sem bibliotecas d
     python3 tools/sim/progression.py --no-rebirth     # só a tabela de quem nunca faz rebirth
     python3 tools/sim/progression.py --scenarios v65,new --verbose   # + de onde veio a velocidade em cada portão
     python3 tools/sim/progression.py --weekly         # chance do Bicho da Semana na zona dele (com/sem o boost)
+    python3 tools/sim/progression.py --no-collection  # sem as estrelas de coleção e o Colecionador da v67 (comparar)
 
 CENÁRIOS (colunas)
   v65        números da v65 (antes): Index = IndexSpeed * Mult^0.75, esteira 5,5x por nível, zona 9 em 620M,
@@ -21,7 +22,8 @@ DE ONDE VÊM OS NÚMEROS
   * LIDOS do src/shared/Config.luau (parser de tabelas Luau abaixo): Rarities, Mutations, Zones (Speed, MinSpeed,
     Mult, Pool, Rarities), RarityIncome, IndexSpeed, IndexShare, Trails, Gifts, Daily, Quests, PenStartSlots,
     StartSpeed, WalkCap, Cycle/Night/NightGrowth, FirstEggSeconds, TreadmillUnlockPen, TreadmillRamp, Treadmill
-    (sequência da esteira), StealStreak, Rebirth*, Offline*, Lucky*, Weekly*, Map.LaneLength/PlotZ, e os números das
+    (sequência da esteira), StealStreak, Rebirth*, Offline*, Lucky*, Weekly*, Map.LaneLength/PlotZ, IndexStars,
+    Collector/CollectorCash (v67), e os números das
     fórmulas da esteira e do cercado (lidos das linhas "Gain = ..." / "Cost = ..." dos loops).
   * LIDOS do src/shared/Critters.luau: Id, Rarity e World de cada bichinho (Soon = fora; os do WEEKLY = mundo "weekly").
   * DUPLICADOS aqui (mudou a fórmula no Luau? mude aqui também): RollScale, SizeFactor, BaseIncome (hash do Id),
@@ -35,6 +37,8 @@ O "JOGADOR TÍPICO" (criança no celular), passo de 1 segundo:
     A sequência da esteira (Config.Treadmill) zera quando ela sai da esteira por mais de StreakGrace s;
   * ovo cresce Config.GrowSeconds (noite: últimos Night s de cada ciclo, x NightGrowth); choca na hora;
   * bichinho novo -> Index -> resgata o prêmio na hora (dinheiro + velocidade);
+  * v67: estrela de coleção nova (Config.IndexStars) paga os minutos de renda dela; o nível de Colecionador
+    (Config.Collector) dá +CollectorCash de dinheiro por nível, depois da renda base (os prêmios em minutos não mudam);
   * compra sempre a coisa mais barata que dá (cercado, esteira, trilha); cercado cheio = vende o pior bichinho;
   * a cada StealStreak.Every roubos seguidos ganha StealStreak.Minutes da renda;
   * joga 1 sessão de --session minutos por dia: presentes por tempo (zeram depois de 3 h fora), prêmio diário
@@ -524,6 +528,7 @@ class Kid:
     session = 60  # minutos por dia (0 = sem parar)
     extras = True  # presentes, diário, missões, offline
     rebirth = False  # faz rebirth assim que tem o dinheiro
+    collection = True  # v67: estrelas de coleção + Colecionador
     hours = 100  # tempo máximo jogado
 
 
@@ -562,12 +567,30 @@ def simulate(econ, reward, kid, seed):
     first_keep_day = min([d for d, v in calendar.items() if v.get("Critter")] or [10 ** 9])
     first_egg = True
     from_index = from_tread = 0.0
+    # v67 ESTRELAS (Config.IndexStars) e COLECIONADOR (Config.Collector): checkCollection do Game.luau
+    star_cfg = (cfg.get("IndexStars") or []) if kid.collection else []
+    collector = [int(x) for x in (cfg.get("Collector") or [])] if kid.collection else []
+    collector_cash = cfg.get("CollectorCash", 0)
+    star_tier = {r: k for k, info in enumerate(star_cfg) for r in info["Rarities"]}
+    zone_tiers = []  # [zona][estrela] = ids (Config.ZoneTiers)
+    for pool in econ.pools:
+        tiers = [[] for _ in star_cfg]
+        for rarity, ids in pool.items():
+            if rarity in star_tier:
+                tiers[star_tier[rarity]].extend(ids)
+        zone_tiers.append(tiers)
+    all_pool = {cid for tiers in zone_tiers for ids in tiers for cid in ids}
+    stars_got = set()
+    collect = {"level": 0}
 
     def slot_cap():
         return cfg["PenStartSlots"] + st["pen"]
 
-    def income():
+    def income():  # renda BASE (state.BaseIncome): é a que os prêmios em minutos usam
         return sum(s["inc"] for s in slots if s["left"] <= 0) * (1 + cfg["RebirthMoney"] * st["reb"])
+
+    def collector_mult():  # (v67) Colecionador: vale depois da renda base
+        return 1 + collector_cash * collect["level"]
 
     def best_zone():
         best = 1
@@ -615,11 +638,30 @@ def simulate(econ, reward, kid, seed):
                     z = best_zone()
                     slots.append({"id": cid, "s": 1, "mut": mut, "z": z, "left": 0, "inc": econ.pet_income(cid, 1, mut, z), "keep": True})
 
+    def check_collection():  # Config.ZoneStars + Config.CollectorLevel (estrela vazia vale junto com as outras)
+        base = income()
+        for z, tiers in enumerate(zone_tiers):
+            every = all(c in index for ids in tiers for c in ids)
+            any_tier = any(tiers)
+            for k, ids in enumerate(tiers):
+                done = all(c in index for c in ids) if ids else (every and any_tier)
+                if done and (z, k) not in stars_got:
+                    stars_got.add((z, k))
+                    info = star_cfg[k]
+                    if info.get("Minutes"):
+                        st["money"] += max(info.get("MinCash", 0), math.floor(base * 60 * info["Minutes"]))
+        found = sum(1 for c in all_pool if c in index)
+        for n, need in enumerate(collector, 1):
+            if found >= min(need, len(all_pool)):
+                collect["level"] = max(collect["level"], n)
+
     def discover(slot):
         nonlocal from_index
         cid, z = slot["id"], slot["z"]
         if cid not in index:
             index[cid] = min(econ.natural.get(cid, z), z)
+            if star_cfg:
+                check_collection()
         if cid not in claimed:
             claimed.add(cid)
             sp = reward(econ, cid, index[cid])
@@ -647,7 +689,7 @@ def simulate(econ, reward, kid, seed):
                 slot["fresh"] = False
                 today["hatch"] += 1
                 discover(slot)
-        st["money"] += income() * (2 if boost_until["Money2"] > clock else 1)
+        st["money"] += income() * collector_mult() * (2 if boost_until["Money2"] > clock else 1)
         # atividade: em casa (esteira) ou numa viagem de roubo
         left -= 1
         on_belt = phase == "home" and left < run_part and st["pen"] >= unlock_pen
@@ -758,7 +800,7 @@ def simulate(econ, reward, kid, seed):
             if z not in reached and st["speed"] >= zones[z - 1]["Speed"]:
                 reached[z] = t
                 snaps[z] = {"index": from_index, "tread": from_tread, "level": st["tread"], "trail": st["trail"],
-                            "pen": st["pen"], "income": income(), "reb": st["reb"]}
+                            "pen": st["pen"], "income": income(), "reb": st["reb"], "stars": len(stars_got), "coll": collect["level"]}
         # fim da sessão: offline até o dia seguinte (presentes zeram, dia novo)
         if kid.session and session_t >= kid.session * 60:
             away = 86400 - session_t
@@ -880,6 +922,7 @@ def main():
     ap.add_argument("--no-rebirth", action="store_true", help="não roda a tabela de quem faz rebirth")
     ap.add_argument("--scenarios", default="v65,v65+exp,v65+share,new")
     ap.add_argument("--weekly", action="store_true", help="só a tabela do Bicho da Semana")
+    ap.add_argument("--no-collection", action="store_true", help="sem estrelas de coleção / Colecionador (v67)")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
 
@@ -893,6 +936,7 @@ def main():
     kid = Kid()
     kid.session = 0 if args.continuous else args.session
     kid.duty, kid.nests, kid.extras, kid.hours = args.duty, args.nests, not args.no_extras, args.hours
+    kid.collection = not args.no_collection
 
     print("Steal a Critter Egg - progression sim: median of %d kids, %s, treadmill %d%% of home time, best of %d nests%s" % (
         args.runs, "non-stop" if not kid.session else "%g min/day" % kid.session, kid.duty * 100, kid.nests, "" if kid.extras else ", no gifts/daily"))
@@ -927,8 +971,9 @@ def main():
                 print("\n[%s] kid #1: where the speed came from at each gate" % label)
                 for z in sorted(r["snaps"]):
                     s = r["snaps"][z]
-                    print("  zone %2d %7s  Index %8s  treadmill %8s  tread L%-2d trail %d pen %-2d income %8s/s  rebirths %d" % (
-                        z, fmt_time(r["reached"][z]), short(s["index"]), short(s["tread"]), s["level"], s["trail"], s["pen"], short(s["income"]), s["reb"]))
+                    print("  zone %2d %7s  Index %8s  treadmill %8s  tread L%-2d trail %d pen %-2d income %8s/s  rebirths %d  stars %d  collector %d" % (
+                        z, fmt_time(r["reached"][z]), short(s["index"]), short(s["tread"]), s["level"], s["trail"], s["pen"], short(s["income"]), s["reb"],
+                        s.get("stars", 0), s.get("coll", 0)))
                 for when, what in r["log"]:
                     print("  %8s  %s" % (fmt_time(when), what))
     if not args.no_rebirth:

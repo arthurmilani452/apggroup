@@ -364,6 +364,74 @@ check("epic: not for Legendary, HUGE or Gold", not Config.EpicEgg("Legendary") a
 	and not Config.EpicEgg("Common", nil, nil, false))
 check("epic cooldown and hatch time are sane", Config.EpicCooldown >= 10 and Config.HatchTime > 0.5 and Config.HatchTime < 2)
 
+-- v67: ESTRELAS DE COLEÇÃO por zona e níveis de COLECIONADOR
+local tiersOk = true
+for _, rarity in Config.Rarities do
+	local isTop = rarity.Name == "Divine" or rarity.Name == "Celestial"
+	if (Config.StarTier[rarity.Name] == nil) ~= isTop then
+		tiersOk = false
+		print("  rarity without the right star", rarity.Name)
+	end
+end
+check("every rarity has a star except Divine/Celestial", tiersOk)
+local batTiers, lastMinutes = 0, 0
+for _, info in Config.IndexStars do
+	batTiers += if info.Bat then 1 else 0
+	if info.Minutes then
+		lastMinutes = math.max(lastMinutes, info.Minutes)
+	end
+end
+check("exactly one star gives the zone bat, and it is the first", batTiers == 1 and Config.IndexStars[1].Bat == true)
+check("star cash grows with the star", (Config.IndexStars[2].Minutes or 0) < (Config.IndexStars[3].Minutes or 0) and lastMinutes <= 60)
+-- zona falsa (mundo "meadow" = Sprout Woods): 2 Common, 1 Epic, 1 Divine e nenhum Mítico/Secret
+local fakeWorld = { meadow = { Common = { { Id = "a" }, { Id = "b" } }, Epic = { { Id = "e" } }, Divine = { { Id = "d" } } } }
+local t = Config.ZoneTiers(1, fakeWorld)
+check("ZoneTiers splits the zone by star (Divine left out)", #t[1] == 2 and #t[2] == 1 and #t[3] == 0)
+local done, missing, stars = Config.ZoneStars(1, fakeWorld, {})
+check("no critters = no stars", stars == 0 and not done[1] and not done[2] and not done[3] and missing[1] == 2 and missing[2] == 1)
+done, missing, stars = Config.ZoneStars(1, fakeWorld, { a = 1, b = 2 })
+check("star 1 alone; the empty star waits for the others", stars == 1 and done[1] and not done[2] and not done[3] and missing[2] == 1)
+done, missing, stars = Config.ZoneStars(1, fakeWorld, { a = 1, b = 2, e = 1 })
+check("everything found = 3 stars (empty star counts, Divine not needed)", stars == 3 and done[1] and done[2] and done[3])
+done, missing, stars = Config.ZoneStars(1, fakeWorld, { e = 1 })
+check("stars are independent (star 2 without star 1)", stars == 1 and not done[1] and done[2] and not done[3])
+check("CollectorLevel thresholds", Config.CollectorLevel(0) == 0 and Config.CollectorLevel(Config.Collector[1] - 1) == 0
+	and Config.CollectorLevel(Config.Collector[1]) == 1 and Config.CollectorLevel(Config.Collector[#Config.Collector]) == #Config.Collector
+	and Config.CollectorLevel(10 ^ 6) == #Config.Collector)
+check("CollectorLevel: the last level still works if critters are removed", Config.CollectorLevel(90, 90) == #Config.Collector
+	and Config.CollectorLevel(89, 90) < #Config.Collector)
+local growing = true
+for i = 2, #Config.Collector do
+	growing = growing and Config.Collector[i] > Config.Collector[i - 1]
+end
+check("Collector levels grow, one badge slot and one name per level", growing and #Config.Badges.Collector == #Config.Collector
+	and #Config.CollectorNames == #Config.Collector)
+check("Collector max bonus stays small (+30% or less)", Config.CollectorCash * #Config.Collector <= 0.3)
+-- com os bichinhos de verdade (mesma lista do simulador): o último nível = TODOS os bichinhos das zonas
+local realWorld = {}
+for id, info in critters do
+	realWorld[info.World] = realWorld[info.World] or {}
+	realWorld[info.World][info.Rarity] = realWorld[info.World][info.Rarity] or {}
+	table.insert(realWorld[info.World][info.Rarity], { Id = id, Rarity = info.Rarity })
+end
+local found, total = Config.CollectionCount(realWorld, {})
+check("last Collector level = every zone critter (update Config.Collector when critters change)", found == 0
+	and total == Config.Collector[#Config.Collector], total)
+local starOk = true
+for z in Config.Zones do
+	local tiers = Config.ZoneTiers(z, realWorld)
+	if #tiers[1] == 0 then
+		starOk = false
+		print("  zone without a star 1 (no bat)", z)
+	end
+	for _, def in tiers[1] do
+		if Config.RarityIndex[def.Rarity] >= Config.RarityIndex.Epic then
+			starOk = false
+		end
+	end
+end
+check("every zone bat needs only Common/Uncommon/Rare critters", starOk)
+
 if failed > 0 then
 	error(("%d test(s) failed"):format(failed))
 end
