@@ -193,10 +193,37 @@ function Theme.window(parent: Instance, name: string, title: string, color: Colo
 	return window, body
 end
 
+-- v66: respeita o tamanho de "caber na tela" (atributo Fit, ver Theme.fit): no celular a janela grande abre menor
 function Theme.popIn(object: GuiObject)
 	local scale = object:FindFirstChild("PopScale") or create("UIScale", { Name = "PopScale", Parent = object })
-	scale.Scale = 0.6
-	TweenService:Create(scale, BOUNCE, { Scale = 1 }):Play()
+	local fit = object:GetAttribute("Fit")
+	local target = if type(fit) == "number" then fit else 1
+	scale.Scale = target * 0.6
+	TweenService:Create(scale, BOUNCE, { Scale = target }):Play()
+end
+
+-- v66: encolhe um objeto (ex.: janela maior que a tela do celular) para caber; o popIn usa o mesmo valor
+function Theme.fit(object: GuiObject, scale: number)
+	object:SetAttribute("Fit", scale)
+	local pop = object:FindFirstChild("PopScale") or create("UIScale", { Name = "PopScale", Parent = object })
+	pop.Scale = scale
+end
+
+-- v66: selo vermelho no canto de cima à direita ("!" ou um número). Começa escondido.
+function Theme.badge(parent: GuiObject, label: string?): (Frame, TextLabel)
+	local layer = parent.ZIndex + 2
+	local badge = create("Frame", {
+		Name = "Badge",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(1, -6, 0, 6),
+		Size = UDim2.fromOffset(32, 32),
+		BackgroundColor3 = Theme.Red,
+		Visible = false,
+		ZIndex = layer,
+		Parent = parent,
+	}, { Theme.corner(16), Theme.stroke(3, Theme.White) })
+	local badgeText = Theme.text({ Size = UDim2.new(1, -4, 1, -4), Position = UDim2.fromOffset(2, 2), Text = label or "!", ZIndex = layer, Parent = badge })
+	return badge, badgeText
 end
 
 function Theme.rarityColor(rarity: string): Color3

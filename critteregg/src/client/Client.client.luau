@@ -1,8 +1,11 @@
 --!nonstrict
 --[[
 	Tela do jogador (só MOSTRA e PEDE; quem decide é o servidor).
-	  HUD: velocidade (rosa) e dinheiro (verde) embaixo à esquerda; botões Shop e Index à esquerda;
-	       botões quadrados Ovos / Pets / Boosts à direita; relógios embaixo à direita; faixa e avisos no topo.
+	  HUD (v66, "menos coisa na tela"): velocidade (rosa) e dinheiro (verde) embaixo à esquerda (celular: embaixo no meio);
+	       5 botões à esquerda (Loja, Índice, Ovos, Pets, Presentes); 1 botão Menu à direita com o resto dentro
+	       (Diário, Missões, Rebirth, Boosts, Códigos, Doces, Convidar, Som, Modo Lento, Admin);
+	       2 relógios (noite + o evento mais importante) embaixo à direita (celular: em cima à direita);
+	       painel da esteira com AUTO CORRER; faixa e avisos no topo. Textos em PT-BR se o Roblox estiver em português.
 	  Janelas: Shop (melhorias, trilhas, boosts), Index (cartões 3D por zona + prêmios), Eggs, Pets/Sell,
 	           Trails, Fuse, Boosts. As lojinhas do mapa abrem a janela delas quando você entra.
 	  Mundo: placas das zonas verdes/vermelhas, seta guia, pose de carregar, bichinhos passeando, listras da esteira.
@@ -23,6 +26,73 @@ local Theme = require(script.Parent:WaitForChild("Theme"))
 local net = ReplicatedStorage:WaitForChild("Net") :: RemoteEvent
 
 local player = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local TOUCH = UserInputService.TouchEnabled
+
+---------------------------------------------------------------------
+-- TEXTOS EM PORTUGUÊS (v66): Roblox em português = botões, Menu, Admin, esteira e dicas em PT-BR.
+-- (os avisos que vêm do servidor continuam em inglês). Textos curtos para caber nos botões.
+---------------------------------------------------------------------
+local PT_BR = false
+pcall(function()
+	PT_BR = string.lower(string.sub(game:GetService("LocalizationService").RobloxLocaleId, 1, 2)) == "pt"
+end)
+local TEXTS: { [string]: { string } } = {
+	Shop = { "Shop", "Loja" },
+	Index = { "Index", "Índice" },
+	Eggs = { "Eggs", "Ovos" },
+	Pets = { "Pets", "Pets" },
+	Gifts = { "Gifts", "Presentes" },
+	Menu = { "Menu", "Menu" },
+	Daily = { "Daily", "Diário" },
+	Quests = { "Quests", "Missões" },
+	Rebirth = { "Rebirth", "Renascer" },
+	Boosts = { "Boosts", "Boosts" },
+	Codes = { "Codes", "Códigos" },
+	Candy = { "Candy", "Doces" },
+	Invite = { "Invite", "Convidar" },
+	InviteSub = { "+%d%% cash per friend playing", "+%d%% $ por amigo jogando" },
+	Sound = { "Sound", "Som" },
+	SlowMode = { "Slow Mode", "Modo Lento" },
+	On = { "ON", "LIGADO" },
+	Off = { "OFF", "DESLIGADO" },
+	Admin = { "Admin", "Admin" },
+	Ready = { "READY!", "PRONTO!" },
+	AdminInfo = { "Runs in ALL servers - great for live streams!", "Vale em TODOS os servidores - ótimo para lives!" },
+	AdminLuck = { "LUCK x%d (%d min)", "SORTE x%d (%d min)" },
+	AdminGolden = { "GOLDEN RAIN", "CHUVA DOURADA" },
+	AdminParty = { "UPDATE PARTY NOW", "FESTÃO AGORA" },
+	AdminMoney = { "2x MONEY (%d min)", "2x DINHEIRO (%d min)" },
+	AdminPumpkin = { "PUMPKIN RAIN", "CHUVA DE ABÓBORAS" },
+	TapConfirm = { "TAP AGAIN TO CONFIRM", "TOQUE DE NOVO PARA CONFIRMAR" },
+	AutoRun = { "AUTO RUN", "AUTO CORRER" },
+	AutoRunOn = { "AUTO RUN: ON", "AUTO: LIGADO" },
+	PerStep = { "+%s/step", "+%s/passo" },
+	Streak = { "STREAK x%.2f", "SEQUÊNCIA x%.2f" },
+	ToGo = { "%s: %s to go", "%s: faltam %s" },
+	MaxZone = { "MAX SPEED ZONE!", "ZONA MÁXIMA!" },
+	ZoneUnlocked = { "NEW ZONE UNLOCKED: %s!", "ZONA NOVA LIBERADA: %s!" },
+	CarryRun = { "\u{1F3C3} RUN BACK TO THE SAFE ZONE!", "\u{1F3C3} VOLTE PARA A ZONA SEGURA!" },
+	HintCarry = { "\u{1F3C3} Run back to the SAFE ZONE with the egg!", "\u{1F3C3} Volte para a ZONA SEGURA com o ovo!" },
+	HintSteal = { "\u{1F95A} Go into %s and %s on an egg to STEAL it!", "\u{1F95A} Vá até %s e %s num ovo para ROUBAR!" },
+	HoldButton = { "hold the button", "segure o botão" },
+	HoldE = { "hold E", "segure E" },
+	HintHatch = { "\u{1F423} Your egg is READY! Walk to it (or open Eggs) and HATCH it!", "\u{1F423} Seu ovo está PRONTO! Vá até ele (ou abra Ovos) e CHOQUE!" },
+	HintGrowing = { "\u{23F3} Your egg is growing... steal MORE eggs while you wait!", "\u{23F3} Seu ovo está crescendo... roube MAIS ovos enquanto espera!" },
+	HintIndex = { "\u{1F4D6} NEW CRITTER! Open the INDEX (left) and CLAIM your free cash!", "\u{1F4D6} BICHINHO NOVO! Abra o ÍNDICE (esquerda) e PEGUE o dinheiro grátis!" },
+	HintBuyPen = { "\u{1F3E1} Buy PEN LEVEL 1 at the yellow board to unlock your TREADMILL!", "\u{1F3E1} Compre o CERCADO NÍVEL 1 na placa amarela para liberar a ESTEIRA!" },
+	HintSavePen = { "\u{1F4B5} Your pets make money! Save %s to unlock the treadmill.", "\u{1F4B5} Seus pets dão dinheiro! Junte %s para liberar a esteira." },
+	HintTread = { "\u{1F45F} Stand on your TREADMILL and tap AUTO RUN to get FASTER!", "\u{1F45F} Suba na sua ESTEIRA e toque em AUTO CORRER para ficar MAIS RÁPIDO!" },
+	HintBat = { "\u{2694}\u{FE0F} Use your BAT to make egg thieves drop their egg! Traps catch them too.", "\u{2694}\u{FE0F} Use o TACO para o ladrão soltar o ovo! As armadilhas também pegam." },
+}
+local function L(key: string): string
+	local entry = TEXTS[key]
+	if not entry then
+		return key
+	end
+	return if PT_BR then entry[2] else entry[1]
+end
+
 -- etiqueta [VIP] no chat
 pcall(function()
 	local TextChatService = game:GetService("TextChatService")
@@ -177,16 +247,22 @@ local gui = create("ScreenGui", {
 	Parent = player:WaitForChild("PlayerGui"),
 })
 local uiScale = create("UIScale", { Parent = gui })
+local fitWindows: (() -> ())? = nil -- (definida depois que as janelas existem)
 local function rescale()
 	local size = workspace.CurrentCamera.ViewportSize
 	-- arredonda (no celular o tamanho da tela muda um pouquinho toda hora e o texto ficava piscando)
 	local scale = math.clamp(math.min(size.X / 1366, size.Y / 768), 0.4, 1.15)
-	if game:GetService("UserInputService").TouchEnabled then
-		scale *= 0.85 -- celular: um pouco menor para não ficar tudo encavalado (e não cobrir o botão de pular)
+	if TOUCH then
+		-- celular: um pouco menor, mas NO MÍNIMO 0.6 (v66: antes caía para 0.40 e ficava tudo minúsculo).
+		-- Janela que não cabe nesse tamanho encolhe sozinha (fitWindows).
+		scale = math.max(scale * 0.85, 0.6)
 	end
 	scale = math.floor(scale * 20 + 0.5) / 20
 	if math.abs(uiScale.Scale - scale) > 0.001 then
 		uiScale.Scale = scale
+	end
+	if fitWindows then
+		fitWindows()
 	end
 end
 rescale()
