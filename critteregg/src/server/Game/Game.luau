@@ -359,6 +359,9 @@ local function custom(player: Player, name: string, value: number?)
 	end)
 end
 
+-- v67 ETIQUETA 2.0 (definida em "Prêmio diário, rebirth..."): quem muda o que aparece na cabeça chama de novo
+local applyTag: (Player) -> ()
+
 local function publish(player: Player, full: boolean?)
 	local state = states[player]
 	if not state then
@@ -380,6 +383,7 @@ local function publish(player: Player, full: boolean?)
 			data.ZoneReached = reached
 			net:FireClient(player, "ZoneUnlocked", reached) -- (o cliente faz a festa com o nome da zona)
 			custom(player, "ZoneUnlocked", reached)
+			applyTag(player) -- (v67) título "<zona> Runner" sobe junto
 		end
 	end
 	player:SetAttribute("Money", data.Money)
@@ -665,6 +669,10 @@ local function discover(player: Player, def, zoneIndex: number?)
 	local natural = zoneOfDef[def.Id] or zoneIndex or 1
 	state.Data.Index[def.Id] = if zoneIndex then math.min(natural, zoneIndex) else natural
 	toast(player, ("\u{1F4D6} NEW in your Index: %s! Claim the reward in the Index."):format(def.Name), "success")
+	-- (v67) melhor bichinho de todos (linha 3 da etiqueta): a etiqueta só muda depois que o ovo abre (sem spoiler)
+	if Config.CritterBeats(def, state.BestEver) then
+		state.BestEver = def
+	end
 	-- (v67) estrelas e Colecionador: confere depois que o ovo abre na tela (o "Chocar todos" vira 1 conferida só)
 	if not state.CollectionDue then
 		state.CollectionDue = true
@@ -672,6 +680,7 @@ local function discover(player: Player, def, zoneIndex: number?)
 			if states[player] == state then
 				state.CollectionDue = nil
 				checkCollection(player)
+				applyTag(player) -- (melhor bichinho e título Collector)
 				publish(player)
 				net:FireClient(player, "Refresh") -- (a janela do Índice aberta mostra as estrelas novas)
 			end
@@ -1618,17 +1627,22 @@ local function deliver(player: Player)
 	end
 	net:FireClient(player, "Stole") -- (a tela mostra o carimbo SAFE!/SALVO!)
 	publish(player)
+	applyTag(player) -- (v67) 🔥 da sequência e títulos de ovos roubados (só troca o texto se mudou)
 end
 
 local function catchCarrier(zone, player: Player)
 	custom(player, "CaughtInZone", zone.Index)
 	local caughtState = states[player]
-	if caughtState and (caughtState.StealStreak or 0) >= Config.StealStreak.Every then
+	local hadFlame = caughtState and (caughtState.StealStreak or 0) >= Config.StealStreak.Every
+	if hadFlame then
 		toast(player, ("Your %d steal streak ended! Start a new one!"):format(caughtState.StealStreak), "info")
 	end
 	if caughtState then
 		caughtState.StealStreak = 0
 		player:SetAttribute("StealStreak", 0)
+	end
+	if hadFlame then
+		applyTag(player) -- (v67) apaga o 🔥 da etiqueta
 	end
 	local root = rootOf(player)
 	endCarry(player, false)
@@ -2944,6 +2958,7 @@ local function applyPasses(player: Player)
 	end
 	computeIncome(state)
 	publish(player, true)
+	applyTag(player) -- (v67) [VIP] certo mesmo se o Roblox respondeu depois do personagem nascer
 end
 
 local function buy(player: Player, key: any)
@@ -3005,6 +3020,7 @@ local function setupMarketplace()
 				banner(player, ("%s unlocked! Thank you!"):format(info.Name), Color3.fromRGB(255, 215, 60))
 				if info.Key == "VIP" then
 					giveTools(player)
+					applyTag(player) -- (v67) [VIP] na hora (antes só aparecia depois de morrer)
 				end
 				computeIncome(states[player])
 				net:FireClient(player, "Purchased")
@@ -3065,37 +3081,176 @@ end
 ---------------------------------------------------------------------
 -- Prêmio diário, rebirth, amigos, offline
 ---------------------------------------------------------------------
--- etiqueta em cima da cabeça: VIP, rebirths e (v67) o 📅 de quem completou os 28 dias do calendário
-local function applyTag(player: Player)
-	local state = states[player]
-	local head = player.Character and player.Character:FindFirstChild("Head")
-	if not state or not head then
-		return
+-- ETIQUETA EM CIMA DA CABEÇA 2.0 (v67, Config.Titles / Config.Tag / Config.King), 3 linhas:
+--   1: [VIP] 🔄rebirths 🔥sequência 👑 rei 📅 🤝 | 2: maior título (cor dele) | 3: melhor bichinho que já teve (Raro+)
+-- Antes só era feita quando o personagem nascia: depois de um rebirth ou de comprar o VIP ficava errada até morrer.
+-- Agora quem muda alguma coisa chama applyTag; a etiqueta é a MESMA (só troca o texto quando ele muda).
+-- Atributos "Title" (Key) e "TitleName" = prefixo do chat na tela. Tudo texto fixo do jogo (sem filtro de texto).
+local checkKing: (Player?, Player?) -> ()
+do
+	local BadgeService = game:GetService("BadgeService")
+	local WHITE = Color3.new(1, 1, 1)
+	local ROWS = { 0.38, 0.36, 0.26 } -- altura de cada linha (a 3ª ~70% da 2ª)
+	local crown = { King = nil :: Player?, ToastAt = -1e9 }
+
+	local function newTag(head: BasePart): BillboardGui
+		local gui = Instance.new("BillboardGui")
+		gui.Name = "PlayerTag"
+		gui.Size = UDim2.fromScale(Config.Tag.Width, Config.Tag.Height)
+		gui.StudsOffsetWorldSpace = Vector3.new(0, Config.Tag.Offset, 0)
+		gui.MaxDistance = Config.Tag.MaxDistance
+		gui.LightInfluence = 0
+		gui.Adornee = head
+		local list = Instance.new("UIListLayout")
+		list.SortOrder = Enum.SortOrder.LayoutOrder
+		list.VerticalAlignment = Enum.VerticalAlignment.Bottom -- linha vazia some e as outras descem até a cabeça
+		list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		list.Parent = gui
+		for i, height in ROWS do
+			local label = Instance.new("TextLabel")
+			label.Name = "L" .. i
+			label.LayoutOrder = i
+			label.Size = UDim2.fromScale(1, height)
+			label.BackgroundTransparency = 1
+			label.Font = Enum.Font.FredokaOne
+			label.TextScaled = true
+			label.RichText = i == 1
+			label.TextColor3 = WHITE
+			label.Visible = false
+			local stroke = Instance.new("UIStroke")
+			stroke.Thickness = if i == 3 then 2 else 2.5
+			stroke.Color = Color3.fromRGB(20, 15, 30)
+			stroke.Parent = label
+			label.Parent = gui
+		end
+		gui.Parent = head
+		return gui
 	end
-	local old = head:FindFirstChild("PlayerTag")
-	if old then
-		old:Destroy()
+
+	-- emblemas dos títulos (Config.Badges.Titles): todos os já ganhos (não só o maior), 1 vez cada; Id colado
+	-- depois = ganha na próxima entrada. Sem Ids (0) = só olha a tabela.
+	local function awardTitleBadges(player: Player, state)
+		local data = state.Data
+		data.BadgesGot = if type(data.BadgesGot) == "table" then data.BadgesGot else {}
+		state.BadgeAsked = state.BadgeAsked or {} -- (não pede 2 vezes na mesma sessão enquanto o Roblox responde)
+		for _, title in Config.Titles do
+			local id = Config.Badges.Titles[title.Key]
+			local key = tostring(id)
+			if type(id) == "number" and id > 0 and not data.BadgesGot[key] and not state.BadgeAsked[key] and Config.TitleMet(title, data) then
+				state.BadgeAsked[key] = true
+				task.spawn(function()
+					if pcall(BadgeService.AwardBadge, BadgeService, player.UserId, id) then
+						data.BadgesGot[key] = true
+					end
+				end)
+			end
+		end
 	end
-	local parts = {}
-	if state.Passes and state.Passes.VIP then
-		table.insert(parts, '<font color="#FFD23C">[VIP]</font>')
+
+	applyTag = function(player: Player)
+		local state = states[player]
+		if not state then
+			return
+		end
+		local data = state.Data
+		local title, titleName = Config.BestTitle(data)
+		local key = if title then title.Key else nil
+		player:SetAttribute("Title", key)
+		player:SetAttribute("TitleName", titleName)
+		awardTitleBadges(player, state)
+		local head = player.Character and player.Character:FindFirstChild("Head")
+		if not head or not head:IsA("BasePart") then
+			return
+		end
+		local flags = {}
+		if state.Passes and state.Passes.VIP then
+			table.insert(flags, '<font color="#FFD23C">[VIP]</font>')
+		end
+		if (data.Rebirths or 0) > 0 then
+			table.insert(flags, ('<font color="#FF78FF">\u{1F504}%d</font>'):format(data.Rebirths))
+		end
+		if (state.StealStreak or 0) >= Config.StealStreak.Every then
+			table.insert(flags, ('<font color="#FF9632">\u{1F525}%d</font>'):format(state.StealStreak))
+		end
+		if crown.King == player then
+			table.insert(flags, "\u{1F451}")
+		end
+		if data.CalMark then
+			table.insert(flags, "\u{1F4C5}")
+		end
+		if data.SquadTitle and key ~= "Squad" then
+			table.insert(flags, '<font color="#FFAADC">\u{1F91D}</font>') -- Squad Leader embaixo de um título maior
+		end
+		local best = state.BestEver
+		local showBest = best ~= nil and (Config.RarityIndex[best.Rarity] or 0) >= (Config.RarityIndex[Config.Tag.CritterMin] or 1)
+		local rows = { table.concat(flags, "  "), titleName or "", if showBest then ("\u{2728} %s %s"):format(best.Rarity, best.Name) else "" }
+		local text = table.concat(rows, "\n")
+		local gui = head:FindFirstChild("PlayerTag")
+		if gui and state.TagText == text then
+			return -- nada mudou
+		end
+		state.TagText = text
+		if text == "\n\n" then
+			if gui then
+				gui:Destroy()
+			end
+			return
+		end
+		gui = gui or newTag(head)
+		local colors = { WHITE, if title then title.Color else WHITE, if showBest then rarityColor(best) else WHITE }
+		for i, row in rows do
+			local label = gui:FindFirstChild("L" .. i) :: TextLabel?
+			if label then
+				label.Text = row
+				label.TextColor3 = colors[i]
+				label.Visible = row ~= ""
+			end
+		end
 	end
-	if (state.Data.Rebirths or 0) > 0 then
-		table.insert(parts, ('<font color="#FF78FF">\u{1F504} %d</font>'):format(state.Data.Rebirths))
+
+	-- REI DO SERVIDOR (a cada Config.King.Every s no loop de 1 s). leaving = jogador saindo (se era o rei, solta a
+	-- coroa: a próxima conferida escolhe outro sem precisar dos 10%). force = teste do Studio (EggDebug "Tag").
+	checkKing = function(leaving: Player?, force: Player?)
+		local old = crown.King
+		if leaving then
+			if leaving == old then
+				crown.King = nil
+			end
+			return
+		end
+		local count, best, bestIncome = 0, nil, 0
+		for player, state in states do
+			count += 1
+			local income = state.BaseIncome or 0
+			if income > bestIncome then
+				best, bestIncome = player, income
+			end
+		end
+		local king = old
+		if force then
+			king = force
+		elseif count < Config.King.MinPlayers then
+			king = nil
+		elseif not old or not states[old] or bestIncome > (states[old].BaseIncome or 0) * (1 + Config.King.Margin) then
+			king = best -- (sem rei: o maior; com rei: só quem passa ele em Margin)
+		end
+		if king == old then
+			return
+		end
+		crown.King = king
+		if old and states[old] then
+			old:SetAttribute("ServerKing", nil)
+			applyTag(old)
+		end
+		if king then
+			king:SetAttribute("ServerKing", true)
+			applyTag(king)
+			if os.clock() - crown.ToastAt >= Config.King.ToastGap then
+				crown.ToastAt = os.clock()
+				toastAll(("\u{1F451} %s is the new SERVER KING!"):format(king.DisplayName), "rare")
+			end
+		end
 	end
-	if state.Data.CalMark then
-		table.insert(parts, "\u{1F4C5}")
-	end
-	if state.Data.SquadTitle then
-		table.insert(parts, '<font color="#FFAADC">\u{1F91D}</font>') -- (v67) Squad Leader: 5 amigos da escada de convites
-	end
-	if #parts == 0 then
-		return
-	end
-	local label = billboard(head, 2.4, 6, 1.2)
-	label.Parent.Name = "PlayerTag"
-	label.Parent.MaxDistance = 80
-	label.Text = table.concat(parts, "  ")
 end
 
 -- v67: placa do dono em cima do cercado fica DOURADA para o Squad Leader (5 amigos da escada de convites)
@@ -3237,6 +3392,7 @@ local function claimDaily(player: Player)
 		if cal.Title then
 			data.CalTitle = true -- título "Calendar Champ" (para sempre)
 			table.insert(parts, "title CALENDAR CHAMP")
+			applyTag(player)
 		end
 		if cal.Mark then
 			data.CalMark = true
@@ -3305,6 +3461,7 @@ local function rebirth(player: Player)
 	toastAll(("\u{1F504} %s just reached Rebirth %d!"):format(player.DisplayName, data.Rebirths), "rare")
 	net:FireClient(player, "Purchased")
 	publish(player, true)
+	applyTag(player) -- (v67) 🔄 novo na hora (antes só depois de morrer)
 end
 
 local friendCache: { [string]: boolean } = {}
@@ -4025,6 +4182,7 @@ local function onCharacter(player: Player, character: Model)
 	end
 	character:WaitForChild("HumanoidRootPart", 10)
 	state.StunUntil = nil
+	state.TagText = nil -- (v67) personagem novo = etiqueta nova
 	applySpeed(player)
 	applyTrail(player)
 	task.defer(giveTools, player)
@@ -4101,6 +4259,7 @@ local function onPlayerAdded(player: Player)
 
 	local plot = freePlot()
 	local state = { Data = data, Plot = plot, SlotModels = {}, Income = 0, BaseIncome = 0, Gain = 0, Carry = nil, Walk = 16, InShop = {}, Passes = {}, TrapCount = 0, FriendBoost = 0 }
+	state.BestEver = Config.BestCritter(data.Index, Critters.ById) -- (v67) linha 3 da etiqueta (o Index fica no rebirth)
 	states[player] = state
 	funnel(player, "Joined")
 	state.SessionStart = os.time()
@@ -4269,6 +4428,7 @@ local function onPlayerRemoving(player: Player)
 		state.Plot.Belt:SetAttribute("OwnerId", nil)
 		state.Plot.Belt:SetAttribute("Unlocked", nil)
 	end
+	checkKing(player) -- (v67) o rei saiu: a coroa fica livre
 	states[player] = nil
 	lastRequest[player] = nil
 	adminCache[player] = nil
@@ -4373,6 +4533,7 @@ function Game.Init()
 				if reset then
 					data.Referred, data.LadderGot, data.SquadTitle = {}, {}, nil
 					paintPenSign(player)
+					applyTag(player)
 				end
 				local ids = {}
 				local base = Config.InviteCount(data.Referred)
@@ -4390,6 +4551,34 @@ function Game.Init()
 				player:SetAttribute("VisitName", "TestFriend")
 				player:SetAttribute("VisitUntil", os.time() + Config.VisitSeconds)
 				return plot.X
+			end,
+			-- v67: testar a ETIQUETA 2.0. opts = { Stolen =, Zone =, Collector =, Rebirths =, CalTitle =, CalMark =,
+			-- SquadTitle =, Streak =, King = true } (só muda o que vier). King = coroa mesmo sozinho (sozinho ela sai
+			-- na próxima conferida, em até 30 s). Devolve o título que ficou.
+			Tag = function(player, opts)
+				local state = states[player]
+				local data = state.Data
+				opts = opts or {}
+				data.Stolen = opts.Stolen or data.Stolen
+				data.ZoneReached = opts.Zone or data.ZoneReached
+				data.Collector = opts.Collector or data.Collector
+				data.Rebirths = opts.Rebirths or data.Rebirths
+				for _, field in { "CalTitle", "CalMark", "SquadTitle" } do
+					if opts[field] ~= nil then
+						data[field] = opts[field] or nil
+					end
+				end
+				if opts.Streak then
+					state.StealStreak = opts.Streak
+					player:SetAttribute("StealStreak", opts.Streak)
+				end
+				if opts.King then
+					checkKing(nil, player)
+				end
+				computeIncome(state)
+				publish(player, true)
+				applyTag(player)
+				return player:GetAttribute("TitleName")
 			end,
 		}
 		local bindable = Instance.new("BindableFunction")
@@ -4722,6 +4911,13 @@ function Game.Init()
 					end
 				end
 				publish(player, tick % 5 == 0)
+			end
+			-- (v67) REI DO SERVIDOR 👑 (a maior renda base; 2+ jogadores)
+			if tick % Config.King.Every == 0 then
+				local okKing, errKing = pcall(checkKing)
+				if not okKing then
+					warn("[Game] king:", errKing)
+				end
 			end
 			if tick % 20 == 1 then
 				task.spawn(refreshLeaderboards)

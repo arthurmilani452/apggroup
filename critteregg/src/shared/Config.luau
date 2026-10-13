@@ -464,7 +464,11 @@ Config.Collector = { 10, 25, 50, 75, 100, 125, 141 }
 Config.CollectorCash = 0.03
 Config.CollectorNames = { "I", "II", "III", "IV", "V", "VI", "VII" }
 -- emblemas (opcional): crie 1 emblema por nível no Creator Hub e cole os Ids aqui (0 = sem emblema)
-Config.Badges = { Collector = { 0, 0, 0, 0, 0, 0, 0 } }
+--   Titles (v67) = 1 emblema por título da etiqueta (Config.Titles, pela Key); vale para todos os títulos já ganhos
+Config.Badges = {
+	Collector = { 0, 0, 0, 0, 0, 0, 0 },
+	Titles = { Runner = 0, Thief = 0, Collector = 0, Master = 0, Calendar = 0, Squad = 0, Royalty = 0 },
+}
 
 Config.StarTier = {} -- [raridade] = estrela (Divine/Celestial = nil)
 for tier, info in Config.IndexStars do
@@ -744,6 +748,104 @@ function Config.LadderNext(count: number): any
 		end
 	end
 	return nil
+end
+
+---------------------------------------------------------------------
+-- v67 ETIQUETA 2.0 (em cima da cabeça e no chat). Nada aqui é texto digitado por jogador (sem filtro de texto).
+--   Linha 1: [VIP] 🔄rebirths 🔥sequência de roubos (StealStreak.Every+) 👑 Rei do Servidor 📅 (dia 28) 🤝 (Squad)
+--   Linha 2: o MAIOR título já ganho, na cor dele. Linha 3 (menor): o melhor bichinho que já teve (Index; fica no
+--   rebirth), na cor da raridade, só de Tag.CritterMin para cima.
+-- TÍTULOS do mais fraco para o mais forte: vale o ÚLTIMO que a criança já tem. A mesma Key pode aparecer de novo
+--   mais para cima (o Runner e o Collector sobem de posição com a zona e o nível). Ordem pelo simulador (jogador
+--   típico): zona 4 ~25 min, 50 ovos ~1 h, zona 8 ~2,7 h, 500 ovos ~10 h, zona 11 ~18 h.
+--   Pede (campos do save): Stolen = ovos roubados | Zone = zona mais funda já liberada (ZoneReached; nome vira
+--   "<zona> Runner") | Collector = nível de Colecionador (nome vira "Collector III") | Calendar = dia 21 do calendário
+--   (CalTitle) | Squad = 5 amigos da escada de convites (SquadTitle) | Rebirths = rebirths.
+--   Key = vai no atributo "Title" (cor no chat) e nos emblemas (Config.Badges.Titles). Mesma Key = mesma cor.
+Config.Titles = {
+	{ Key = "Runner", Zone = 4, Color = rgb(120, 220, 255) },
+	{ Key = "Thief", Name = "Egg Thief", Stolen = 50, Color = rgb(255, 225, 80) },
+	{ Key = "Runner", Zone = 8, Color = rgb(120, 220, 255) },
+	{ Key = "Collector", Collector = 3, Color = rgb(255, 205, 60) },
+	{ Key = "Master", Name = "Master Thief", Stolen = 500, Color = rgb(255, 150, 50) },
+	{ Key = "Runner", Zone = 11, Color = rgb(120, 220, 255) },
+	{ Key = "Collector", Collector = 6, Color = rgb(255, 205, 60) },
+	{ Key = "Calendar", Name = "Calendar Champ", Calendar = true, Color = rgb(120, 255, 120) },
+	{ Key = "Squad", Name = "Squad Leader", Squad = true, Color = rgb(255, 170, 220) },
+	{ Key = "Royalty", Name = "Rebirth Royalty", Rebirths = 5, Color = rgb(255, 120, 255) },
+}
+Config.TitleByKey = {} -- [Key] = 1º título com essa Key (a tela pega a cor do chat daqui)
+for _, title in Config.Titles do
+	Config.TitleByKey[title.Key] = Config.TitleByKey[title.Key] or title
+end
+-- etiqueta: tamanho em studs, altura do meio dela acima do centro da cabeça, distância máxima, raridade da linha 3
+Config.Tag = { Width = 8, Height = 2.4, Offset = 3, MaxDistance = 80, CritterMin = "Rare" }
+-- REI DO SERVIDOR 👑: a cada Every s, com MinPlayers+ jogadores, vai para a maior renda BASE (sem 2x de passe, boost,
+--   fim de semana e admin: senão um boost de 10 min trocava o rei). Para tomar a coroa precisa passar o rei em
+--   Margin (10%) ou o rei sair. Aviso para o servidor no máximo 1 a cada ToastGap s.
+Config.King = { Every = 30, MinPlayers = 2, Margin = 0.1, ToastGap = 120 }
+
+-- o save "data" já tem esse título? (só lê; save antigo sem os campos = não tem)
+function Config.TitleMet(title, data): boolean
+	if type(data) ~= "table" then
+		return false
+	end
+	return (title.Stolen == nil or (tonumber(data.Stolen) or 0) >= title.Stolen)
+		and (title.Zone == nil or (tonumber(data.ZoneReached) or 0) >= title.Zone)
+		and (title.Collector == nil or (tonumber(data.Collector) or 0) >= title.Collector)
+		and (not title.Calendar or data.CalTitle == true)
+		and (not title.Squad or data.SquadTitle == true)
+		and (title.Rebirths == nil or (tonumber(data.Rebirths) or 0) >= title.Rebirths)
+end
+-- nome que aparece (Runner = zona mais funda; Collector = nível de agora)
+function Config.TitleName(title, data): string
+	if title.Zone then
+		local z = math.clamp(math.floor(tonumber(data.ZoneReached) or title.Zone), 1, #Config.Zones)
+		return Config.Zones[z].Name .. " Runner"
+	elseif title.Collector then
+		local level = math.clamp(math.floor(tonumber(data.Collector) or title.Collector), 1, #Config.CollectorNames)
+		return "Collector " .. Config.CollectorNames[level]
+	end
+	return title.Name
+end
+-- maior título do save (nil = nenhum ainda) e o nome dele
+function Config.BestTitle(data): (any, string?)
+	for i = #Config.Titles, 1, -1 do
+		local title = Config.Titles[i]
+		if Config.TitleMet(title, data) then
+			return title, Config.TitleName(title, data)
+		end
+	end
+	return nil, nil
+end
+-- bichinho a é melhor que b? (raridade, depois a renda do Critters, depois o Id: sempre o mesmo resultado)
+function Config.CritterBeats(a, b): boolean
+	if not a then
+		return false
+	elseif not b then
+		return true
+	end
+	local ra, rb = Config.RarityIndex[a.Rarity] or 0, Config.RarityIndex[b.Rarity] or 0
+	if ra ~= rb then
+		return ra > rb
+	end
+	if (a.Income or 0) ~= (b.Income or 0) then
+		return (a.Income or 0) > (b.Income or 0)
+	end
+	return a.Id < b.Id
+end
+-- melhor bichinho que já teve: varre o Index ({ [Id] = zona }); byId = Critters.ById (Id que não existe mais = pula)
+function Config.BestCritter(index, byId): any
+	local best = nil
+	if type(index) == "table" then
+		for id in index do
+			local def = byId[id]
+			if def and Config.CritterBeats(def, best) then
+				best = def
+			end
+		end
+	end
+	return best
 end
 -- EVENTO DA SORTE: a cada LuckyEvery segundos (relógio UTC), durante LuckyLength, raros aparecem x3 nos ninhos.
 -- Fim de semana (sáb/dom de Brasília, v67; antes UTC): dinheiro x2 para todo mundo.

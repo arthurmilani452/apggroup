@@ -432,6 +432,68 @@ for z in Config.Zones do
 end
 check("every zone bat needs only Common/Uncommon/Rare critters", starOk)
 
+-- v67: ETIQUETA 2.0 (títulos, melhor bichinho de todos, Rei do Servidor)
+local function titleOf(data)
+	local title, name = Config.BestTitle(data)
+	return title and title.Key, name
+end
+check("no title for a new, a broken or an almost-there save", Config.BestTitle({}) == nil and Config.BestTitle(nil) == nil
+	and Config.BestTitle({ Stolen = 49, ZoneReached = 3, Collector = 2, Rebirths = 4 }) == nil)
+local tk, tn = titleOf({ Stolen = 10, ZoneReached = 4 })
+check("zone 4 = '<zone> Runner'", tk == "Runner" and tn == Config.Zones[4].Name .. " Runner", tn)
+tk, tn = titleOf({ Stolen = 50, ZoneReached = 1 })
+check("50 eggs = Egg Thief", tk == "Thief" and tn == "Egg Thief", tn)
+tk, tn = titleOf({ Stolen = 60, ZoneReached = 6 })
+check("Egg Thief beats an early Runner", tk == "Thief", tn)
+tk, tn = titleOf({ Stolen = 60, ZoneReached = 9 })
+check("a deep Runner beats Egg Thief and shows the deepest zone", tk == "Runner" and tn == Config.Zones[9].Name .. " Runner", tn)
+tk, tn = titleOf({ Stolen = 0, ZoneReached = 1, Collector = 3 })
+check("Collector shows the level in roman numerals", tk == "Collector" and tn == "Collector III", tn)
+tk, tn = titleOf({ Stolen = 600, ZoneReached = 9, Collector = 5 })
+check("Master Thief beats Collector V and zone 9", tk == "Master" and tn == "Master Thief", tn)
+tk, tn = titleOf({ Stolen = 600, ZoneReached = #Config.Zones, Collector = #Config.Collector })
+check("Collector VII beats Master Thief and the last zone", tn == "Collector " .. Config.CollectorNames[#Config.Collector], tn)
+check("Calendar Champ < Squad Leader < Rebirth Royalty (the top)", titleOf({ CalTitle = true }) == "Calendar"
+	and titleOf({ CalTitle = true, SquadTitle = true }) == "Squad"
+	and titleOf({ CalTitle = true, SquadTitle = true, Rebirths = 5, Stolen = 1e6, ZoneReached = 12, Collector = 7 }) == "Royalty")
+local function sameColor(a: any, b: any): boolean
+	return math.abs(a.R - b.R) < 1e-4 and math.abs(a.G - b.G) < 1e-4 and math.abs(a.B - b.B) < 1e-4
+end
+local titlesOk, lastNeed = true, {}
+for _, title in Config.Titles do
+	local reqs = 0
+	for _, field in { "Stolen", "Zone", "Collector", "Calendar", "Squad", "Rebirths" } do
+		if title[field] ~= nil then
+			reqs += 1
+		end
+	end
+	local need = title.Zone or title.Collector or title.Stolen or title.Rebirths or 0
+	local first = Config.TitleByKey[title.Key]
+	if reqs ~= 1 or not (title.Name or title.Zone or title.Collector) or not first or not sameColor(first.Color, title.Color)
+		or (title.Zone and title.Zone > #Config.Zones) or (title.Collector and title.Collector > #Config.Collector)
+		or Config.Badges.Titles[title.Key] == nil or (lastNeed[title.Key] and need <= lastNeed[title.Key]) then
+		titlesOk = false
+		print("  bad title", title.Key, need)
+	end
+	lastNeed[title.Key] = need
+end
+check("titles: 1 requirement, a name, 1 color and 1 badge slot per Key, repeated Keys need more", titlesOk)
+local fakeById = {
+	a = { Id = "a", Rarity = "Rare", Income = 100 },
+	b = { Id = "b", Rarity = "Mythic", Income = 5 },
+	c = { Id = "c", Rarity = "Mythic", Income = 9 },
+	d = { Id = "d", Rarity = "Mythic", Income = 9 },
+}
+check("best critter ever: rarity, then income, then Id; unknown Ids skipped",
+	Config.BestCritter({ a = 1, b = 2, c = 3, d = 4, gone = 1 }, fakeById) == fakeById.c
+	and Config.BestCritter({ a = 1, gone = 9 }, fakeById) == fakeById.a
+	and Config.BestCritter({}, fakeById) == nil and Config.BestCritter(nil, fakeById) == nil)
+check("CritterBeats", Config.CritterBeats(fakeById.a, nil) and not Config.CritterBeats(nil, fakeById.a)
+	and Config.CritterBeats(fakeById.b, fakeById.a) and not Config.CritterBeats(fakeById.a, fakeById.b)
+	and Config.CritterBeats(fakeById.c, fakeById.d) and not Config.CritterBeats(fakeById.c, fakeById.c))
+check("tag and Server King numbers are sane", Config.Tag.MaxDistance <= 100 and Config.RarityIndex[Config.Tag.CritterMin] ~= nil
+	and Config.King.Every >= 10 and Config.King.MinPlayers >= 2 and Config.King.Margin > 0 and Config.King.ToastGap >= 60)
+
 if failed > 0 then
 	error(("%d test(s) failed"):format(failed))
 end

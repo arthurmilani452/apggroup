@@ -151,15 +151,34 @@ do
 	end
 end
 
--- etiqueta [VIP] no chat
+-- etiqueta no chat: 👑 [VIP] [🔄3] [título] (v67: rebirths, o maior título na cor dele e a coroa do Rei do Servidor;
+-- o nome do título vem do servidor, sempre um texto fixo do Config.Titles)
 pcall(function()
 	local TextChatService = game:GetService("TextChatService")
 	TextChatService.OnIncomingMessage = function(message)
 		local props = Instance.new("TextChatMessageProperties")
 		local source = message.TextSource
 		local who = source and Players:GetPlayerByUserId(source.UserId)
-		if who and table.find(string.split(who:GetAttribute("Passes") or "", ","), "VIP") then
-			props.PrefixText = '<font color="#FFD23C">[VIP]</font> ' .. message.PrefixText
+		if who then
+			local tags = {}
+			if who:GetAttribute("ServerKing") == true then
+				table.insert(tags, "\u{1F451}")
+			end
+			if table.find(string.split(tostring(who:GetAttribute("Passes") or ""), ","), "VIP") then
+				table.insert(tags, '<font color="#FFD23C">[VIP]</font>')
+			end
+			local rebirths = tonumber(who:GetAttribute("Rebirths")) or 0
+			if rebirths > 0 then
+				table.insert(tags, ('<font color="#FF78FF">[\u{1F504}%d]</font>'):format(rebirths))
+			end
+			local title = Config.TitleByKey[tostring(who:GetAttribute("Title") or "")]
+			local titleName = who:GetAttribute("TitleName")
+			if title and type(titleName) == "string" and titleName ~= "" then
+				table.insert(tags, ('<font color="#%s">[%s]</font>'):format(title.Color:ToHex(), titleName))
+			end
+			if #tags > 0 then
+				props.PrefixText = table.concat(tags, " ") .. " " .. message.PrefixText
+			end
 		end
 		return props
 	end
