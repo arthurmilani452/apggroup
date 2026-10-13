@@ -394,13 +394,13 @@ local function placeAsset(parent: Instance, name: string, position: Vector3, hei
 			item.CanTouch = false
 			item.CanQuery = collide == true
 			item.CastShadow = true
-		elseif item:IsA("Sound") or item:IsA("LuaSourceContainer") or item:IsA("BillboardGui") or item:IsA("SurfaceGui")
-			or item:IsA("ProximityPrompt") or item:IsA("ClickDetector") then
-			item:Destroy()
 		elseif item:IsA("Light") then
 			item.Shadows = false
-		elseif (name == "Chest" or name == "Treadmill") and (item:IsA("Decal") or item:IsA("Beam")) then
-			item:Destroy() -- logos e textos pintados do kit do Toolbox
+		elseif item:IsA("Sound") or item:IsA("LuaSourceContainer") or item:IsA("BillboardGui") or item:IsA("SurfaceGui")
+			or item:IsA("ProximityPrompt") or item:IsA("ClickDetector")
+			-- logos e textos pintados do kit do Toolbox
+			or ((name == "Chest" or name == "Treadmill") and (item:IsA("Decal") or item:IsA("Beam"))) then
+			item:Destroy()
 		end
 	end
 	model.Parent = parent

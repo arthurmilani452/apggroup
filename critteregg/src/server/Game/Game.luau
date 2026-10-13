@@ -278,6 +278,10 @@ local function computeIncome(state)
 			end
 		end
 	end
+	total *= 1 + Config.RebirthMoney * (state.Data.Rebirths or 0)
+	-- prêmios ("X minutos de renda") usam a renda SEM os multiplicadores de 2x (v66):
+	-- antes, passe 2x + boost + fim de semana + admin multiplicavam cada presente até 16x
+	state.BaseIncome = total
 	if boostOn(state, "Money2") then
 		total *= 2
 	end
@@ -287,7 +291,6 @@ local function computeIncome(state)
 	if state.Passes and state.Passes.VIP then
 		total *= 1 + Config.VIPCash
 	end
-	total *= 1 + Config.RebirthMoney * (state.Data.Rebirths or 0)
 	total *= 1 + (state.FriendBoost or 0)
 	if workspace:GetAttribute("Weekend") then
 		total *= 2
@@ -350,6 +353,7 @@ local function publish(player: Player, full: boolean?)
 	player:SetAttribute("Money", data.Money)
 	player:SetAttribute("Speed", data.Speed)
 	player:SetAttribute("Income", state.Income or 0)
+	player:SetAttribute("BaseIncome", state.BaseIncome or 0)
 	player:SetAttribute("Gain", state.Gain or 0)
 	player:SetAttribute("PenLevel", data.PenLevel)
 	player:SetAttribute("TreadLevel", data.TreadLevel)
@@ -974,11 +978,18 @@ end
 local function rollEgg(zoneDef, rng: Random, minRarity: number?)
 	local options, total = {}, 0
 	local lucky = luckyNow()
+	-- bicho da semana (v66): a raridade dele pesa mais na zona onde ele vive
+	local now = os.time()
+	local weekly = Config.WeeklyCritter(now)
+	local weeklyDef = Critters.ById[weekly]
 	for _, rarity in zoneDef.Rarities do
 		if #poolFor(zoneDef, rarity) > 0 and (Config.RarityIndex[rarity] or 1) >= (minRarity or 1) then
 			local weight = Config.RarityByName[rarity].Weight
 			if lucky and (Config.RarityIndex[rarity] or 1) >= Config.RarityIndex.Legendary then
 				weight *= math.max(adminLuck(), if partyNow() then Config.Update.PartyLuck else Config.LuckyMult)
+			end
+			if weeklyDef and weeklyDef.Rarity == rarity and table.find(poolFor(zoneDef, rarity), weeklyDef) then
+				weight *= Config.WeeklyBoostFor(weeklyDef, now)
 			end
 			table.insert(options, { rarity, weight })
 			total += weight
@@ -995,7 +1006,6 @@ local function rollEgg(zoneDef, rng: Random, minRarity: number?)
 	end
 	local list = poolFor(zoneDef, chosen)
 	-- bicho da semana sai mais vezes dentro da raridade dele
-	local weekly = Config.WeeklyCritter(os.time())
 	local total, weights = 0, {}
 	for i, def in list do
 		weights[i] = if def.Id == weekly then Config.WeeklyMult else 1
@@ -1431,7 +1441,7 @@ local function deliver(player: Player)
 	player:SetAttribute("StealStreak", state.StealStreak)
 	if state.StealStreak % Config.StealStreak.Every == 0 then
 		local S = Config.StealStreak
-		local bonus = math.max(S.MinCash, math.floor((state.Income or 0) * 60 * S.Minutes))
+		local bonus = math.max(S.MinCash, math.floor((state.BaseIncome or 0) * 60 * S.Minutes))
 		data.Money += bonus
 		econ(player, true, bonus, "Gameplay", "StealStreak")
 		task.delay(1.2, function()
@@ -1811,7 +1821,7 @@ local function buyTrail(player: Player, id: string)
 end
 
 local function boostPrice(state, boost): number
-	return math.max(boost.MinPrice, math.floor((state.Income or 0) * 60 * boost.Price))
+	return math.max(boost.MinPrice, math.floor((state.BaseIncome or 0) * 60 * boost.Price))
 end
 
 local function buyBoost(player: Player, id: string)
@@ -1906,7 +1916,7 @@ local function claimChest(player: Player)
 		return -- outro pedido abriu enquanto esperava a resposta
 	end
 	data.ChestAt = now()
-	local cash = math.max(Config.ChestMinCash, math.floor((state.Income or 0) * 60 * Config.ChestMinutes))
+	local cash = math.max(Config.ChestMinCash, math.floor((state.BaseIncome or 0) * 60 * Config.ChestMinutes))
 	local speed = math.max(Config.ChestMinSpeed, (state.Gain or 2) * Config.ChestSpeedSteps)
 	data.Money += cash
 	data.Speed += speed
@@ -2615,7 +2625,7 @@ local function claimGift(player: Player, index: any)
 	end
 	gift.Claimed[tostring(index)] = true
 	local data = state.Data
-	local cash = math.max(info.MinCash, math.floor((state.Income or 0) * 60 * info.Cash))
+	local cash = math.max(info.MinCash, math.floor((state.BaseIncome or 0) * 60 * info.Cash))
 	data.Money += cash
 	data.Speed += info.Speed
 	econ(player, true, cash, "TimedReward", "Gift" .. index)
@@ -2859,7 +2869,7 @@ local function claimDaily(player: Player)
 	local reward = Config.Daily[streak]
 	data.DailyDay = today
 	data.DailyStreak = streak
-	local cash = math.max(reward.MinCash, math.floor((state.Income or 0) * 60 * reward.Minutes))
+	local cash = math.max(reward.MinCash, math.floor((state.BaseIncome or 0) * 60 * reward.Minutes))
 	if state.Passes and state.Passes.VIP then
 		cash *= 2 -- VIP: prêmio diário em dobro
 	end
@@ -2989,7 +2999,7 @@ local function claimQuest(player: Player, key: any)
 				return toast(player, "Not finished yet!", "warning")
 			end
 			q.Claimed[key] = true
-			local cash = math.max(info.MinCash, math.floor((state.Income or 0) * 60 * info.Minutes))
+			local cash = math.max(info.MinCash, math.floor((state.BaseIncome or 0) * 60 * info.Minutes))
 			state.Data.Money += cash
 			state.Data.Speed += info.Speed
 			econ(player, true, cash, "Gameplay", "Quest_" .. info.Key)
@@ -3154,7 +3164,7 @@ local function redeemCode(player: Player, raw: any)
 	data.Codes[code] = true
 	local parts = {}
 	if reward.Minutes then
-		local cash = math.max(reward.Minutes * 500, math.floor((state.Income or 0) * 60 * reward.Minutes))
+		local cash = math.max(reward.Minutes * 500, math.floor((state.BaseIncome or 0) * 60 * reward.Minutes))
 		data.Money += cash
 		econ(player, true, cash, "Gameplay", "Code_" .. code)
 		table.insert(parts, "+" .. Format.Money(cash))
@@ -3579,7 +3589,7 @@ local function onPlayerAdded(player: Player)
 	stats.Parent = player
 
 	local plot = freePlot()
-	local state = { Data = data, Plot = plot, SlotModels = {}, Income = 0, Gain = 0, Carry = nil, Walk = 16, InShop = {}, Passes = {}, TrapCount = 0, FriendBoost = 0 }
+	local state = { Data = data, Plot = plot, SlotModels = {}, Income = 0, BaseIncome = 0, Gain = 0, Carry = nil, Walk = 16, InShop = {}, Passes = {}, TrapCount = 0, FriendBoost = 0 }
 	states[player] = state
 	funnel(player, "Joined")
 	state.SessionStart = os.time()
@@ -3612,9 +3622,10 @@ local function onPlayerAdded(player: Player)
 	end
 	computeIncome(state)
 	-- ganho offline (uma parte da renda enquanto esteve fora)
-	if away > 60 and (state.Income or 0) > 0 then
+	-- usa a renda base: um boost de 2x ou o fim de semana na hora de entrar não dobram as 12 h fora (v66)
+	if away > 60 and (state.BaseIncome or 0) > 0 then
 		local seconds = math.min(away, Config.OfflineMaxHours * 3600)
-		local cash = math.floor(state.Income * seconds * Config.OfflineRate)
+		local cash = math.floor(state.BaseIncome * seconds * Config.OfflineRate)
 		if cash > 0 then
 			data.Money += cash
 			econ(player, true, cash, "TimedReward", "Offline")
@@ -3689,7 +3700,7 @@ local function onPlayerAdded(player: Player)
 			end
 			list[key] = true
 			idata.InviteCount = (idata.InviteCount or 0) + 1
-			local cash = math.max(gift.InviterMinCash, math.floor((inviterState.Income or 0) * 60 * gift.InviterMinutes))
+			local cash = math.max(gift.InviterMinCash, math.floor((inviterState.BaseIncome or 0) * 60 * gift.InviterMinutes))
 			idata.Money += cash
 			idata.Speed += gift.InviterSpeed
 			applySpeed(inviter)
