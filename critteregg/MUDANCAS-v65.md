@@ -1,12 +1,22 @@
-# Steal a Critter Egg - v65 (13/10/2026)
+# Steal a Critter Egg - v65.1 (13/10/2026)
+
+> **v65.1 (use ESTE arquivo: StealACritterEgg-v65.1.rbxl).** Correções da revisão:
+> - **Starter Pack:** na v65 quem comprava ganhava só +25K de velocidade (sem $50K e sem 2x Cash) e podia comprar de novo. Corrigido.
+> - **Anti-teleporte justo com lag:** não devolve mais o ovo de quem tem internet lenta, e um teleporte direto para casa não entrega mais o ovo.
+> - **Prêmio de convite:** sai depois que o amigo jogou 5 min e roubou 1 ovo, no máximo 5 por dia (antes dava para farmar com contas falsas).
+> - **Salvamento:** até 3 tentativas no save final; trava de servidor caído liberada na hora; ao fechar, espera quem ainda está carregando.
+> - **Compra feita enquanto o save carrega:** espera em vez de recusar.
+> - **Modelos do Toolbox:** scripts escondidos são removidos (segurança). Os textos de outros criadores ("ThreadPRO" na esteira, "Group Rewards 23:59:59" no baú) saem, e as luzes deixam de fazer sombra (mais leve no celular).
+> - **Ovo de Abóbora:** não "pula" mais a vez de nascer na hora da noite.
+> - **Servidor:** só aceita as ações que o jogo conhece.
 
 Feito em cima do **StealACritterEgg-v64.rbxl** que você mandou.
 
-Arquivo novo: `place/StealACritterEgg-v65.rbxl`. Mudou só o código dos scripts: mapa, modelos 3D e configurações estão iguais ao v64.
+Arquivo novo: `place/StealACritterEgg-v65.1.rbxl`. Mudou só o código dos scripts: mapa, modelos 3D e configurações estão iguais ao v64.
 
 ## Como colocar no jogo
 
-1. Abra o `StealACritterEgg-v65.rbxl` no Studio. Ou, no seu jeito de sempre, copie a pasta `src` desta versão por cima da sua e ligue o Rojo.
+1. Abra o `StealACritterEgg-v65.1.rbxl` no Studio. Ou, no seu jeito de sempre, copie a pasta `src` desta versão por cima da sua e ligue o Rojo.
 2. Aperte **Play** e teste a lista do fim deste arquivo.
 3. **File > Publish to Roblox**.
 

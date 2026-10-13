@@ -35,6 +35,7 @@ end)
 local profiles: { [Player]: any } = {}
 local released: { [any]: boolean } = {} -- perfis que já fizeram o save final (o autosave pula)
 local finalSaving: { [number]: number } = {} -- UserId -> quantos saves finais ainda estão rodando
+local loading: { [number]: number } = {} -- UserId -> loads em andamento (o BindToClose espera também)
 local LOCK_SECONDS = 1800
 local LOAD_TRIES = 6
 local STALE_LOCK = Config.SaveEvery + 15 -- servidor vivo renova a trava a cada autosave
@@ -75,6 +76,7 @@ function Data.Load(player: Player)
 	end
 	local data = nil
 	local noSave = false
+	loading[player.UserId] = (loading[player.UserId] or 0) + 1
 	if store then
 		local loaded = false
 		for attempt = 1, LOAD_TRIES do
@@ -84,7 +86,9 @@ function Data.Load(player: Player)
 					old = old or {}
 					local lock = old.Lock
 					local age = os.time() - ((lock and lock.Time) or 0)
-					if lock and lock.Session ~= SESSION and age < LOCK_SECONDS and (attempt < LOAD_TRIES or age < STALE_LOCK) then
+					-- só uma trava FRESCA segura (servidor vivo renova a cada autosave); trava velha = servidor
+					-- caído: pega na hora (v65.1; antes ainda esperava ~20 s)
+					if lock and lock.Session ~= SESSION and age < STALE_LOCK then
 						locked = true
 						return nil -- outra sessão ainda está com os dados (o servidor antigo ainda salvando): tenta de novo
 					end
@@ -110,6 +114,10 @@ function Data.Load(player: Player)
 		noSave = not loaded -- não conseguiu ler: NÃO salva por cima (senão apagaria o progresso de verdade)
 	elseif RunService:IsStudio() then
 		warn("[Data] DataStore indisponível: jogando SEM salvar (ligue Game Settings > Security > API Services)")
+	end
+	loading[player.UserId] = (loading[player.UserId] or 1) - 1
+	if loading[player.UserId] <= 0 then
+		loading[player.UserId] = nil
 	end
 	data = fill(data or defaults())
 	-- os ovos continuam crescendo enquanto o jogador estava fora (velocidade normal)
@@ -138,8 +146,8 @@ function Data.CanSave(player: Player): boolean
 	return data ~= nil and store ~= nil and not data.__NoSave
 end
 
--- devolve true se o save chegou no DataStore
-function Data.Save(player: Player, release: boolean?): boolean
+-- devolve true se o save chegou no DataStore (e, como 2º valor, true se outro servidor tem a trava)
+function Data.Save(player: Player, release: boolean?): (boolean, boolean?)
 	local data = profiles[player]
 	if not data or not store or data.__NoSave then
 		return false
@@ -149,11 +157,13 @@ function Data.Save(player: Player, release: boolean?): boolean
 	end
 	data.SavedAt = os.time()
 	local written = false
+	local lockLost = false
 	local ok, err = pcall(function()
 		store:UpdateAsync(keyOf(player), function(old)
 			old = old or {}
 			if old.Lock and old.Lock.Session ~= SESSION and os.time() - (old.Lock.Time or 0) < LOCK_SECONDS then
 				written = false
+				lockLost = true
 				return nil -- outra sessão pegou os dados: não sobrescreve
 			end
 			if released[data] and not release then
@@ -170,19 +180,39 @@ function Data.Save(player: Player, release: boolean?): boolean
 		warn("[Data] save failed:", err)
 		return false
 	end
-	return written
+	return written, lockLost
 end
 
 function Data.Release(player: Player)
 	local data = profiles[player]
 	local userId = player.UserId
 	finalSaving[userId] = (finalSaving[userId] or 0) + 1
+	if data and released[data] then
+		-- (v65.1) já tem um save final deste perfil rodando (saída + fechamento do servidor): só espera ele
+		local waited = 0
+		while profiles[player] == data and waited < 30 do
+			waited += task.wait(0.2)
+		end
+		finalSaving[userId] = (finalSaving[userId] or 1) - 1
+		if finalSaving[userId] <= 0 then
+			finalSaving[userId] = nil
+		end
+		return
+	end
 	if data then
 		released[data] = true
 	end
-	local ok, err = pcall(Data.Save, player, true)
-	if not ok then
-		warn("[Data] final save error:", err)
+	-- (v65.1) até 3 tentativas: se o save final falhar, a trava ficaria presa e a criança seria
+	-- mandada embora na próxima entrada
+	for attempt = 1, 3 do
+		local ok, saved, lockLost = pcall(Data.Save, player, true)
+		if not ok then
+			warn("[Data] final save error:", saved)
+		end
+		if (ok and (saved or lockLost)) or not data or data.__NoSave or not store then
+			break
+		end
+		task.wait(2 ^ attempt)
 	end
 	if profiles[player] == data then
 		profiles[player] = nil
@@ -209,15 +239,21 @@ function Data.Forget(player: Player)
 	end
 	local userId = player.UserId
 	finalSaving[userId] = (finalSaving[userId] or 0) + 1
-	pcall(function()
-		store:UpdateAsync(keyOf(player), function(old)
-			if type(old) ~= "table" or not old.Lock or old.Lock.Session ~= SESSION then
-				return nil
-			end
-			old.Lock = nil
-			return old
+	for attempt = 1, 3 do
+		local ok = pcall(function()
+			store:UpdateAsync(keyOf(player), function(old)
+				if type(old) ~= "table" or not old.Lock or old.Lock.Session ~= SESSION then
+					return nil
+				end
+				old.Lock = nil
+				return old
+			end)
 		end)
-	end)
+		if ok then
+			break
+		end
+		task.wait(2 ^ attempt)
+	end
 	finalSaving[userId] = (finalSaving[userId] or 1) - 1
 	if finalSaving[userId] <= 0 then
 		finalSaving[userId] = nil
@@ -239,7 +275,7 @@ function Data.Init()
 		end
 		-- espera os saves terminarem de verdade (no máximo 25 s; o Roblox dá 30)
 		local started = os.clock()
-		while next(finalSaving) ~= nil and os.clock() - started < 25 do
+		while (next(finalSaving) ~= nil or next(loading) ~= nil) and os.clock() - started < 25 do
 			task.wait(0.2)
 		end
 		if RunService:IsStudio() then

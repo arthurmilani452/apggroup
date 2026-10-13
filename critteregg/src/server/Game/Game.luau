@@ -436,7 +436,14 @@ end
 
 local function discover(player: Player, def, zoneIndex: number?)
 	local state = states[player]
-	if state.Data.Index[def.Id] then
+	local stored = state.Data.Index[def.Id]
+	if stored then
+		-- (v65.1) já conhecia, mas pegou agora de uma zona mais alta (sem passar da natural) e ainda não
+		-- resgatou o prêmio: o prêmio sobe junto
+		local natural = zoneOfDef[def.Id]
+		if zoneIndex and natural and typeof(stored) == "number" and not state.Data.Claimed[def.Id] then
+			state.Data.Index[def.Id] = math.max(stored, math.min(natural, zoneIndex))
+		end
 		return false
 	end
 	-- o prêmio do Index usa a zona "natural" do bichinho; se veio de uma zona mais fácil (evento,
@@ -1276,7 +1283,8 @@ beginCarry = function(player: Player, zone, nest, egg)
 	weld.Parent = root
 	-- CAMINHO (anti-teleporte): o servidor acompanha o ovo da pegada até a SAFE ZONE
 	local flat = Vector3.new(root.Position.X, 0, root.Position.Z)
-	local path = { Origin = flat, Last = flat, Allowed = 0, Strikes = 0, CleanSince = os.clock(), Start = os.clock() }
+	local clock0 = os.clock()
+	local path = { Origin = flat, Last = flat, Allowed = 0, Strikes = 0, CleanSince = clock0, Start = clock0, LastAt = clock0, LastMoveAt = clock0 }
 	state.Carry = { Egg = egg, Nest = nest, Zone = zone, Weld = weld, Scale = egg.Scale, Path = path }
 	player:SetAttribute("Carrying", egg.Def.Name .. " Egg")
 	applySpeed(player)
@@ -1294,7 +1302,7 @@ end
 --   • passos impossíveis (salto grande de uma vez) contam falta: 1 falta passa (lag), 2 seguidas = ovo volta;
 --   • ninguém segura um ovo mais que Config.MaxCarrySeconds.
 -- Quem joga normal nunca percebe nada (as margens são bem folgadas).
-local function carryValid(state, root: BasePart, dt: number): (boolean, string?)
+local function carryValid(state, root: BasePart): (boolean, string?)
 	local carry = state.Carry
 	local path = carry.Path
 	if not path then
@@ -1313,17 +1321,25 @@ local function carryValid(state, root: BasePart, dt: number): (boolean, string?)
 	end
 	local flat = Vector3.new(pos.X, 0, pos.Z)
 	local walk = math.max(state.Walk or 16, 16)
-	path.Allowed += walk * dt * 1.3
+	-- (v65.1: tempo REAL desde a última checagem; antes um engasgo do servidor reprovava quem jogava limpo)
+	path.Allowed += walk * (clock - path.LastAt) * 1.3
+	path.LastAt = clock
 	local step = (flat - path.Last).Magnitude
-	path.Last = flat
-	if step > walk * dt * 2 + 12 then
-		path.Strikes += 1
-		path.CleanSince = clock
-		if path.Strikes >= 2 then
-			return false, "jump"
+	if step > 0.05 then
+		-- o passo é comparado com o tempo desde a última vez que a posição MUDOU: quando a internet da
+		-- criança trava, a posição fica parada e depois chega tudo de uma vez (isso é lag, não teleporte)
+		local since = math.max(clock - path.LastMoveAt, 0.1)
+		path.LastMoveAt = clock
+		path.Last = flat
+		if step > walk * since * 1.6 + 12 then
+			path.Strikes += 1
+			path.CleanSince = clock
+			if path.Strikes >= 2 then
+				return false, "jump"
+			end
+		elseif path.Strikes > 0 and clock - path.CleanSince > 5 then
+			path.Strikes = 0 -- 5 s sem nada estranho: perdoa
 		end
-	elseif path.Strikes > 0 and clock - path.CleanSince > 5 then
-		path.Strikes = 0 -- 5 s sem nada estranho: perdoa o lag
 	end
 	path.TrapLast = flat
 	if (flat - path.Origin).Magnitude > path.Allowed + 30 then
@@ -2553,7 +2569,21 @@ local function grantProduct(player: Player, key: string)
 	if not info then
 		return false
 	end
-	if info.Speed then
+	if key == "Starter" then
+		-- v65: SEM ovo sorteado. Item pago com prêmio sorteado é "paid random item" para a Roblox
+		-- (precisa mostrar as chances e usar o PolicyService; no Brasil, o ECA Digital proíbe para menores de 18).
+		-- O pacote agora tem só coisas certas: dinheiro + velocidade + 2x Cash.
+		data.StarterBought = true
+		data.Money += info.Cash or 50_000
+		econ(player, true, info.Cash or 50_000, "IAP", "StarterPack")
+		data.Speed += info.Speed or 0
+		applySpeed(player)
+		local start = math.max(now(), data.Boosts.Money2 or 0)
+		data.Boosts.Money2 = start + (info.BoostMinutes or 15) * 60
+		computeIncome(state)
+		banner(player, ("STARTER PACK! +%s  +%s Speed  + 2x Cash %d min!"):format(Format.Money(info.Cash or 50_000), Format.Short(info.Speed or 0), info.BoostMinutes or 15), Color3.fromRGB(255, 150, 60))
+	elseif info.Speed then
+		-- (v65.1: o Starter tem Speed também, então ele precisa vir ANTES deste ramo)
 		data.Speed += info.Speed
 		applySpeed(player)
 		banner(player, ("+%s SPEED!"):format(Format.Short(info.Speed)), Color3.fromRGB(255, 80, 140))
@@ -2582,19 +2612,6 @@ local function grantProduct(player: Player, key: string)
 		data.Money += cash
 		econ(player, true, cash, "IAP", "CashPack")
 		banner(player, "+" .. Format.Money(cash), Color3.fromRGB(110, 255, 90))
-	elseif key == "Starter" then
-		-- v65: SEM ovo sorteado. Item pago com prêmio sorteado é "paid random item" para a Roblox
-		-- (precisa mostrar as chances e usar o PolicyService; no Brasil, o ECA Digital proíbe para menores de 18).
-		-- O pacote agora tem só coisas certas: dinheiro + velocidade + 2x Cash.
-		data.StarterBought = true
-		data.Money += info.Cash or 50_000
-		econ(player, true, info.Cash or 50_000, "IAP", "StarterPack")
-		data.Speed += info.Speed or 0
-		applySpeed(player)
-		local start = math.max(now(), data.Boosts.Money2 or 0)
-		data.Boosts.Money2 = start + (info.BoostMinutes or 15) * 60
-		computeIncome(state)
-		banner(player, ("STARTER PACK! +%s  +%s Speed  + 2x Cash %d min!"):format(Format.Money(info.Cash or 50_000), Format.Short(info.Speed or 0), info.BoostMinutes or 15), Color3.fromRGB(255, 150, 60))
 	end
 	net:FireClient(player, "Purchased")
 	publish(player, true)
@@ -2712,6 +2729,11 @@ local function setupMarketplace()
 	end
 	MarketplaceService.ProcessReceipt = function(receipt)
 		local player = Players:GetPlayerByUserId(receipt.PlayerId)
+		-- (v65.1) o jogador está aqui mas o save ainda está carregando: espera um pouco em vez de recusar
+		local waited = 0
+		while player and player.Parent and not states[player] and waited < 30 do
+			waited += task.wait(0.5)
+		end
 		local state = player and states[player]
 		if not state then
 			return Enum.ProductPurchaseDecision.NotProcessedYet
@@ -3100,10 +3122,16 @@ end
 -- em coisas diferentes fazia pedidos sumirem. Agora cada ação tem o seu.
 local lastRequest: { [Player]: { [string]: number } } = {}
 local REQUEST_GAP = { Redeem = 1.5, Buy = 0.5, SlowMode = 0.3 }
+-- (v65.1) só ações que existem (antes qualquer texto que a tela mandasse ficava guardado na memória)
+local KNOWN_ACTIONS = {
+	Swing = true, Upgrade = true, SlowMode = true, Hatch = true, HatchAll = true, Sell = true, SellAll = true,
+	Fuse = true, Trail = true, Boost = true, Chest = true, Gift = true, ClaimIndex = true, PlaceTrap = true,
+	EquipBat = true, Buy = true, Daily = true, Rebirth = true, ClaimQuest = true, Redeem = true, CandyBuy = true,
+}
 
 local function onRequest(player: Player, action: any, arg: any)
 	local state = states[player]
-	if not state or type(action) ~= "string" then
+	if not state or type(action) ~= "string" or not KNOWN_ACTIONS[action] then
 		return
 	end
 	if action == "Swing" then
@@ -3443,31 +3471,43 @@ local function onPlayerAdded(player: Player)
 				banner(player, ("Your friend invited you! +%s  +%s Speed"):format(Format.Money(gift.NewCash), Format.Short(gift.NewSpeed)), Color3.fromRGB(120, 220, 255))
 			end
 		end)
-		local inviter = Players:GetPlayerByUserId(inviterId)
-		local inviterState = inviter and states[inviter]
-		if inviter and inviterState then
-			local list = inviterState.Data.Referred
+		-- (v65.1) quem convidou só ganha depois que o amigo JOGOU de verdade (5 min e 1 ovo roubado),
+		-- no máximo Config.Invite.PerDay por dia: senão dava para farmar com contas falsas
+		task.delay(300, function()
+			if not player.Parent or states[player] == nil or (data.Stolen or 0) < 1 then
+				return
+			end
+			local inviter = Players:GetPlayerByUserId(inviterId)
+			local inviterState = inviter and states[inviter]
+			if not inviter or not inviterState then
+				return
+			end
+			local idata = inviterState.Data
+			local list = idata.Referred
 			if type(list) ~= "table" then
 				list = {}
-				inviterState.Data.Referred = list
+				idata.Referred = list
 			end
 			local key = tostring(player.UserId)
-			local count = 0
-			for _ in list do
-				count += 1
+			local today = os.time() // 86400
+			if idata.InviteDay ~= today then
+				idata.InviteDay = today
+				idata.InviteCount = 0
 			end
-			if not list[key] and count < 50 then
-				list[key] = true
-				local cash = math.max(gift.InviterMinCash, math.floor((inviterState.Income or 0) * 60 * gift.InviterMinutes))
-				inviterState.Data.Money += cash
-				inviterState.Data.Speed += gift.InviterSpeed
-				applySpeed(inviter)
-				econ(inviter, true, cash, "Gameplay", "InviteReward")
-				custom(inviter, "FriendInvited")
-				banner(inviter, ("%s joined from your invite! +%s  +%s Speed"):format(player.DisplayName, Format.Money(cash), Format.Short(gift.InviterSpeed)), Color3.fromRGB(120, 220, 255))
-				publish(inviter)
+			if list[key] or (idata.InviteCount or 0) >= gift.PerDay then
+				return
 			end
-		end
+			list[key] = true
+			idata.InviteCount = (idata.InviteCount or 0) + 1
+			local cash = math.max(gift.InviterMinCash, math.floor((inviterState.Income or 0) * 60 * gift.InviterMinutes))
+			idata.Money += cash
+			idata.Speed += gift.InviterSpeed
+			applySpeed(inviter)
+			econ(inviter, true, cash, "Gameplay", "InviteReward")
+			custom(inviter, "FriendInvited")
+			banner(inviter, ("%s played from your invite! +%s  +%s Speed"):format(player.DisplayName, Format.Money(cash), Format.Short(gift.InviterSpeed)), Color3.fromRGB(120, 220, 255))
+			publish(inviter)
+		end)
 		publish(player)
 	end)
 	if halloweenNow() then
@@ -3654,7 +3694,7 @@ function Game.Init()
 				local root = rootOf(player)
 				if state.Carry and root then
 					local carry = state.Carry
-					local valid, why = carryValid(state, root, dt)
+					local valid, why = carryValid(state, root)
 					if not carry.Egg.Model.Parent or not carry.Weld.Parent then
 						endCarry(player, false)
 					elseif not valid then
@@ -3665,7 +3705,9 @@ function Game.Init()
 							warn(("[Game] carry blocked (%s): %s"):format(tostring(why), player.Name))
 							toast(player, "The egg slipped back to its nest!", "warning")
 						end
-					elseif root.Position.Z < -1 then
+					elseif root.Position.Z < -1 and (not carry.Path or carry.Path.Strikes == 0) then
+						-- (v65.1: com uma falta pendente não entrega; espera 5 s limpos. Assim um teleporte
+						-- único direto para casa não passa, e um lag de verdade só atrasa um pouquinho)
 						deliver(player)
 					end
 				end
@@ -3703,8 +3745,13 @@ function Game.Init()
 	task.spawn(function()
 		local tick = 0
 		local partyWarned, partyAnnounced, nextPartyGolden, nextPumpkin = 0, 0, 0, math.huge
+		local lastClock = os.clock()
 		while true do
-			local elapsed = math.min(task.wait(1), 5)
+			task.wait(1)
+			-- (v65.1) tempo real da volta inteira (o task.wait não conta o tempo gasto aqui dentro)
+			local nowClock = os.clock()
+			local elapsed = math.min(nowClock - lastClock, 5)
+			lastClock = nowClock
 			tick += 1
 			local t = os.time()
 			local id = t // Config.Cycle
@@ -3751,7 +3798,7 @@ function Game.Init()
 					banner(nil, "\u{1F383} HALLOWEEN EVENT! Steal eggs for CANDY \u{1F36C}", Color3.fromRGB(255, 140, 40))
 				end
 			end
-			if halloween and t >= nextPumpkin then
+			if halloween and t >= nextPumpkin and not isNight and not night and phase >= 5 and phase < Config.Cycle - Config.Night - 45 then
 				nextPumpkin = t + Config.Halloween.PumpkinEvery
 				task.spawn(spawnGoldenEgg, "Pumpkin")
 			end

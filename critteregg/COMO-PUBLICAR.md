@@ -1,7 +1,7 @@
-# Como publicar a v65
+# Como publicar a v65.1
 
 ## 1. Abrir no Studio
-1. Baixe o **StealACritterEgg-v65.rbxl**: o Claude manda no chat, e ele também fica na pasta `place/`.
+1. Baixe o **StealACritterEgg-v65.1.rbxl**: o Claude manda no chat, e ele também fica na pasta `place/`.
 2. Abra o **Roblox Studio** e vá em **File > Open from File...**. Escolha o arquivo.
 3. Para testar o salvamento no Studio: **Game Settings > Security > Enable Studio Access to API Services**.
 

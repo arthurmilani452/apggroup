@@ -366,6 +366,9 @@ local function placeAsset(parent: Instance, name: string, position: Vector3, hei
 	local box, newSize = model:GetBoundingBox()
 	local bottom = box.Position - Vector3.new(0, newSize.Y / 2, 0)
 	model:PivotTo(model:GetPivot() + (position - bottom))
+	-- v65.1: limpa o que veio junto do Toolbox. Scripts escondidos (vírus/backdoor) passam a rodar quando
+	-- o modelo entra no mapa; placas/textos de OUTROS criadores ("ThreadPRO" na esteira, "Group Rewards
+	-- 23:59:59" no baú) confundiam as crianças; luz com sombra pesa muito no celular.
 	for _, item in model:GetDescendants() do
 		if item:IsA("BasePart") then
 			item.Anchored = true
@@ -373,8 +376,13 @@ local function placeAsset(parent: Instance, name: string, position: Vector3, hei
 			item.CanTouch = false
 			item.CanQuery = collide == true
 			item.CastShadow = true
-		elseif item:IsA("Sound") then
+		elseif item:IsA("Sound") or item:IsA("LuaSourceContainer") or item:IsA("BillboardGui") or item:IsA("SurfaceGui")
+			or item:IsA("ProximityPrompt") or item:IsA("ClickDetector") then
 			item:Destroy()
+		elseif item:IsA("Light") then
+			item.Shadows = false
+		elseif (name == "Chest" or name == "Treadmill") and (item:IsA("Decal") or item:IsA("Beam")) then
+			item:Destroy() -- logos e textos pintados do kit do Toolbox
 		end
 	end
 	model.Parent = parent
