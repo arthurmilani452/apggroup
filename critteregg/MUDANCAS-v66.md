@@ -30,7 +30,9 @@ Arquivo novo: `place/StealACritterEgg-v66.rbxl`. Mudou só o código dos scripts
 - **Celular:**
   - a tela nunca fica pequena demais (escala mínima 0.6);
   - janela que não cabe encolhe sozinha;
-  - o dinheiro e a velocidade ficam embaixo no meio, longe do analógico e do botão de pulo.
+  - os 5 botões ficam em cima, à esquerda, longe do analógico;
+  - o dinheiro e a velocidade ficam embaixo, ao lado da barra do taco e da armadilha, sem ficar escondidos atrás dela;
+  - na hora de chocar, a barra do taco some para mostrar o nome do bicho novo.
 - **Português:** quem joga com o Roblox em português vê os botões, o Menu, as dicas do tutorial e a esteira em português. O resto continua em inglês. Ligue a tradução automática no Creator Hub para completar.
 
 Todas as janelas (Shop, Index, Codes, Doces...) continuam iguais. Só o caminho até elas mudou.
