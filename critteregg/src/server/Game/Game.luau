@@ -79,7 +79,15 @@ local function offer(player: Player, key: string, reason: string)
 end
 
 -- MOMENTO ÉPICO: aviso gigante + tela tremendo + som para o SERVIDOR INTEIRO (é o que as crianças gravam)
-local function epic(text: string, color: Color3?)
+-- v67: no máximo 1 a cada Config.EpicCooldown s (antes vinha um atrás do outro e virava barulho); dentro da
+-- espera vira aviso roxo. force = Admin Abuse (sempre épico).
+local lastEpic = -1e9
+local function epic(text: string, color: Color3?, force: boolean?)
+	if not force and os.clock() - lastEpic < Config.EpicCooldown then
+		toastAll(text, "rare")
+		return
+	end
+	lastEpic = os.clock()
 	net:FireAllClients("Epic", text, color or Color3.fromRGB(255, 220, 60))
 end
 
@@ -605,7 +613,7 @@ local function shareHatch(player: Player, def, mutation: string?)
 	end)
 end
 
-local function hatch(player: Player, index: number, silent: boolean?): boolean
+local function hatch(player: Player, index: number, silent: boolean?, stagger: number?): boolean
 	local state = states[player]
 	local slot = state and state.Data.Slots[index]
 	if not slot or slot.Kind ~= "Egg" or (slot.Left or 0) > 0 then
@@ -622,116 +630,31 @@ local function hatch(player: Player, index: number, silent: boolean?): boolean
 	end
 	questAdd(player, "Hatch")
 	computeIncome(state)
-	-- ANIMAÇÃO NO MUNDO (todo mundo vê): o ovo treme, racha, brilha e explode; o bichinho "pula" para fora
+	-- ANIMAÇÃO NO MUNDO (v67): antes o SERVIDOR mexia o ovo a cada frame (PivotTo + ScaleTo por 1,1 s, em todos os
+	-- ovos do "Chocar todos" ao mesmo tempo) e cada mudança ia para todos os jogadores = o servidor inteiro engasgava.
+	-- Agora o servidor só marca o ovo (HatchAt/HatchColor/HatchBig + tag "Hatching") e a tela de quem está perto faz
+	-- o tremor, o brilho, os sons, a explosão e as cascas. Depois de Config.HatchTime o ovo vira o bichinho, que
+	-- "pula" para fora (PopIn). stagger = escadinha do "Chocar todos" (um ovo depois do outro).
 	local eggModel = state.SlotModels[index]
 	state.SlotModels[index] = nil
 	if eggModel then
-		task.spawn(function()
-			local ok = pcall(function()
-				local prompt = eggModel:FindFirstChild("HatchPrompt", true)
-				if prompt then
-					prompt.Enabled = false
-				end
-				local info = eggModel:FindFirstChild("Info", true)
-				if info then
-					info.Enabled = false
-				end
-				local startPivot = eggModel:GetPivot()
-				local root = eggModel.PrimaryPart
-				local glow
-				if root then
-					glow = Instance.new("PointLight")
-					glow.Color = rarityColor(def)
-					glow.Range = 4
-					glow.Brightness = 0
-					glow.Parent = root
-				end
-				local duration = 1.1
-				local started = os.clock()
-				local lastCrack = 0
-				while os.clock() - started < duration and eggModel.Parent do
-					local p = (os.clock() - started) / duration
-					local power = 4 + p * 22 -- treme cada vez mais forte
-					local angle = math.sin(p * 60) * power
-					local grow = 1 + p * 0.25
-					eggModel:PivotTo(startPivot * CFrame.new(0, math.abs(math.sin(p * 30)) * 0.4 * p, 0) * CFrame.Angles(math.rad(angle * 0.4), 0, math.rad(angle)))
-					pcall(function()
-						eggModel:ScaleTo(grow)
-					end)
-					if glow then
-						glow.Range = 4 + p * 14
-						glow.Brightness = p * 4
-					end
-					if p - lastCrack > 0.33 then
-						lastCrack = p
-						net:FireAllClients("SfxAt", "Crack", startPivot.Position)
-					end
-					task.wait()
-				end
-				local position = startPivot.Position
-				-- explosão de luz + pedaços de casca
-				local burst = Instance.new("Part")
-				burst.Name = "HatchBurst"
-				burst.Shape = Enum.PartType.Ball
-				burst.Size = Vector3.new(2, 2, 2)
-				burst.CFrame = CFrame.new(position)
-				burst.Color = rarityColor(def)
-				burst.Material = Enum.Material.Neon
-				burst.Transparency = 0.2
-				burst.Anchored = true
-				burst.CanCollide = false
-				burst.CanQuery = false
-				burst.CanTouch = false
-				burst.Parent = contentsFolder
-				local emitter = Instance.new("ParticleEmitter")
-				emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-				emitter.Color = ColorSequence.new(rarityColor(def), Color3.new(1, 1, 1))
-				emitter.LightEmission = 1
-				emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.4), NumberSequenceKeypoint.new(1, 0) })
-				emitter.Lifetime = NumberRange.new(0.6, 1.2)
-				emitter.Speed = NumberRange.new(14, 26)
-				emitter.SpreadAngle = Vector2.new(180, 180)
-				emitter.Acceleration = Vector3.new(0, -25, 0)
-				emitter.Rate = 0
-				emitter.Parent = burst
-				emitter:Emit(if (Config.RarityIndex[def.Rarity] or 1) >= Config.RarityIndex.Legendary then 90 else 45)
-				local shellColor = Color3.new(1, 1, 1)
-				for _, item in eggModel:GetDescendants() do
-					if item:IsA("BasePart") and item.Transparency < 1 then
-						shellColor = item.Color
-						break
-					end
-				end
-				for k = 1, 8 do
-					local shell = Instance.new("Part")
-					shell.Name = "Shell"
-					shell.Size = Vector3.new(0.9, 0.25, 0.9)
-					shell.Color = shellColor
-					shell.Material = Enum.Material.SmoothPlastic
-					shell.CanCollide = false
-					shell.CanQuery = false
-					shell.CanTouch = false
-					shell.CFrame = CFrame.new(position) * CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6)
-					shell.Parent = contentsFolder
-					local a = (k / 8) * math.pi * 2
-					shell.AssemblyLinearVelocity = Vector3.new(math.cos(a) * 14, 22 + math.random() * 8, math.sin(a) * 14)
-					shell.AssemblyAngularVelocity = Vector3.new(math.random() * 10, math.random() * 10, math.random() * 10)
-					game:GetService("Debris"):AddItem(shell, 1.6)
-				end
-				net:FireAllClients("SfxAt", "Pop", position)
-				if (Config.RarityIndex[def.Rarity] or 1) >= Config.RarityIndex.Legendary then
-					net:FireAllClients("SfxAt", "Delivered", position)
-				end
-				eggModel:Destroy()
-				TweenService:Create(burst, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(14, 14, 14), Transparency = 1 }):Play()
-				game:GetService("Debris"):AddItem(burst, 1.5)
-			end)
-			if eggModel.Parent then
-				eggModel:Destroy()
-			end
-			if not ok then
-				warn("[Game] animação de chocar falhou")
-			end
+		local prompt = eggModel:FindFirstChild("HatchPrompt", true)
+		if prompt and prompt:IsA("ProximityPrompt") then
+			prompt.Enabled = false
+		end
+		local info = eggModel:FindFirstChild("Info", true)
+		if info and info:IsA("BillboardGui") then
+			info.Enabled = false
+		end
+		local pause = math.clamp(stagger or 0, 0, 2)
+		eggModel:SetAttribute("HatchAt", workspace:GetServerTimeNow() + pause)
+		eggModel:SetAttribute("HatchColor", rarityColor(def))
+		if (Config.RarityIndex[def.Rarity] or 1) >= Config.RarityIndex.Legendary then
+			eggModel:SetAttribute("HatchBig", true)
+		end
+		eggModel:AddTag("Hatching")
+		task.delay(Config.HatchTime + pause, function()
+			eggModel:Destroy()
 			-- o bichinho aparece (com "pulo" para fora do ovo)
 			if states[player] == state then
 				local i = table.find(state.Data.Slots, slot)
@@ -1253,6 +1176,7 @@ local function buildGuardian(zone)
 	zone.Pos = position
 	zone.Zzz = zzz
 	zone.CatchRange = math.max(4, math.max(size.X, size.Z) * 0.32)
+	model:SetAttribute("CatchRange", zone.CatchRange) -- (v67) a tela mede o "quase pegou" (coração + borda vermelha)
 	setSleeping(zone, true)
 end
 
@@ -1280,6 +1204,7 @@ local function endCarry(player: Player, delivered: boolean, drop: boolean?)
 	end
 	state.Carry = nil
 	player:SetAttribute("Carrying", nil)
+	player:SetAttribute("CarryZone", nil)
 	if carry.Weld then
 		carry.Weld:Destroy()
 	end
@@ -1349,9 +1274,9 @@ beginCarry = function(player: Player, zone, nest, egg)
 	local victim = egg.DroppedBy
 	egg.DroppedBy = nil
 	if victim and victim ~= player and victim.Parent then
-		local vRarity = Config.RarityIndex[egg.Def.Rarity] or 1
 		local msg = ("\u{1F608} %s STOLE %s's %s EGG!"):format(player.DisplayName, victim.DisplayName, string.upper(egg.Def.Rarity))
-		if vRarity >= Config.RarityIndex.Rare then
+		-- (v67: épico só para ovo raro de verdade; antes qualquer Raro+ disparava o alarme do servidor)
+		if Config.EpicEgg(egg.Def.Rarity, egg.Scale, egg.Mut, nest.Golden) then
 			epic(msg, Config.RarityByName[egg.Def.Rarity].Color)
 		else
 			toastAll(msg, "rare")
@@ -1385,6 +1310,7 @@ beginCarry = function(player: Player, zone, nest, egg)
 	local clock0 = os.clock()
 	local path = { Origin = flat, Last = flat, Allowed = 0, Strikes = 0, CleanSince = clock0, Start = clock0, LastAt = clock0, LastMoveAt = clock0 }
 	state.Carry = { Egg = egg, Nest = nest, Zone = zone, Weld = weld, Scale = egg.Scale, Path = path }
+	player:SetAttribute("CarryZone", zone.Index) -- (v67) a tela acha o guardião que persegue (coração + borda vermelha)
 	player:SetAttribute("Carrying", egg.Def.Name .. " Egg")
 	applySpeed(player)
 	if not zone.Awake then
@@ -1461,6 +1387,8 @@ local function deliver(player: Player)
 	end
 	local egg = carry.Egg
 	local slot = { Kind = "Egg", Id = egg.Def.Id, Scale = egg.Scale, Mut = egg.Mut, Zone = carry.Zone.Index, Left = Config.GrowSeconds(egg.Def, egg.Scale) }
+	-- v67 POR UM TRIZ: o guardião chegou pertinho de pegar (tickZone marca NearAt) nos últimos segundos antes da SAFE
+	local closeCall = carry.NearAt ~= nil and os.clock() - carry.NearAt <= Config.CloseCall.Window
 	endCarry(player, true)
 	if (data.Stolen or 0) == 0 then
 		slot.Left = math.min(slot.Left, Config.FirstEggSeconds) -- o primeiro ovo choca na hora
@@ -1504,14 +1432,16 @@ local function deliver(player: Player)
 	questAdd(player, "Steal")
 	custom(player, "EggStolenZone", carry.Zone.Index or 1)
 	-- SEQUÊNCIA DE ROUBOS (v66): a cada Config.StealStreak.Every ovos seguidos sem o guardião pegar = prêmio
-	state.StealStreak = (state.StealStreak or 0) + 1
+	-- (v67: POR UM TRIZ conta +1 a mais; StreakBonusDue não deixa pular o prêmio quando soma 2 de uma vez)
+	local streakBefore = state.StealStreak or 0
+	state.StealStreak = streakBefore + (if closeCall then 2 else 1)
 	player:SetAttribute("StealStreak", state.StealStreak)
-	if state.StealStreak % Config.StealStreak.Every == 0 then
+	if Config.StreakBonusDue(streakBefore, state.StealStreak) then
 		local S = Config.StealStreak
 		local bonus = math.max(S.MinCash, math.floor((state.BaseIncome or 0) * 60 * S.Minutes))
 		data.Money += bonus
 		econ(player, true, bonus, "Gameplay", "StealStreak")
-		task.delay(1.2, function()
+		task.delay(if closeCall then 2.4 else 1.2, function() -- (depois da faixa do POR UM TRIZ)
 			if player.Parent then
 				banner(player, ("\u{1F525} STEAL STREAK x%d! +%s"):format(state.StealStreak, Format.Money(bonus)), Color3.fromRGB(255, 150, 50))
 			end
@@ -1520,20 +1450,35 @@ local function deliver(player: Player)
 			toastAll(("\u{1F525} %s is on a %d STEAL STREAK!"):format(player.DisplayName, state.StealStreak), "rare")
 		end
 	end
+	if closeCall then
+		local bonus = Config.CloseCallBonus(state.BaseIncome)
+		data.Money += bonus
+		econ(player, true, bonus, "Gameplay", "CloseCall")
+		custom(player, "CloseCall", carry.Zone.Index or 1)
+		net:FireClient(player, "CloseCall", bonus) -- (faixa "UFA! POR UM TRIZ!" com o texto da tela)
+	end
+	-- v67: alarme do servidor inteiro (épico) só para Mítico+, GIANT, Rainbow e ovo dourado/abóbora (antes era
+	-- ~1 em cada 8 roubos e ninguém mais ligava); Lendário, HUGE e outras mutações viram aviso roxo
 	do
 		local rIndex = Config.RarityIndex[egg.Def.Rarity] or 1
 		local label = Config.SizeLabel(egg.Scale or 1)
-		if rIndex >= Config.RarityIndex.Legendary or label == "HUGE" or label == "GIANT" or egg.Mut then
-			epic(("\u{1F525} %s ESCAPED WITH A %s%s%s %s EGG!"):format(player.DisplayName, if label then label .. " " else "", if egg.Mut then string.upper(egg.Mut) .. " " else "",
-				string.upper(egg.Def.Rarity), egg.Def.Name), Config.RarityByName[egg.Def.Rarity].Color)
+		local msg = ("%s %s ESCAPED%s WITH A %s%s%s %s EGG!"):format(if closeCall then "\u{1F605}" else "\u{1F525}", player.DisplayName,
+			if closeCall then " BY A HAIR" else "", if label then label .. " " else "", if egg.Mut then string.upper(egg.Mut) .. " " else "",
+			string.upper(egg.Def.Rarity), egg.Def.Name)
+		if Config.EpicEgg(egg.Def.Rarity, egg.Scale, egg.Mut, carry.Nest.Golden == true) then
+			epic(msg, Config.RarityByName[egg.Def.Rarity].Color)
+		elseif rIndex >= Config.RarityIndex.Legendary or label == "HUGE" or egg.Mut then
+			toastAll(msg, "rare")
 		end
 	end
 	if (carry.Zone.Index or 1) >= 2 then
 		funnel(player, "Zone2")
 	end
 	renderSlot(player, #data.Slots)
-	banner(player, "You stole an EGG!", Color3.fromRGB(255, 225, 80))
-	net:FireClient(player, "Stole")
+	if not closeCall then
+		banner(player, "You stole an EGG!", Color3.fromRGB(255, 225, 80))
+	end
+	net:FireClient(player, "Stole") -- (a tela mostra o carimbo SAFE!/SALVO!)
 	publish(player)
 end
 
@@ -1606,6 +1551,9 @@ local function tickZone(zone, dt: number, clock: number)
 			-- (v65: o guardião não chega até a parede; sem isso quem andava colado na parede nunca era pego)
 			local half = Config.Map.LaneWidth / 2 - 6
 			local flat = (Vector3.new(math.clamp(targetRoot.Position.X, -half, half), 0, targetRoot.Position.Z) - Vector3.new(zone.Pos.X, 0, zone.Pos.Z)).Magnitude
+			if flat - zone.CatchRange < Config.CloseCall.Margin and targetRoot.Position.Z >= Config.CloseCall.MinZ then
+				state.Carry.NearAt = clock -- (v67) quase pegou: cruzar a SAFE logo depois = POR UM TRIZ
+			end
 			if flat <= zone.CatchRange and targetRoot.Position.Z > 0.5 then -- (v65: em cima da faixa SAFE não pega)
 				catchCarrier(zone, target)
 			end
@@ -2801,7 +2749,7 @@ local function grantProduct(player: Player, key: string)
 		for index, slot in data.Slots do
 			if slot.Kind == "Egg" then
 				slot.Left = 0
-				if hatch(player, index, true) then
+				if hatch(player, index, true, #list * 0.08) then -- (v67: um depois do outro)
 					table.insert(list, { slot.Id, slot.Mut, slot.Scale or 1, slot.Zone or 1 })
 				end
 			end
@@ -3441,27 +3389,27 @@ local function applyAdmin(cmd: string, by: string)
 	if cmd == "Luck" then
 		workspace:SetAttribute("AdminLuckMult", A.LuckMult)
 		workspace:SetAttribute("AdminLuckEnd", t + A.Minutes * 60)
-		epic(("\u{26A1} ADMIN ABUSE by %s! Legendary+ eggs x%d for %d min!"):format(by, A.LuckMult, A.Minutes), color)
+		epic(("\u{26A1} ADMIN ABUSE by %s! Legendary+ eggs x%d for %d min!"):format(by, A.LuckMult, A.Minutes), color, true)
 		if not night then
 			pcall(resetNests, t) -- ninhos novos na hora, já com a sorte
 		end
 	elseif cmd == "Golden" then
-		epic(("\u{26A1} ADMIN ABUSE by %s! GOLDEN EGG RAIN!"):format(by), Color3.fromRGB(255, 215, 60))
+		epic(("\u{26A1} ADMIN ABUSE by %s! GOLDEN EGG RAIN!"):format(by), Color3.fromRGB(255, 215, 60), true)
 		for k = 1, A.GoldenCount do
 			task.delay((k - 1) * 4, spawnGoldenEgg)
 		end
 	elseif cmd == "Pumpkin" then
-		epic(("\u{26A1} ADMIN ABUSE by %s! PUMPKIN EGG RAIN!"):format(by), Color3.fromRGB(255, 140, 40))
+		epic(("\u{26A1} ADMIN ABUSE by %s! PUMPKIN EGG RAIN!"):format(by), Color3.fromRGB(255, 140, 40), true)
 		for k = 1, A.PumpkinCount do
 			task.delay((k - 1) * 4, spawnGoldenEgg, "Pumpkin")
 		end
 	elseif cmd == "Party" then
 		workspace:SetAttribute("AdminPartyStart", t)
 		workspace:SetAttribute("AdminPartyEnd", t + Config.Update.PartyMinutes * 60)
-		epic(("\u{26A1} ADMIN ABUSE by %s! UPDATE PARTY NOW!"):format(by), color)
+		epic(("\u{26A1} ADMIN ABUSE by %s! UPDATE PARTY NOW!"):format(by), color, true)
 	elseif cmd == "Money" then
 		workspace:SetAttribute("AdminMoneyEnd", t + A.Minutes * 60)
-		epic(("\u{26A1} ADMIN ABUSE by %s! 2x MONEY for %d min!"):format(by, A.Minutes), Color3.fromRGB(110, 255, 90))
+		epic(("\u{26A1} ADMIN ABUSE by %s! 2x MONEY for %d min!"):format(by, A.Minutes), Color3.fromRGB(110, 255, 90), true)
 		for _, state in states do
 			computeIncome(state)
 		end
@@ -3547,7 +3495,7 @@ local function onRequest(player: Player, action: any, arg: any)
 		local count = 0
 		local list = {}
 		for index = 1, #state.Data.Slots do
-			if hatch(player, index, true) then
+			if hatch(player, index, true, count * 0.08) then -- (v67: escadinha, um ovo depois do outro)
 				count += 1
 				local slot = state.Data.Slots[index]
 				table.insert(list, { slot.Id, slot.Mut, slot.Scale or 1, slot.Zone or 1 })
@@ -4066,6 +4014,15 @@ function Game.Init()
 				data.Savers = savers or data.Savers
 				publish(player, true)
 				return data.DailyStreak, data.DailyTotal, data.Savers
+			end,
+			-- v67: testar o POR UM TRIZ sem precisar fugir do guardião: com um ovo nas mãos, a próxima entrega
+			-- nos próximos 20 s conta como "quase pegou"
+			Near = function(player)
+				local carry = states[player] and states[player].Carry
+				if carry then
+					carry.NearAt = os.clock() + 20
+				end
+				return carry ~= nil
 			end,
 		}
 		local bindable = Instance.new("BindableFunction")

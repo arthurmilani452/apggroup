@@ -290,6 +290,29 @@ end
 Config.TreadmillUnlockPen = 1 -- a esteira fica trancada (holograma) até comprar o cercado nível 1
 -- v66 SEQUÊNCIA DE ROUBOS: a cada Every ovos roubados seguidos sem o guardião pegar = Minutes da renda (mín. MinCash)
 Config.StealStreak = { Every = 5, Minutes = 2, MinCash = 1_000 }
+-- (v67) a sequência foi de before para after (o POR UM TRIZ soma 2 de uma vez): passou por um múltiplo de Every?
+function Config.StreakBonusDue(before: number, after: number): boolean
+	local every = Config.StealStreak.Every
+	return after > before and math.floor(after / every) > math.floor(before / every)
+end
+-- v67 POR UM TRIZ: o guardião chegou a menos de Margin studs do alcance de pegar nos últimos Window segundos antes
+-- de cruzar a SAFE = Minutes da renda base (mín. MinCash) e +1 na sequência de roubos.
+-- Só conta com você a MinZ studs ou mais da SAFE: o guardião não passa de Z = 6, então parado na frente da linha
+-- ele "chegava perto" sem nunca poder pegar (dava para ganhar sempre sem risco)
+Config.CloseCall = { Margin = 6, Window = 3, Minutes = 1, MinCash = 500, MinZ = 8 }
+function Config.CloseCallBonus(baseIncome: number?): number
+	local C = Config.CloseCall
+	return math.max(C.MinCash, math.floor((baseIncome or 0) * 60 * C.Minutes))
+end
+-- v67 MOMENTO ÉPICO (alarme + tela tremendo para o servidor inteiro) só para o que é raro de verdade:
+-- Mítico ou melhor, GIANT, Rainbow, ovo dourado/abóbora. No máximo 1 a cada EpicCooldown s; o resto vira aviso roxo.
+Config.EpicCooldown = 20
+function Config.EpicEgg(rarity: string, scale: number?, mutation: string?, special: boolean?): boolean
+	return (Config.RarityIndex[rarity] or 1) >= Config.RarityIndex.Mythic or Config.SizeLabel(scale or 1) == "GIANT"
+		or mutation == "Rainbow" or special == true
+end
+-- (v67) quanto dura o ovo tremendo ao chocar (a animação roda na tela de cada jogador; o servidor só espera)
+Config.HatchTime = 1.1
 -- v66 ESTEIRA 2.0: correndo sem parar, +StreakStep a cada StreakEvery segundos (até +StreakMax).
 -- Saiu da esteira por mais de StreakGrace segundos = a sequência zera.
 Config.Treadmill = { StreakEvery = 30, StreakStep = 0.05, StreakMax = 0.5, StreakGrace = 4 }

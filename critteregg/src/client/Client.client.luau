@@ -119,6 +119,9 @@ do
 		Gold = { "GOLD", "OURO" },
 		DailyTomorrow = { "Tomorrow: DAY %d \u{2192} %s", "Amanhã: DIA %d \u{2192} %s" },
 		CalExclusive = { "\u{1F4C5} Exclusive!", "\u{1F4C5} Exclusivo!" },
+		-- v67: EMOÇÃO (carimbo na entrega e fuga por pouco)
+		Safe = { "SAFE!", "SALVO!" },
+		CloseCall = { "\u{1F605} CLOSE CALL! +%s", "\u{1F605} UFA! POR UM TRIZ! +%s" },
 	}
 	L = function(key: string): string
 		local entry = TEXTS[key]
@@ -2165,6 +2168,98 @@ local function floatText(message: string, color: Color3)
 	end)
 end
 
+---------------------------------------------------------------------
+-- v67 EMOÇÃO: "soco" de zoom da câmera (FOV) e carimbo SALVO! na entrega.
+-- (as duas funções ficam numa tabela só: limite de 200 locais do Luau neste arquivo)
+--   FOV normal 70; correndo com ovo 78 (sensação de velocidade); bichinho novo Raro/Épico 60, Lendário+ 52 e volta.
+--   Só mexe com a câmera normal (CameraType Custom); volta ao normal ao entregar, ser pego ou nascer de novo.
+---------------------------------------------------------------------
+local juice = {
+	Punch = function(_target: number) end,
+	Stamp = function() end,
+}
+do
+	local BASE_FOV, CARRY_FOV = 70, 78
+	local token = 0 -- cada pedido novo ganha um número: o "volta ao normal" de um soco antigo não briga com o novo
+	local tween: Tween? = nil
+	local function rest(): number
+		return if player:GetAttribute("Carrying") then CARRY_FOV else BASE_FOV
+	end
+	local function fovTo(target: number, time: number, style: Enum.EasingStyle?): boolean
+		local camera = workspace.CurrentCamera
+		if not camera or camera.CameraType ~= Enum.CameraType.Custom then
+			return false
+		end
+		if tween then
+			tween:Cancel()
+		end
+		local created = TweenService:Create(camera, TweenInfo.new(time, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { FieldOfView = target })
+		tween = created
+		created:Play()
+		return true
+	end
+	juice.Punch = function(target: number)
+		token += 1
+		local mine = token
+		if fovTo(target, 0.08) then
+			task.delay(0.12, function()
+				if token == mine then
+					fovTo(rest(), 0.5, Enum.EasingStyle.Sine)
+				end
+			end)
+		end
+	end
+	player:GetAttributeChangedSignal("Carrying"):Connect(function()
+		token += 1
+		fovTo(rest(), 0.4)
+	end)
+	player.CharacterAdded:Connect(function()
+		token += 1
+		if tween then
+			tween:Cancel()
+			tween = nil
+		end
+		local camera = workspace.CurrentCamera
+		if camera and camera.CameraType == Enum.CameraType.Custom then
+			camera.FieldOfView = BASE_FOV
+		end
+	end)
+
+	-- carimbo SALVO! torto no meio da tela + clarão branco rápido (criados 1 vez e reaproveitados)
+	local stamp = text({ AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromOffset(560, 150), Text = "", Rotation = -8,
+		TextColor3 = Color3.fromRGB(120, 255, 120), Stroke = 8, Visible = false, ZIndex = 38, Parent = gui })
+	local stampStroke = stamp:FindFirstChildOfClass("UIStroke")
+	local flash = create("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false, Active = false, ZIndex = 37, Parent = gui })
+	local serial = 0
+	juice.Stamp = function()
+		serial += 1
+		local mine = serial
+		stamp.Text = L("Safe")
+		stamp.TextTransparency = 0
+		if stampStroke then
+			stampStroke.Transparency = 0
+		end
+		stamp.Visible = true
+		Theme.popIn(stamp)
+		flash.BackgroundTransparency = 0.45
+		flash.Visible = true
+		TweenService:Create(flash, TweenInfo.new(0.12), { BackgroundTransparency = 1 }):Play()
+		task.delay(0.85, function()
+			if serial == mine then
+				TweenService:Create(stamp, TweenInfo.new(0.35), { TextTransparency = 1 }):Play()
+				if stampStroke then
+					TweenService:Create(stampStroke, TweenInfo.new(0.35), { Transparency = 1 }):Play()
+				end
+			end
+		end)
+		task.delay(1.2, function()
+			if serial == mine then
+				stamp.Visible = false
+				flash.Visible = false
+			end
+		end)
+	end
+end
 
 ---------------------------------------------------------------------
 -- ANIMAÇÃO DE CHOCAR: ovo treme, racha, flash e o bichinho aparece com confete
@@ -2248,6 +2343,13 @@ local function playHatch(entry)
 	end
 	local flash = create("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0, ZIndex = 46, Parent = hatchLayer })
 	TweenService:Create(flash, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
+	-- v67: soco de zoom na revelação (Raro/Épico pouco, Lendário+ forte)
+	local revealIndex = Config.RarityIndex[def.Rarity] or 1
+	if revealIndex >= Config.RarityIndex.Legendary then
+		juice.Punch(52)
+	elseif revealIndex >= Config.RarityIndex.Rare then
+		juice.Punch(60)
+	end
 	task.delay(0.55, function()
 		flash:Destroy()
 	end)
@@ -2362,6 +2464,15 @@ net.OnClientEvent:Connect(function(kind, a, b)
 		sfx("Delivered")
 		sfx("Coin")
 		coinBurst(14, Color3.fromRGB(255, 220, 80))
+		juice.Stamp() -- (v67) carimbo SALVO!
+	elseif kind == "CloseCall" and type(a) == "number" then
+		-- v67: o guardião quase pegou e você cruzou a SAFE = prêmio extra (o servidor calcula)
+		showBanner(L("CloseCall"):format(Format.Money(a)), Color3.fromRGB(255, 150, 70))
+		for k = 0, 2 do
+			task.delay(0.2 + k * 0.12, function()
+				sfx("Coin", 1.1 + k * 0.15)
+			end)
+		end
 	elseif kind == "Sold" and type(a) == "number" then
 		floatText("+" .. Format.Money(a), GREEN_TEXT)
 		coinBurst(math.clamp(math.floor(math.log10(math.max(a, 10)) * 5), 8, 30))
@@ -2379,7 +2490,7 @@ net.OnClientEvent:Connect(function(kind, a, b)
 	elseif kind == "Hatched" and type(a) == "table" then
 		windows.Eggs.Visible = false
 		-- espera o ovo rachar e explodir na base antes de mostrar o card do bichinho
-		task.delay(1.15, function()
+		task.delay(Config.HatchTime + 0.05, function()
 			queueHatch(a)
 		end)
 		-- v67: o Diário abre sozinho 4 s depois do 1º ovo chocado da sessão (novato: nada abre antes disso),
@@ -3309,6 +3420,156 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 end)
 
+---------------------------------------------------------------------
+-- v67 OVO CHOCANDO NA BASE (só na tela de quem está a menos de 150 studs): o servidor só marca o ovo
+-- (tag "Hatching" + HatchAt/HatchColor/HatchBig) e AQUI ele treme, cresce, brilha, racha (3 estalos), explode
+-- em luz e solta cascas. Antes o servidor fazia isso a cada frame e o "Chocar todos" engasgava o jogo de todos.
+-- Celular: no máximo 4 luzes e 32 cascas ao mesmo tempo; o laço só fica ligado enquanto tem ovo chocando.
+---------------------------------------------------------------------
+do
+	local FAR = 150
+	local SHELL_SIZE = Vector3.new(0.9, 0.25, 0.9)
+	local hatching: { [Model]: any } = {}
+	local count = { Lights = 0, Shells = 0, Crack = 0 }
+	local loop: RBXScriptConnection? = nil
+
+	local function crack(position: Vector3)
+		local now = os.clock()
+		if now - count.Crack > 0.07 then -- (vários ovos juntos: no máximo 1 estalo a cada 0,07 s)
+			count.Crack = now
+			sfxAt("Crack", position)
+		end
+	end
+
+	-- fim do tremor: o ovo some na SUA tela (o servidor apaga logo depois), luz + estrelinhas + cascas voando
+	local function finish(model: Model, info, p: number)
+		hatching[model] = nil
+		if info.Light then
+			info.Light:Destroy()
+			count.Lights -= 1
+		end
+		if not info.Started and p < 0 then
+			return
+		end
+		for _, item in model:GetDescendants() do
+			if item:IsA("BasePart") then
+				item.LocalTransparencyModifier = 1
+			end
+		end
+		local position = info.Start.Position
+		sfxAt("Pop", position)
+		if info.Big then
+			sfxAt("Delivered", position)
+		end
+		local ball = create("Part", { Name = "HatchBurst", Shape = Enum.PartType.Ball, Size = Vector3.new(2, 2, 2), CFrame = CFrame.new(position), Color = info.Color,
+			Material = Enum.Material.Neon, Transparency = 0.2, Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false, Parent = workspace })
+		local emitter = create("ParticleEmitter", {
+			Texture = "rbxasset://textures/particles/sparkles_main.dds", Color = ColorSequence.new(info.Color, Color3.new(1, 1, 1)), LightEmission = 1,
+			Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.4), NumberSequenceKeypoint.new(1, 0) }), Lifetime = NumberRange.new(0.6, 1.2),
+			Speed = NumberRange.new(14, 26), SpreadAngle = Vector2.new(180, 180), Acceleration = Vector3.new(0, -25, 0), Rate = 0, Parent = ball,
+		})
+		emitter:Emit(if info.Big then 90 else 45)
+		TweenService:Create(ball, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(14, 14, 14), Transparency = 1 }):Play()
+		task.delay(1.5, function()
+			ball:Destroy()
+		end)
+		if count.Shells + 8 > 32 then
+			return -- ("Chocar todos": só os primeiros ovos soltam cascas)
+		end
+		count.Shells += 8
+		local pieces = table.create(8)
+		for k = 1, 8 do
+			local shell = create("Part", { Name = "Shell", Size = SHELL_SIZE, Color = info.ShellColor, Material = Enum.Material.SmoothPlastic, CanCollide = false, CanQuery = false,
+				CanTouch = false, CastShadow = false, CFrame = CFrame.new(position) * CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6), Parent = workspace })
+			local a = (k / 8) * math.pi * 2
+			shell.AssemblyLinearVelocity = Vector3.new(math.cos(a) * 14, 22 + math.random() * 8, math.sin(a) * 14)
+			shell.AssemblyAngularVelocity = Vector3.new(math.random() * 10, math.random() * 10, math.random() * 10)
+			pieces[k] = shell
+		end
+		task.delay(1.6, function()
+			for _, shell in pieces do
+				shell:Destroy()
+			end
+			count.Shells -= 8
+		end)
+	end
+
+	local function step()
+		local now = workspace:GetServerTimeNow()
+		for model, info in hatching do
+			local p = (now - info.At) / Config.HatchTime
+			if not model.Parent or p >= 1 then
+				finish(model, info, p)
+			elseif p >= 0 then -- (antes disso o ovo espera a vez dele no "Chocar todos")
+				if not info.Started then
+					info.Started = true
+					local root = model.PrimaryPart
+					if root and count.Lights < 4 then
+						count.Lights += 1
+						info.Light = create("PointLight", { Color = info.Color, Range = 4, Brightness = 0, Parent = root })
+					end
+				end
+				if p >= info.NextCrack then
+					info.NextCrack += 1 / 3
+					crack(info.Start.Position)
+				end
+				local power = 4 + p * 22 -- treme cada vez mais forte
+				local angle = math.sin(p * 60) * power
+				model:PivotTo(info.Start * CFrame.new(0, math.abs(math.sin(p * 30)) * 0.4 * p, 0) * CFrame.Angles(math.rad(angle * 0.4), 0, math.rad(angle)))
+				-- cresce 1 -> 1,25 (ScaleTo mexe em todas as peças: só a cada +0,02)
+				local grow = 1 + p * 0.25
+				if grow - info.Scale >= 0.02 then
+					info.Scale = grow
+					pcall(model.ScaleTo, model, grow)
+				end
+				if info.Light then
+					info.Light.Range = 4 + p * 14
+					info.Light.Brightness = p * 4
+				end
+			end
+		end
+		if next(hatching) == nil and loop then
+			loop:Disconnect()
+			loop = nil
+		end
+	end
+
+	local function begin(model: Instance)
+		if not model:IsA("Model") or hatching[model] then
+			return
+		end
+		local now = workspace:GetServerTimeNow()
+		local at = model:GetAttribute("HatchAt")
+		if typeof(at) ~= "number" then
+			at = now
+		end
+		local camera = workspace.CurrentCamera
+		local pivot = model:GetPivot()
+		if now - at >= Config.HatchTime or not camera or (pivot.Position - camera.CFrame.Position).Magnitude > FAR then
+			return -- longe ou já acabou: ninguém vê
+		end
+		local color = model:GetAttribute("HatchColor")
+		local shellColor = Color3.new(1, 1, 1)
+		for _, item in model:GetDescendants() do
+			if item:IsA("BasePart") and item.Transparency < 1 then
+				shellColor = item.Color
+				break
+			end
+		end
+		hatching[model] = {
+			At = at, Start = pivot, Scale = 1, NextCrack = 0, Started = false, Light = nil :: PointLight?, ShellColor = shellColor,
+			Color = if typeof(color) == "Color3" then color else Color3.new(1, 1, 1), Big = model:GetAttribute("HatchBig") == true,
+		}
+		if not loop then
+			loop = RunService.RenderStepped:Connect(step)
+		end
+	end
+	CollectionService:GetInstanceAddedSignal("Hatching"):Connect(begin)
+	for _, model in CollectionService:GetTagged("Hatching") do
+		begin(model)
+	end
+end
+
 RunService.Stepped:Connect(function()
 	local now = os.clock()
 	for model, start in swinging do
@@ -3752,6 +4013,89 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 	-- (a janela Eggs se atualiza sozinha quando o atributo Slots muda: ver refreshEggs)
 end)
+
+---------------------------------------------------------------------
+-- v67 PERSEGUIÇÃO: carregando ovo e o guardião da SUA zona a menos de 30 studs de te pegar = coração batendo
+-- (o som Step bem grave, mais rápido abaixo de 12 studs) e borda vermelha na tela (mais forte quanto mais perto).
+-- Sem imagens: 4 faixas com gradiente, criadas 1 vez. Sem ovo nas mãos o laço sai na 1ª linha.
+---------------------------------------------------------------------
+do
+	local RANGE, CLOSE = 30, 12
+	local edges = {}
+	for _, side in {
+		{ UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.2), 90 }, -- cima (gradiente de cima para baixo)
+		{ UDim2.fromScale(0, 0.8), UDim2.fromScale(1, 0.2), -90 }, -- baixo
+		{ UDim2.fromScale(0, 0), UDim2.fromScale(0.14, 1), 0 }, -- esquerda
+		{ UDim2.fromScale(0.86, 0), UDim2.fromScale(0.14, 1), 180 }, -- direita
+	} do
+		table.insert(edges, create("Frame", {
+			Position = side[1], Size = side[2], BackgroundColor3 = Color3.fromRGB(255, 25, 40), BackgroundTransparency = 1, BorderSizePixel = 0,
+			Visible = false, Active = false, ZIndex = 0, Parent = gui,
+		}, { create("UIGradient", { Rotation = side[3], Transparency = NumberSequence.new(0, 1) }) }))
+	end
+	local chase = { Shown = false, Level = 1, NextBeat = 0, Zone = nil :: number?, Guardian = nil :: Model? }
+	local function show(on: boolean, transparency: number)
+		if on ~= chase.Shown then
+			chase.Shown = on
+			for _, edge in edges do
+				edge.Visible = on
+			end
+		end
+		if on and math.abs(transparency - chase.Level) > 0.01 then
+			chase.Level = transparency
+			for _, edge in edges do
+				edge.BackgroundTransparency = transparency
+			end
+		end
+	end
+	RunService.Heartbeat:Connect(function()
+		local zoneIndex = player:GetAttribute("CarryZone")
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if type(zoneIndex) ~= "number" or not root or not player:GetAttribute("Carrying") then
+			if chase.Shown then
+				show(false, 1)
+			end
+			return
+		end
+		-- acha o guardião da zona do ovo (1 vez por ovo; de novo se ele sumir)
+		local guardian = chase.Guardian
+		if chase.Zone ~= zoneIndex or not guardian or not guardian.Parent then
+			guardian = nil
+			for model in guardianSet do
+				if model:GetAttribute("Zone") == zoneIndex then
+					guardian = model
+					break
+				end
+			end
+			chase.Zone = zoneIndex
+			chase.Guardian = guardian
+		end
+		if not guardian then
+			show(false, 1)
+			return
+		end
+		-- posição que a tela mostra (a animação suave) ou, sem ela, a meta que o servidor mandou
+		local info = guardianState[guardian]
+		local goal = guardian:GetAttribute("Goal")
+		local pos = if info then info.Pos elseif typeof(goal) == "CFrame" then goal.Position else guardian:GetPivot().Position
+		local catchRange = guardian:GetAttribute("CatchRange")
+		local gap = Vector3.new(root.Position.X - pos.X, 0, root.Position.Z - pos.Z).Magnitude - (if type(catchRange) == "number" then catchRange else 4)
+		if gap >= RANGE or guardian:GetAttribute("Sleeping") then
+			show(false, 1)
+			return
+		end
+		local near = 1 - math.clamp(gap / RANGE, 0, 1) -- 0 = longe ... 1 = encostando
+		show(true, 0.9 - 0.4 * near)
+		local clock = os.clock()
+		if clock >= chase.NextBeat then
+			chase.NextBeat = clock + (if gap < CLOSE then 0.35 else 0.6)
+			-- "tum-tum" (sfx já fica mudo com o Som desligado)
+			sfx("Step", 0.45)
+			task.delay(0.13, sfx, "Step", 0.4)
+		end
+	end)
+end
 
 ---------------------------------------------------------------------
 -- MODO FOTO (só no Studio): P = esconde a tela, Z/X = troca de cena, V = voo de câmera, C = volta ao normal

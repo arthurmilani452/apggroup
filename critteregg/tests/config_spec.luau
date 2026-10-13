@@ -304,6 +304,22 @@ end
 check("calendar milestones point to real boosts and exclusive critters", calendarOk and calendarCritters == 3)
 check("day 28 gives the mark and a Mythic", Config.Calendar[28] ~= nil and Config.Calendar[28].Mark == true and critters[Config.Calendar[28].Critter].Rarity == "Mythic")
 
+-- v67: POR UM TRIZ, sequência de roubos e quando é MOMENTO ÉPICO
+check("close call pays at least MinCash", Config.CloseCallBonus(nil) == Config.CloseCall.MinCash and Config.CloseCallBonus(0) == Config.CloseCall.MinCash)
+check("close call pays Minutes of base income", Config.CloseCallBonus(1000) == math.max(Config.CloseCall.MinCash, 1000 * 60 * Config.CloseCall.Minutes))
+check("close call needs you past the guardian's Z clamp (6)", Config.CloseCall.MinZ > 6 and Config.CloseCall.Window > 0 and Config.CloseCall.Margin > 0)
+check("close call is smaller than a streak prize", Config.CloseCall.Minutes < Config.StealStreak.Minutes and Config.CloseCall.MinCash < Config.StealStreak.MinCash)
+local every = Config.StealStreak.Every
+check("streak prize on each multiple of Every", Config.StreakBonusDue(every - 1, every) and Config.StreakBonusDue(2 * every - 1, 2 * every)
+	and not Config.StreakBonusDue(0, 1) and not Config.StreakBonusDue(every, every + 1))
+check("streak +2 (close call) never skips the prize", Config.StreakBonusDue(every - 1, every + 1) and Config.StreakBonusDue(every - 2, every)
+	and not Config.StreakBonusDue(every + 1, every + 3) and not Config.StreakBonusDue(3, 3))
+check("epic: Mythic+, GIANT, Rainbow or golden/pumpkin", Config.EpicEgg("Mythic") and Config.EpicEgg("Celestial") and Config.EpicEgg("Common", 4)
+	and Config.EpicEgg("Common", 1, "Rainbow") and Config.EpicEgg("Rare", 1, "Gold", true))
+check("epic: not for Legendary, HUGE or Gold", not Config.EpicEgg("Legendary") and not Config.EpicEgg("Epic", 2.5) and not Config.EpicEgg("Rare", 1, "Gold")
+	and not Config.EpicEgg("Common", nil, nil, false))
+check("epic cooldown and hatch time are sane", Config.EpicCooldown >= 10 and Config.HatchTime > 0.5 and Config.HatchTime < 2)
+
 if failed > 0 then
 	error(("%d test(s) failed"):format(failed))
 end
