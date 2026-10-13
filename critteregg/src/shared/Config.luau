@@ -38,10 +38,12 @@ for index, rarity in Config.Rarities do
 end
 
 -- mutação: Chance em %, Income = multiplicador (mutações diferentes somam: 1 + soma(mult - 1))
+-- Chance = 0: só aparece em evento (ex.: Spooky no Halloween, ver Config.Halloween)
 Config.Mutations = {
 	{ Name = "Gold", Chance = 4, Income = 2, Price = 2, Color = Color3.fromRGB(255, 205, 60) },
 	{ Name = "Diamond", Chance = 1.5, Income = 4, Price = 4, Color = Color3.fromRGB(150, 235, 255) },
 	{ Name = "Rainbow", Chance = 0.5, Income = 10, Price = 10, Color = Color3.fromRGB(255, 120, 220) },
+	{ Name = "Spooky", Chance = 0, Income = 3, Price = 3, Color = Color3.fromRGB(255, 130, 40) },
 }
 Config.MutationByName = {}
 for _, mutation in Config.Mutations do
@@ -64,7 +66,10 @@ Config.Map = {
 	NaturalTerrain = false, -- true = cânion de terreno natural; false = paredes e chão de bloquinhos com pininhos
 }
 
--- ZONAS (ordem do prompt: 12 pistas). Speed = velocidade recomendada (placa vermelha/verde);
+-- ZONAS (12 pistas). Speed = velocidade recomendada (placa vermelha/verde);
+--   v65: nomes e números NOSSOS. Antes eram iguais aos do Steal an Egg (Forest/Lake 900/Desert 10K/...):
+--   mecânica parecida tudo bem, mas nome + número idênticos dão risco de denúncia por cópia.
+--   A curva é a mesma de antes, uns 11% mais baixa (começo um pouco mais fácil para as crianças).
 --   MinSpeed = com essa velocidade e um ovo normal o guardião corre igual a você (escapa por pouco).
 --   Pool = de onde saem os bichinhos (World do Critters.luau); Rarities = raridades que aparecem aqui.
 --   Mult = quanto os bichinhos desta zona rendem (a renda NÃO usa o Income do Critters: cada zona tem a sua escala).
@@ -73,51 +78,51 @@ local rgb = Color3.fromRGB
 local ORANGE_WALL = { rgb(214, 120, 64), rgb(190, 100, 52) }
 local GRASS_TOP = rgb(80, 200, 60)
 Config.Zones = {
-	{ Id = "forest", Name = "Forest", Speed = 0, MinSpeed = 3, Mult = 1, Pool = { "meadow" }, Rarities = { "Common", "Uncommon", "Rare", "Epic", "Legendary",  "Mythic", "Secret", "Divine", "Celestial" },
+	{ Id = "forest", Name = "Sprout Woods", Speed = 0, MinSpeed = 3, Mult = 1, Pool = { "meadow" }, Rarities = { "Common", "Uncommon", "Rare", "Epic", "Legendary",  "Mythic", "Secret", "Divine", "Celestial" },
 		Guardian = "chirpy", Height = 19, Emoji = "\u{1F332}", Sky = rgb(150, 210, 255),
 		Floor = { rgb(96, 200, 60), rgb(84, 180, 52) }, Wall = ORANGE_WALL, Top = GRASS_TOP, Props = "forest",
 		Egg = { Style = "grass", Color = rgb(245, 235, 210), Accent = rgb(140, 215, 110) } },
-	{ Id = "lake", Name = "Lake", Speed = 900, MinSpeed = 1_200, Mult = 12, Pool = { "hybrid" }, Rarities = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic" },
+	{ Id = "lake", Name = "Puddle Pond", Speed = 800, MinSpeed = 1_050, Mult = 12, Pool = { "hybrid" }, Rarities = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic" },
 		Guardian = "shellbo", Height = 22, Emoji = "\u{1F9A2}", Sky = rgb(140, 205, 255),
 		Floor = { rgb(96, 200, 60), rgb(84, 180, 52) }, Wall = ORANGE_WALL, Top = GRASS_TOP, Props = "lake",
 		Egg = { Style = "spotted", Color = rgb(170, 220, 255), Accent = rgb(255, 255, 255) } },
-	{ Id = "desert", Name = "Desert", Speed = 10_000, MinSpeed = 9_500, Mult = 150, Pool = { "pirate" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret" },
+	{ Id = "desert", Name = "Sunny Sands", Speed = 9_000, MinSpeed = 8_500, Mult = 150, Pool = { "pirate" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret" },
 		Guardian = "crabbybeard", Height = 16, Emoji = "\u{1F3DC}\u{FE0F}", Sky = rgb(255, 225, 170),
 		Floor = { rgb(236, 205, 130), rgb(222, 190, 115) }, Wall = { rgb(225, 170, 105), rgb(205, 150, 90) }, Top = rgb(240, 215, 140), Props = "desert",
 		Egg = { Style = "spotted", Color = rgb(240, 210, 140), Accent = rgb(180, 120, 60) } },
-	{ Id = "jungle", Name = "Jungle", Speed = 40_000, MinSpeed = 35_000, Mult = 1_500, Pool = { "dino" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret" },
+	{ Id = "jungle", Name = "Wild Vines", Speed = 36_000, MinSpeed = 31_000, Mult = 1_500, Pool = { "dino" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret" },
 		Guardian = "raptorik", Height = 19, Emoji = "\u{1F334}", Sky = rgb(170, 230, 170),
 		Floor = { rgb(60, 150, 50), rgb(50, 130, 42) }, Wall = { rgb(110, 120, 60), rgb(90, 100, 50) }, Top = rgb(40, 140, 40), Props = "jungle",
 		Egg = { Style = "spotted", Color = rgb(150, 200, 90), Accent = rgb(110, 80, 50) } },
-	{ Id = "snow", Name = "Snow", Speed = 170_000, MinSpeed = 160_000, Mult = 15_000, Pool = { "frost" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret" },
+	{ Id = "snow", Name = "Frosty Peaks", Speed = 150_000, MinSpeed = 142_000, Mult = 15_000, Pool = { "frost" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret" },
 		Guardian = "yetimammoth", Height = 27, Emoji = "\u{2744}\u{FE0F}", Sky = rgb(220, 235, 255),
 		Floor = { rgb(240, 245, 255), rgb(225, 230, 245) }, Wall = { rgb(200, 225, 250), rgb(175, 205, 240) }, Top = rgb(255, 255, 255), Props = "snow",
 		Egg = { Style = "crystal", Color = rgb(200, 235, 255), Accent = rgb(255, 255, 255) } },
-	{ Id = "volcano", Name = "Volcano", Speed = 700_000, MinSpeed = 560_000, Mult = 150_000, Pool = { "lava" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret" },
+	{ Id = "volcano", Name = "Lava Land", Speed = 620_000, MinSpeed = 500_000, Mult = 150_000, Pool = { "lava" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret" },
 		Guardian = "volcanoram", Height = 24, Emoji = "\u{1F30B}", Sky = rgb(255, 170, 130),
 		Floor = { rgb(35, 35, 45), rgb(45, 40, 52) }, Wall = { rgb(55, 45, 50), rgb(40, 32, 38) }, Top = rgb(255, 110, 30), Props = "volcano",
 		Egg = { Style = "royal", Color = rgb(255, 120, 50), Accent = rgb(255, 220, 80) } },
-	{ Id = "abyss", Name = "Abyss Ocean", Speed = 2_500_000, MinSpeed = 1_500_000, Mult = 1_500_000, Pool = { "reef" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary",  "Mythic", "Secret", "Divine", "Celestial" },
+	{ Id = "abyss", Name = "Deep Reef", Speed = 2_200_000, MinSpeed = 1_330_000, Mult = 1_500_000, Pool = { "reef" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary",  "Mythic", "Secret", "Divine", "Celestial" },
 		Guardian = "glowmanta", Height = 35, Emoji = "\u{1F30A}", Sky = rgb(90, 150, 230),
 		Floor = { rgb(30, 60, 140), rgb(38, 72, 155) }, Wall = { rgb(25, 40, 95), rgb(20, 32, 80) }, Top = rgb(90, 220, 230), Props = "abyss",
 		Egg = { Style = "crystal", Color = rgb(90, 220, 220), Accent = rgb(255, 180, 230) } },
-	{ Id = "prehistoric", Name = "Prehistoric", Speed = 18_000_000, MinSpeed = 12_500_000, Mult = 20_000_000, Pool = { "candy" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary",  "Mythic", "Secret", "Divine", "Celestial" },
+	{ Id = "prehistoric", Name = "Dino Valley", Speed = 16_000_000, MinSpeed = 11_100_000, Mult = 20_000_000, Pool = { "candy" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary",  "Mythic", "Secret", "Divine", "Celestial" },
 		Guardian = "cupcaketoad", Height = 40, Emoji = "\u{1F996}", Sky = rgb(255, 215, 170),
 		Floor = { rgb(200, 170, 110), rgb(185, 155, 95) }, Wall = { rgb(140, 100, 65), rgb(120, 85, 55) }, Top = rgb(90, 170, 60), Props = "prehistoric",
 		Egg = { Style = "spotted", Color = rgb(255, 180, 220), Accent = rgb(110, 215, 255) } },
-	{ Id = "cosmic", Name = "Cosmic", Speed = 700_000_000, MinSpeed = 275_000_000, Mult = 300_000_000, Pool = { "galaxy" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary",  "Mythic", "Secret", "Divine", "Celestial" },
+	{ Id = "cosmic", Name = "Starry Space", Speed = 620_000_000, MinSpeed = 245_000_000, Mult = 300_000_000, Pool = { "galaxy" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary",  "Mythic", "Secret", "Divine", "Celestial" },
 		Guardian = "cosmodragon", Height = 32, Emoji = "\u{1FA90}", Sky = rgb(120, 90, 200),
 		Floor = { rgb(40, 20, 70), rgb(55, 30, 90) }, Wall = { rgb(50, 28, 85), rgb(38, 20, 68) }, Top = rgb(255, 230, 110), Props = "cosmic",
 		Egg = { Style = "cosmic", Color = rgb(80, 50, 170), Accent = rgb(255, 230, 120) } },
-	{ Id = "cherry", Name = "Cherry Blossom", Speed = 2_500_000_000, MinSpeed = 1_000_000_000, Mult = 4_000_000_000, Pool = { "spooky", "halloween", "night" }, Rarities = { "Common", "Uncommon", "Rare", "Epic", "Legendary" },
+	{ Id = "cherry", Name = "Blossom Grove", Speed = 2_200_000_000, MinSpeed = 890_000_000, Mult = 4_000_000_000, Pool = { "spooky", "halloween", "night" }, Rarities = { "Common", "Uncommon", "Rare", "Epic", "Legendary" },
 		Guardian = "heartcorn", Height = 32, Emoji = "\u{1F338}", Sky = rgb(255, 200, 230),
 		Floor = { rgb(255, 200, 220), rgb(250, 225, 235) }, Wall = { rgb(250, 190, 215), rgb(235, 170, 200) }, Top = rgb(255, 255, 255), Props = "cherry",
 		Egg = { Style = "spotted", Color = rgb(255, 210, 230), Accent = rgb(255, 120, 170) } },
-	{ Id = "titan", Name = "Titan Temple", Speed = 7_000_000_000, MinSpeed = 3_600_000_000, Mult = 50_000_000_000, Pool = { "robot" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary",  "Mythic", "Secret", "Divine", "Celestial" },
+	{ Id = "titan", Name = "Robo Ruins", Speed = 6_200_000_000, MinSpeed = 3_200_000_000, Mult = 50_000_000_000, Pool = { "robot" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary",  "Mythic", "Secret", "Divine", "Celestial" },
 		Guardian = "megamech", Height = 46, Emoji = "\u{1F5FF}", Sky = rgb(170, 200, 160),
 		Floor = { rgb(90, 110, 80), rgb(78, 96, 70) }, Wall = { rgb(80, 85, 75), rgb(65, 70, 62) }, Top = rgb(60, 140, 60), Props = "titan",
 		Egg = { Style = "royal", Color = rgb(150, 160, 140), Accent = rgb(255, 210, 80) } },
-	{ Id = "heaven", Name = "Angels & Heroes", Speed = 20_000_000_000, MinSpeed = 7_700_000_000, Mult = 700_000_000_000, Pool = { "hero" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary", "Mythic" },
+	{ Id = "heaven", Name = "Hero Heights", Speed = 18_000_000_000, MinSpeed = 6_850_000_000, Mult = 700_000_000_000, Pool = { "hero" }, Rarities = { "Uncommon", "Rare", "Epic", "Legendary", "Mythic" },
 		Guardian = "sunwing", Height = 34, Emoji = "\u{1F607}", Sky = rgb(255, 245, 210),
 		Floor = { rgb(250, 248, 240), rgb(235, 230, 215) }, Wall = { rgb(255, 245, 225), rgb(240, 225, 190) }, Top = rgb(255, 210, 80), Props = "heaven",
 		Egg = { Style = "royal", Color = rgb(255, 250, 235), Accent = rgb(255, 210, 80) } },
@@ -134,9 +139,11 @@ Config.IndexSpeed = { Common = 120, Uncommon = 260, Rare = 420, Epic = 720, Lege
 Config.NestsPerZone = 5
 Config.NestRefill = 45 -- ninho roubado ganha ovo novo depois disso (além do reset de 5 min)
 Config.Cycle = 300 -- segundos (alinhado ao relógio UTC: todos os servidores juntos)
-Config.Night = 10 -- últimos segundos do ciclo: noite (todo mundo volta para casa, ovos crescem x30)
-Config.NightGrowth = 30
+Config.Night = 10 -- últimos segundos do ciclo: noite (todo mundo volta para casa, ovos crescem x25)
+Config.NightGrowth = 25
 Config.StealHold = 0.6
+-- ninguém segura um ovo mais que isso (segundos): ele volta para o ninho (anti-trapaça e anti-"ovo refém")
+Config.MaxCarrySeconds = 180
 
 -- tamanho do ovo: normal quase sempre; às vezes Grande/Enorme/Gigante (rende mais, demora mais, pesa mais)
 function Config.RollScale(rng: Random): number
@@ -257,13 +264,13 @@ Config.TreadmillUnlockPen = 1 -- a esteira fica trancada (holograma) até compra
 
 -- TRILHAS (Trails Shop): multiplicam a velocidade ganha na esteira e deixam um rastro colorido atrás de você
 Config.Trails = {
-	{ Id = "grey", Name = "Grey Trail", Mult = 1.5, Cost = 5_000, Color = rgb(190, 190, 200) },
+	{ Id = "grey", Name = "Pebble Trail", Mult = 1.5, Cost = 5_000, Color = rgb(190, 190, 200) },
 	{ Id = "green", Name = "Leafy Trail", Mult = 2, Cost = 150_000, Color = rgb(90, 230, 90) },
 	{ Id = "blue", Name = "Ocean Trail", Mult = 3, Cost = 8_000_000, Color = rgb(60, 150, 255) },
 	{ Id = "purple", Name = "Galaxy Trail", Mult = 5, Cost = 900_000_000, Color = rgb(170, 90, 255) },
 	{ Id = "gold", Name = "Golden Trail", Mult = 8, Cost = 120_000_000_000, Color = rgb(255, 205, 50) },
 	{ Id = "rainbow", Name = "Rainbow Trail", Mult = 11, Cost = 20_000_000_000_000, Color = rgb(255, 110, 200) },
-	{ Id = "divine", Name = "Divine Trail", Mult = 14, Cost = 4_000_000_000_000_000, Color = rgb(255, 245, 190) },
+	{ Id = "divine", Name = "Starlight Trail", Mult = 15, Cost = 4_000_000_000_000_000, Color = rgb(255, 245, 190) },
 }
 Config.TrailById = {}
 for _, trail in Config.Trails do
@@ -304,7 +311,9 @@ Config.PenLevels[1].Cost = 250
 -- o PRIMEIRO ovo roubado choca rapidinho (segundos)
 Config.FirstEggSeconds = 5
 
--- PRESENTES POR TEMPO JOGADO (zeram a cada vez que entra). Cash = minutos da sua renda (mínimo MinCash).
+-- PRESENTES POR TEMPO JOGADO. Cash = minutos da sua renda (mínimo MinCash).
+-- O tempo jogado fica salvo: sair e voltar NÃO zera (antes dava para farmar). Zera depois de GiftResetHours fora.
+Config.GiftResetHours = 3
 Config.Gifts = {
 	{ Minutes = 1, Cash = 2, MinCash = 150, Speed = 100 },
 	{ Minutes = 3, Cash = 3, MinCash = 400, Speed = 250 },
@@ -378,29 +387,35 @@ for z, zone in Config.Zones do
 end
 Config.Bats[0].Color = Color3.fromRGB(170, 120, 70)
 
--- ARMADILHA DE URSO: até 3 no mapa, não pode na SAFE ZONE, só pega quem está carregando ovo (fica preso e larga o ovo)
-Config.Trap = { Max = 3, Stun = 5, Life = 180, Radius = 3.2 }
+-- ARMADILHA DE URSO: até 3 por jogador, não pode na SAFE ZONE nem a menos de MinZ studs dela, só pega quem está carregando ovo
+-- v65: Stun 5 -> 3 s (para criança 5 s parada é muito) e MinZ: nada de armadilha colada na SAFE ZONE
+Config.Trap = { Max = 3, Stun = 3, Life = 180, Radius = 3.2, MinZ = 30 }
 -- ovo largado no chão: some e volta para o ninho depois disso
 Config.LooseEggSeconds = 20
 
 ---------------------------------------------------------------------
 -- ROBUX. Crie os passes/produtos no Creator Hub e cole o número (Id) de cada um aqui.
 -- Id = 0: o botão aparece mas avisa que ainda não foi configurado.
+-- IMPORTANTE (regras da Roblox, 2026):
+--   • Use passes/produtos criados NESTE jogo. Desde 30/05/2026 a Roblox não vende mais itens de OUTRO jogo.
+--   • NADA pago pode dar prêmio sorteado (ovo aleatório etc.): seria "paid random item" (precisa mostrar as
+--     chances + PolicyService) e no Brasil (ECA Digital) é proibido para menores de 18. Por isso o "Lucky Egg"
+--     saiu e o Starter Pack não tem mais ovo sorteado. Se criar algo novo, que o jogador SAIBA o que vai ganhar.
 ---------------------------------------------------------------------
 Config.Passes = {
 	{ Key = "Money2", Id = 2001800303, Price = 399, Name = "2x Cash", Icon = "\u{1F4B5}", Desc = "Double cash from every critter, forever!", Color = rgb(70, 190, 70) },
-	{ Key = "Grow2", Id = 0, Price = 467, Name = "X2 GROWTH SPEED!", Icon = "\u{1F95A}", Desc = "Eggs grow 2x faster forever", Color = rgb(255, 180, 40) },
+	{ Key = "Grow2", Id = 0, Price = 299, Name = "2x Hatch Speed", Icon = "\u{1F95A}", Desc = "Eggs grow 2x faster forever", Color = rgb(255, 180, 40) },
 	{ Key = "VIP", Id = 2002610263, Price = 349, Name = "VIP", Icon = "\u{1F451}", Desc = "+20% cash, 2x daily reward, VIP tag and chat tag!", Color = rgb(255, 210, 60) },
 }
 Config.Products = {
-	{ Key = "Speed1", Id = 3718379687, Price = 35, Name = "+10K Speed", Icon = "\u{1F45F}", Speed = 10_000, Color = rgb(255, 80, 140) },
-	{ Key = "Speed2", Id = 3718379999, Price = 99, Name = "+150K Speed", Icon = "\u{1F45F}", Speed = 150_000, Color = rgb(255, 80, 140) },
-	{ Key = "Speed3", Id = 3718380159, Price = 279, Name = "+2M Speed", Icon = "\u{1F45F}", Speed = 2_000_000, Color = rgb(255, 80, 140) },
-	{ Key = "Speed4", Id = 0, Price = 799, Name = "+50M Speed", Icon = "\u{1F45F}", Speed = 50_000_000, Color = rgb(255, 80, 140) },
-	{ Key = "GrowAll", Id = 3715364797, Price = 29, Name = "Instant Hatch", Icon = "\u{23E9}", Desc = "All your eggs hatch right now!", Color = rgb(255, 200, 60) },
+	{ Key = "Speed1", Id = 3718379687, Price = 35, Name = "+10K Speed", Icon = "\u{1F45F}", Desc = "Instant! (resets on Rebirth)", Speed = 10_000, Color = rgb(255, 80, 140) },
+	{ Key = "Speed2", Id = 3718379999, Price = 99, Name = "+175K Speed", Icon = "\u{1F45F}", Desc = "Instant! (resets on Rebirth)", Speed = 175_000, Color = rgb(255, 80, 140) },
+	{ Key = "Speed3", Id = 3718380159, Price = 279, Name = "+2M Speed", Icon = "\u{1F45F}", Desc = "Instant! (resets on Rebirth)", Speed = 2_000_000, Color = rgb(255, 80, 140) },
+	{ Key = "Speed4", Id = 0, Price = 799, Name = "+50M Speed", Icon = "\u{1F45F}", Desc = "Instant! (resets on Rebirth)", Speed = 50_000_000, Color = rgb(255, 80, 140) },
+	{ Key = "GrowAll", Id = 3715364797, Price = 29, Name = "Hatch All Now", Icon = "\u{23E9}", Desc = "All your eggs hatch right now!", Color = rgb(255, 200, 60) },
 	{ Key = "Cash", Id = 0, Price = 79, Name = "Cash Pack", Icon = "\u{1F4B0}", Desc = "1 hour of your income (min $50K)", Color = rgb(90, 220, 80) },
-	{ Key = "LuckyEgg", Id = 0, Price = 99, Name = "Lucky Egg", Icon = "\u{1F340}", Desc = "A ready egg: Epic or better!", Color = rgb(150, 90, 240) },
-	{ Key = "Starter", Id = 3715364696, Price = 99, Name = "Starter Pack", Icon = "\u{1F381}", Desc = "$50K cash + Royal Egg + 2x Cash for 15 min. One time only!", OneTime = true, Color = rgb(255, 120, 40) },
+	-- Starter Pack: só coisas CERTAS (nada sorteado). Ver o comentário de "Robux" acima.
+	{ Key = "Starter", Id = 3715364696, Price = 99, Name = "Starter Pack", Icon = "\u{1F381}", Desc = "$50K + 25K Speed + 2x Cash for 30 min. One time only!", OneTime = true, Cash = 50_000, Speed = 25_000, BoostMinutes = 30, Color = rgb(255, 120, 40) },
 }
 table.insert(Config.Products, { Key = "Money2Boost", Id = 3715364714, Price = 49, Name = "2x Cash Boost", Icon = "\u{1F4B5}", Desc = "2x cash for 30 minutes!", Color = rgb(90, 220, 80) })
 Config.VIPCash = 0.2 -- VIP: +20% de dinheiro
@@ -409,7 +424,7 @@ for _, info in Config.Passes do
 	Config.PassByKey[info.Key] = info
 end
 -- ofertas na hora certa (no máximo uma a cada OfferCooldown segundos)
-Config.OfferCooldown = 240
+Config.OfferCooldown = 600 -- 10 min (criança: nada de oferta toda hora)
 Config.ProductByKey = {}
 for _, info in Config.Products do
 	Config.ProductByKey[info.Key] = info
@@ -440,7 +455,7 @@ end
 -- ganho offline: os bichinhos rendem uma parte enquanto você está fora (até OfflineMaxHours)
 Config.OfflineRate = 0.15
 Config.OfflineMaxHours = 12
--- amigos no mesmo servidor: +10% de dinheiro cada (máx. +40%)
+-- amigos no mesmo servidor: +25% de dinheiro cada (máx. +100%)
 Config.FriendBoost = 0.25 -- +25% de dinheiro por amigo no servidor
 Config.FriendBoostMax = 1 -- até +100%
 Config.FriendEggSeconds = 120 -- jogar 2 min com amigo = ovo da amizade (1 por dia)
@@ -460,6 +475,63 @@ end
 Config.LuckyEvery = 30 * 60
 Config.LuckyLength = 3 * 60
 Config.LuckyMult = 3
+
+---------------------------------------------------------------------
+-- v65: ATUALIZAÇÃO DA SEMANA + FESTÃO (UPDATE PARTY)
+-- Escolha um dia e hora fixos e solte as atualizações SEMPRE nesse horário. A tela mostra a contagem
+-- ("UPDATE in 2d 5h") e, na hora, começa o FESTÃO sozinho em todos os servidores (você não precisa estar
+-- online): ovos raros x PartyLuck nos ninhos, ovo dourado a cada PartyGoldenEvery segundos e ovos
+-- crescendo x PartyGrowth no cercado, por PartyMinutes minutos.
+---------------------------------------------------------------------
+Config.Update = {
+	WeekDay = 7, -- 1 = domingo, 2 = segunda ... 7 = sábado
+	HourBR = 14, -- hora de Brasília (UTC-3)
+	Minute = 0,
+	PartyMinutes = 30,
+	PartyLuck = 5,
+	PartyGrowth = 2,
+	PartyGoldenEvery = 180,
+}
+
+-- devolve início e fim do Festão de agora (se está acontecendo) ou do próximo (t = segundos UTC)
+function Config.PartyWindow(t: number): (number, number)
+	local u = Config.Update
+	local length = u.PartyMinutes * 60
+	local week = 7 * 86400
+	local day = t // 86400
+	local sunday = (day - (day + 4) % 7) * 86400 -- 1/1/1970 foi quinta-feira
+	local start = sunday + (u.WeekDay - 1) * 86400 + (u.HourBR + 3) * 3600 + u.Minute * 60 - week
+	while start + length <= t do
+		start += week
+	end
+	return start, start + length
+end
+
+---------------------------------------------------------------------
+-- v65: EVENTO DE HALLOWEEN (de From até To, segundos UTC; 0h de Brasília)
+--   • Ovo de Abóbora a cada PumpkinEvery segundos numa zona que dá para alcançar (bichinhos de Halloween)
+--   • Mutação Spooky (x3) nos ninhos: SpookyChance % de chance
+--   • DOCES: cada ovo roubado = CandyPerEgg, Ovo de Abóbora = CandyPerPumpkin. A Loja de Doces troca doces
+--     por bichinhos exclusivos (sempre o mesmo bichinho: nada sorteado)
+--   • Abóboras decorando o hub
+-- No Studio, TestInStudio = true liga o evento antes da data (para testar).
+---------------------------------------------------------------------
+Config.Halloween = {
+	From = 1792206000, -- 17/10/2026 00:00 (Brasília)
+	To = 1793674800, -- 03/11/2026 00:00 (Brasília)
+	TestInStudio = true,
+	PumpkinEvery = 240,
+	SpookyChance = 4,
+	CandyPerEgg = 1,
+	CandyPerPumpkin = 5,
+	-- Loja de Doces: Critter = Id do bichinho (Critters.luau), Mut = mutação garantida (opcional)
+	Shop = {
+		{ Critter = "pumpkinopinguino", Cost = 15 },
+		{ Critter = "pumpkat", Cost = 40 },
+		{ Critter = "batwing", Cost = 120 },
+		{ Critter = "vampiropepperoni", Mut = "Spooky", Cost = 300 },
+	},
+}
 
 -- MISSÕES DO DIA (zeram todo dia UTC). Cash = minutos da sua renda (mínimo MinCash)
 Config.Quests = {

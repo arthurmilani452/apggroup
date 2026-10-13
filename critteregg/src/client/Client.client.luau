@@ -134,6 +134,42 @@ local function decode(attribute: string, default)
 	return if ok then value else default
 end
 
+-- PREÇO DE VERDADE (v65): com o Regional Pricing a Roblox pode cobrar outro preço em cada país.
+-- Pergunta à Roblox uma vez por item e guarda; até responder, mostra o Price do Config.
+local MarketplaceService = game:GetService("MarketplaceService")
+local livePrice: { [number]: number } = {}
+local askedPrice: { [number]: boolean } = {}
+local function robuxPrice(info): number
+	local id = info.Id
+	if type(id) ~= "number" or id <= 0 then
+		return info.Price or 0
+	end
+	if livePrice[id] then
+		return livePrice[id]
+	end
+	if not askedPrice[id] then
+		askedPrice[id] = true
+		local isPass = Config.PassByKey[info.Key] == info
+		task.spawn(function()
+			local ok, result = pcall(function()
+				return MarketplaceService:GetProductInfoAsync(id, if isPass then Enum.InfoType.GamePass else Enum.InfoType.Product)
+			end)
+			if ok and type(result) == "table" and type(result.PriceInRobux) == "number" then
+				livePrice[id] = result.PriceInRobux
+			end
+		end)
+	end
+	return info.Price or 0
+end
+task.defer(function()
+	for _, info in Config.Passes do
+		robuxPrice(info)
+	end
+	for _, info in Config.Products do
+		robuxPrice(info)
+	end
+end)
+
 local gui = create("ScreenGui", {
 	Name = "HUD",
 	ResetOnSpawn = false,
@@ -191,6 +227,29 @@ do
 				weeklyText.Text = ("%s x%d! %dd %dh"):format(def.Name, Config.WeeklyMult, math.floor(left / 86400), math.floor(left % 86400 / 3600))
 			end
 			task.wait(30)
+		end
+	end)
+end
+-- FESTÃO / ATUALIZAÇÃO DA SEMANA (v65): "UPDATE in 2d 5h" e, na hora, "PARTY x5! 23:10"
+do
+	text({ Size = UDim2.fromOffset(52, 50), Position = UDim2.fromOffset(0, -186), Text = "\u{1F389}", Stroke = 0, Parent = clocks })
+	local partyText = text({ Size = UDim2.new(1, -60, 0, 50), Position = UDim2.fromOffset(58, -186), Text = "", TextXAlignment = Enum.TextXAlignment.Left, Stroke = 4, Parent = clocks })
+	task.spawn(function()
+		while true do
+			local t = workspace:GetServerTimeNow()
+			local start, finish = Config.PartyWindow(math.floor(t))
+			if t >= start then
+				local left = math.max(0, finish - t)
+				partyText.Text = ("PARTY x%d! %d:%02d"):format(Config.Update.PartyLuck, math.floor(left / 60), math.floor(left % 60))
+				partyText.TextColor3 = Color3.fromRGB(255, 200, 80)
+			else
+				local left = start - t
+				partyText.Text = if left >= 86400 then ("UPDATE in %dd %dh"):format(math.floor(left / 86400), math.floor(left % 86400 / 3600))
+					elseif left >= 3600 then ("UPDATE in %dh %dm"):format(math.floor(left / 3600), math.floor(left % 3600 / 60))
+					else ("UPDATE in %d:%02d"):format(math.floor(left / 60), math.floor(left % 60))
+				partyText.TextColor3 = Color3.fromRGB(255, 255, 255)
+			end
+			task.wait(1)
 		end
 	end)
 end
@@ -352,7 +411,7 @@ refreshShop = function()
 			end
 			order += 1
 			local owned = table.find(passes, info.Key) ~= nil
-			shopRow(shopList, order, info.Icon, info.Name .. "  (GAMEPASS)", info.Desc, if owned then "OWNED" else ("R$ %d"):format(info.Price), if owned then Theme.Gray else Theme.Green, function()
+			shopRow(shopList, order, info.Icon, info.Name .. "  (GAMEPASS)", info.Desc, if owned then "OWNED" else ("R$ %d"):format(robuxPrice(info)), if owned then Theme.Gray else Theme.Green, function()
 				if not owned then
 					net:FireServer("Buy", info.Key)
 				end
@@ -363,7 +422,7 @@ refreshShop = function()
 				continue
 			end
 			order += 1
-			shopRow(shopList, order, info.Icon, info.Name, info.Desc or "Instant!", ("R$ %d"):format(info.Price), Theme.Green, function()
+			shopRow(shopList, order, info.Icon, info.Name, info.Desc or "Instant!", ("R$ %d"):format(robuxPrice(info)), Theme.Green, function()
 				net:FireServer("Buy", info.Key)
 			end, info.Color)
 		end
@@ -959,6 +1018,88 @@ do
 end
 
 ---------------------------------------------------------------------
+-- CÓDIGOS (v65): botão à esquerda (em cima do Rebirth) + janela para digitar
+---------------------------------------------------------------------
+do
+	local codeWindow, codeBody = Theme.window(gui, "Codes", "\u{1F39F} Codes", Theme.Cyan, Vector2.new(640, 330))
+	windows.Codes = codeWindow
+	text({ Size = UDim2.new(1, -24, 0, 34), Position = UDim2.fromOffset(12, 12), Text = "New codes every Saturday update - check our group!", TextColor3 = Color3.fromRGB(190, 215, 255), Stroke = 2, ZIndex = 13, Parent = codeBody })
+	local box = create("TextBox", {
+		Size = UDim2.new(1, -24, 0, 72),
+		Position = UDim2.fromOffset(12, 56),
+		BackgroundColor3 = Color3.fromRGB(245, 245, 250),
+		Text = "",
+		PlaceholderText = "Type a code here",
+		PlaceholderColor3 = Color3.fromRGB(140, 140, 155),
+		TextColor3 = Color3.fromRGB(30, 30, 40),
+		Font = Theme.Font,
+		TextScaled = true,
+		ClearTextOnFocus = false,
+		ZIndex = 13,
+		Parent = codeBody,
+	}, { corner(10), stroke(3) })
+	create("UITextSizeConstraint", { MaxTextSize = 44, Parent = box })
+	button({ AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 142), Size = UDim2.fromOffset(260, 66), BackgroundColor3 = Theme.Green, ZIndex = 13, Parent = codeBody }, "REDEEM", function()
+		if box.Text ~= "" then
+			net:FireServer("Redeem", string.sub(box.Text, 1, 30))
+		end
+	end)
+	wideButton(-258, "\u{1F39F}", "Codes", Theme.Cyan, function()
+		open("Codes", true)
+	end)
+	net.OnClientEvent:Connect(function(kind)
+		if kind == "CodeOk" then
+			box.Text = ""
+			codeWindow.Visible = false
+		end
+	end)
+end
+
+---------------------------------------------------------------------
+-- HALLOWEEN (v65): botão com os doces + Loja de Doces (só aparece durante o evento)
+---------------------------------------------------------------------
+do
+	local candyWindow, candyBody = Theme.window(gui, "Halloween", "\u{1F383} Candy Shop", Theme.Orange, Vector2.new(820, 560))
+	windows.Halloween = candyWindow
+	local header = text({ Size = UDim2.new(1, -24, 0, 40), Position = UDim2.fromOffset(12, 10), Text = "", TextColor3 = Color3.fromRGB(255, 200, 120), ZIndex = 13, Parent = candyBody })
+	local candyList = scroller(candyBody, { Size = UDim2.new(1, -16, 1, -64), Position = UDim2.fromOffset(8, 56) })
+	local ICONS = { pumpkinopinguino = "\u{1F427}", pumpkat = "\u{1F431}", batwing = "\u{1F987}", vampiropepperoni = "\u{1F9DB}" }
+	local function refreshCandy()
+		local candy = player:GetAttribute("Candy") or 0
+		header.Text = ("\u{1F36C} %d candy  -  steal eggs: +%d  |  Pumpkin Eggs: +%d"):format(candy, Config.Halloween.CandyPerEgg, Config.Halloween.CandyPerPumpkin)
+		clear(candyList)
+		for index, item in Config.Halloween.Shop do
+			local def = Critters.ById[item.Critter]
+			if def then
+				shopRow(candyList, index, ICONS[item.Critter] or "\u{1F383}", ("%s%s"):format(if item.Mut then item.Mut .. " " else "", def.Name),
+					("%s  -  ready to hatch!"):format(string.upper(def.Rarity)), ("\u{1F36C} %d"):format(item.Cost),
+					if candy >= item.Cost then Theme.Green else Theme.Gray, function()
+						net:FireServer("CandyBuy", index)
+					end, Theme.rarityColor(def.Rarity))
+			end
+		end
+	end
+	onOpen.Halloween = refreshCandy
+	local candyButton = wideButton(-334, "\u{1F383}", "Candy", Theme.Orange, function()
+		open("Halloween", true)
+	end)
+	local candyLabel = candyButton:FindFirstChild("Label") :: TextLabel
+	local function update()
+		local on = workspace:GetAttribute("Halloween") == true
+		candyButton.Visible = on
+		candyLabel.Text = ("Candy %d"):format(player:GetAttribute("Candy") or 0)
+		if not on then
+			candyWindow.Visible = false
+		elseif candyWindow.Visible then
+			refreshCandy()
+		end
+	end
+	workspace:GetAttributeChangedSignal("Halloween"):Connect(update)
+	player:GetAttributeChangedSignal("Candy"):Connect(update)
+	task.defer(update)
+end
+
+---------------------------------------------------------------------
 -- OFERTA NA HORA CERTA (cartão pequeno à direita; some sozinho)
 ---------------------------------------------------------------------
 local showOffer
@@ -990,7 +1131,7 @@ do
 		offerTitle.Text = info.Name
 		offerDesc.Text = info.Desc or ""
 		offerReason.Text = reason or ""
-		offerBuyLabel.Text = ("R$ %d"):format(info.Price or 0)
+		offerBuyLabel.Text = ("R$ %d"):format(robuxPrice(info))
 		offerCard.BackgroundColor3 = info.Color or Color3.fromRGB(255, 140, 50)
 		offerCard.Visible = true
 		Theme.popIn(offerCard)
@@ -1016,7 +1157,8 @@ local soundButton = button({ AnchorPoint = Vector2.new(0, 0.5), Position = UDim2
 	end
 end)
 local _ = soundButton
-button({ AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 114, 0.5, 108), Size = UDim2.fromOffset(96, 48), BackgroundColor3 = Theme.Orange, Parent = gui }, "\u{1F465} +25%", function()
+-- (v65: o botão dizia "+25%", mas o bônus é por AMIGO JOGANDO junto, não por convite enviado)
+button({ AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 114, 0.5, 108), Size = UDim2.fromOffset(96, 48), BackgroundColor3 = Theme.Orange, Parent = gui }, "\u{1F465} Invite", function()
 	pcall(function()
 		game:GetService("SocialService"):PromptGameInvite(player)
 	end)
@@ -1343,6 +1485,12 @@ net.OnClientEvent:Connect(function(kind, a, b)
 		sfxAt(a, b)
 	elseif kind == "Swing" and typeof(a) == "Instance" and a:IsA("Player") and a.Character then
 		swinging[a.Character] = os.clock()
+	elseif kind == "Pushed" and typeof(a) == "Vector3" then
+		-- v65: empurrãozinho do taco (quem não carrega ovo não fica atordoado)
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if root then
+			root.AssemblyLinearVelocity = a
+		end
 	elseif kind == "Stunned" then
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if root and typeof(b) == "Vector3" then
@@ -1399,7 +1547,7 @@ net.OnClientEvent:Connect(function(kind, a, b)
 			local ok, status = pcall(function()
 				return game:GetService("GroupService"):PromptJoinAsync(a)
 			end)
-			if ok and status == Enum.GroupMembershipStatus.Joined then
+			if ok and (status == Enum.GroupMembershipStatus.Joined or status == Enum.GroupMembershipStatus.AlreadyMember) then
 				task.wait(0.5)
 				net:FireServer("Chest")
 			end
@@ -1533,7 +1681,7 @@ local function tutorial(root: BasePart): (Vector3?, string?)
 		return Vector3.new(root.Position.X, 2, -8), "\u{1F3C3} Run back to the SAFE ZONE with the egg!"
 	end
 	if stolen == 0 then
-		return nearestForestEgg(), "\u{1F95A} Go into the FOREST and hold E on an egg to STEAL it!"
+		return nearestForestEgg(), ("\u{1F95A} Go into %s and %s on an egg to STEAL it!"):format(string.upper(Config.Zones[1].Name), if game:GetService("UserInputService").TouchEnabled then "hold the button" else "hold E")
 	end
 	if typeof(x) ~= "number" or typeof(front) ~= "number" then
 		return nil, nil

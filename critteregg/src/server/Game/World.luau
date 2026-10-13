@@ -1278,7 +1278,7 @@ function World.Build()
 	local starGui = surface(nightWall, Enum.NormalId.Front, {
 		{ "\u{1F319}", WHITE, 0.3 },
 		{ "NIGHT TIME", rgb(255, 235, 140), 0.16 },
-		{ "Eggs are growing x30!", rgb(170, 200, 255), 0.09 },
+		{ ("Eggs are growing x%d!"):format(Config.NightGrowth), rgb(170, 200, 255), 0.09 },
 	}, 3, rgb(25, 30, 80))
 	local starRng = Random.new(7)
 	for _ = 1, 60 do

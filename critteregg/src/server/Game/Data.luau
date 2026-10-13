@@ -7,10 +7,19 @@
 	  Slots = { [1..n] = { Kind = "Egg"|"Pet", Id = critterId, Scale = s, Mut = mutation?, Left = segundos para chocar } }
 	  Index = { [critterId] = true }
 	  SavedAt = os.time()
+
+	v65:
+	  • Sair e voltar RÁPIDO para o MESMO servidor: o Load espera o save da saída terminar
+	    (antes carregava o save velho e o próximo autosave apagava o que a criança tinha feito).
+	  • Save devolve true/false (a compra com Robux só é confirmada depois de salvar de verdade).
+	  • Depois do save final, o autosave não salva mais esse jogador (não trava os dados de novo).
+	  • Ao fechar o servidor, espera os saves terminarem de verdade (até 25 s), não um tempo fixo.
+	  • Trava de outro servidor: espera até ~20 s; só "toma" a trava se ela estiver velha (servidor caído).
+	    Antes tomava depois de ~9 s mesmo com o outro servidor ainda salvando (e o save dele se perdia).
+	  • Data.Forget: quem sai enquanto ainda está carregando solta a trava sem gravar nada por cima.
 ]]
 
 local DataStoreService = game:GetService("DataStoreService")
-local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -24,7 +33,11 @@ pcall(function()
 end)
 
 local profiles: { [Player]: any } = {}
+local released: { [any]: boolean } = {} -- perfis que já fizeram o save final (o autosave pula)
+local finalSaving: { [number]: number } = {} -- UserId -> quantos saves finais ainda estão rodando
 local LOCK_SECONDS = 1800
+local LOAD_TRIES = 6
+local STALE_LOCK = Config.SaveEvery + 15 -- servidor vivo renova a trava a cada autosave
 local SESSION = game.JobId ~= "" and game.JobId or ("studio-" .. tostring(math.random(1, 1e9)))
 
 local function defaults()
@@ -55,20 +68,27 @@ local function keyOf(player: Player): string
 end
 
 function Data.Load(player: Player)
+	-- saiu e voltou rápido para ESTE servidor: espera o save da saída terminar antes de ler
+	local waited = 0
+	while (finalSaving[player.UserId] or 0) > 0 and waited < 40 and player.Parent do
+		waited += task.wait(0.25)
+	end
 	local data = nil
 	local noSave = false
 	if store then
 		local loaded = false
-		for attempt = 1, 4 do
+		for attempt = 1, LOAD_TRIES do
 			local locked = false
 			local ok, err = pcall(function()
 				store:UpdateAsync(keyOf(player), function(old)
 					old = old or {}
 					local lock = old.Lock
-					if lock and lock.Session ~= SESSION and os.time() - (lock.Time or 0) < LOCK_SECONDS and attempt < 4 then
+					local age = os.time() - ((lock and lock.Time) or 0)
+					if lock and lock.Session ~= SESSION and age < LOCK_SECONDS and (attempt < LOAD_TRIES or age < STALE_LOCK) then
 						locked = true
 						return nil -- outra sessão ainda está com os dados (o servidor antigo ainda salvando): tenta de novo
 					end
+					locked = false
 					old.Lock = { Session = SESSION, Time = os.time() }
 					data = old.Data
 					return old
@@ -82,7 +102,10 @@ function Data.Load(player: Player)
 			if not ok and string.find(string.lower(tostring(err)), "studio", 1, true) then
 				break -- Studio sem acesso às APIs: não adianta tentar de novo
 			end
-			task.wait(3)
+			if not player.Parent then
+				break
+			end
+			task.wait(4)
 		end
 		noSave = not loaded -- não conseguiu ler: NÃO salva por cima (senão apagaria o progresso de verdade)
 	elseif RunService:IsStudio() then
@@ -98,6 +121,7 @@ function Data.Load(player: Player)
 	end
 	data.__Away = away -- o Game usa para o ganho offline e apaga
 	profiles[player] = data
+	released[data] = nil
 	if noSave then
 		data.__NoSave = true
 	end
@@ -108,31 +132,96 @@ function Data.Get(player: Player)
 	return profiles[player]
 end
 
-function Data.Save(player: Player, release: boolean?)
+-- pode salvar este jogador? (false = os dados não carregaram; o Game usa para não vender nada a quem não salva)
+function Data.CanSave(player: Player): boolean
+	local data = profiles[player]
+	return data ~= nil and store ~= nil and not data.__NoSave
+end
+
+-- devolve true se o save chegou no DataStore
+function Data.Save(player: Player, release: boolean?): boolean
 	local data = profiles[player]
 	if not data or not store or data.__NoSave then
-		return
+		return false
+	end
+	if released[data] and not release then
+		return false -- já fez o save final (o jogador saiu): o autosave não trava os dados de novo
 	end
 	data.SavedAt = os.time()
+	local written = false
 	local ok, err = pcall(function()
 		store:UpdateAsync(keyOf(player), function(old)
 			old = old or {}
 			if old.Lock and old.Lock.Session ~= SESSION and os.time() - (old.Lock.Time or 0) < LOCK_SECONDS then
+				written = false
 				return nil -- outra sessão pegou os dados: não sobrescreve
+			end
+			if released[data] and not release then
+				written = false
+				return nil
 			end
 			old.Data = data
 			old.Lock = if release then nil else { Session = SESSION, Time = os.time() }
+			written = true
 			return old
 		end)
 	end)
 	if not ok then
 		warn("[Data] save failed:", err)
+		return false
 	end
+	return written
 end
 
 function Data.Release(player: Player)
-	Data.Save(player, true)
+	local data = profiles[player]
+	local userId = player.UserId
+	finalSaving[userId] = (finalSaving[userId] or 0) + 1
+	if data then
+		released[data] = true
+	end
+	local ok, err = pcall(Data.Save, player, true)
+	if not ok then
+		warn("[Data] final save error:", err)
+	end
+	if profiles[player] == data then
+		profiles[player] = nil
+	end
+	if data then
+		released[data] = nil
+	end
+	finalSaving[userId] = (finalSaving[userId] or 1) - 1
+	if finalSaving[userId] <= 0 then
+		finalSaving[userId] = nil
+	end
+end
+
+-- o jogador saiu antes de terminar de carregar (ou foi mandado embora): solta a trava SEM gravar os
+-- dados (nada mudou) e esquece o perfil (antes ele ficava na memória e o autosave gravava por cima)
+function Data.Forget(player: Player)
+	local data = profiles[player]
+	if not data then
+		return
+	end
 	profiles[player] = nil
+	if not store or data.__NoSave then
+		return
+	end
+	local userId = player.UserId
+	finalSaving[userId] = (finalSaving[userId] or 0) + 1
+	pcall(function()
+		store:UpdateAsync(keyOf(player), function(old)
+			if type(old) ~= "table" or not old.Lock or old.Lock.Session ~= SESSION then
+				return nil
+			end
+			old.Lock = nil
+			return old
+		end)
+	end)
+	finalSaving[userId] = (finalSaving[userId] or 1) - 1
+	if finalSaving[userId] <= 0 then
+		finalSaving[userId] = nil
+	end
 end
 
 function Data.Init()
@@ -148,7 +237,14 @@ function Data.Init()
 		for player in profiles do
 			task.spawn(Data.Release, player)
 		end
-		task.wait(if RunService:IsStudio() then 1 else 5)
+		-- espera os saves terminarem de verdade (no máximo 25 s; o Roblox dá 30)
+		local started = os.clock()
+		while next(finalSaving) ~= nil and os.clock() - started < 25 do
+			task.wait(0.2)
+		end
+		if RunService:IsStudio() then
+			task.wait(0.5)
+		end
 	end)
 end
 

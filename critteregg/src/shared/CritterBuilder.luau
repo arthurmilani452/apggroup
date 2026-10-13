@@ -1107,7 +1107,7 @@ function Builder.ApplyMutation(model: Model, mutation: string?)
 			index += 1
 			-- modelo 3D: Gold/Diamond/Frozen viram "estátua" (tira a textura para a cor aparecer);
 			-- Rainbow, Mega e Wet mantêm a textura (v34: o Mega perdia as cores)
-			local keepTexture = mutation == "Rainbow" or mutation == "Mega" or mutation == "Wet"
+			local keepTexture = mutation == "Rainbow" or mutation == "Mega" or mutation == "Wet" or mutation == "Spooky"
 			if part:IsA("MeshPart") and not keepTexture then
 				pcall(function()
 					part.TextureID = ""
@@ -1147,6 +1147,11 @@ function Builder.ApplyMutation(model: Model, mutation: string?)
 				part.Color = part.Color:Lerp(info.Color, 0.75)
 				part.Material = Enum.Material.Ice
 				part.Reflectance = 0.2
+			elseif mutation == "Spooky" then
+				-- v65 (Halloween): fica roxinho escuro (o 3D mantém a textura) com brilho de abóbora
+				if not part:IsA("MeshPart") then
+					part.Color = part.Color:Lerp(Color3.fromRGB(70, 30, 100), 0.45)
+				end
 			end
 		end
 	end
@@ -1179,6 +1184,16 @@ function Builder.ApplyMutation(model: Model, mutation: string?)
 			sparkles.Acceleration = Vector3.new(0, -12, 0)
 			sparkles.Color = ColorSequence.new(Color3.fromRGB(150, 210, 255), Color3.fromRGB(60, 140, 255))
 			sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(1, 0.1) })
+		elseif mutation == "Spooky" then
+			-- v65: faíscas laranja e roxas subindo + luz de abóbora
+			sparkles.Rate = 9
+			sparkles.Acceleration = Vector3.new(0, 3, 0)
+			sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 140, 40), Color3.fromRGB(170, 70, 255))
+			local light = Instance.new("PointLight")
+			light.Color = Color3.fromRGB(255, 140, 40)
+			light.Range = 9
+			light.Brightness = 1.2
+			light.Parent = root
 		elseif mutation == "Frozen" then
 			-- v34: floquinhos de neve caindo devagar
 			sparkles.Rate = 7

@@ -10,7 +10,7 @@
 	  Lojinhas ..... SELL (vender), FUSE (3 iguais -> 1 melhor), TRAILS (multiplicam a esteira),
 	                 BOOSTS (2x por 10 min), BAÚ GRÁTIS (a cada 15 min)
 	  Index ........ cada bichinho novo dá prêmio (dinheiro + velocidade) para resgatar
-	  Ciclo ........ 5 min (relógio UTC); nos últimos 10 s é NOITE: muro sobe, todos voltam, ovos x30
+	  Ciclo ........ 5 min (relógio UTC); nos últimos 10 s é NOITE: muro sobe, todos voltam, ovos x25 (Config.NightGrowth)
 ]]
 
 local Players = game:GetService("Players")
@@ -20,6 +20,7 @@ local Lighting = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
 local DataStoreService = game:GetService("DataStoreService")
 local MarketplaceService = game:GetService("MarketplaceService")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Critters = require(ReplicatedStorage.Shared.Critters)
@@ -315,6 +316,7 @@ local function publish(player: Player, full: boolean?)
 	player:SetAttribute("FriendBoost", state.FriendBoost or 0)
 	player:SetAttribute("DailyStreak", data.DailyStreak or 0)
 	player:SetAttribute("DailyReady", (data.DailyDay or 0) < os.time() // 86400)
+	player:SetAttribute("Candy", data.Candy or 0)
 	if full then
 		local passes = {}
 		for key in state.Passes or {} do
@@ -432,12 +434,15 @@ local function redrawPen(player: Player)
 	end
 end
 
-local function discover(player: Player, def)
+local function discover(player: Player, def, zoneIndex: number?)
 	local state = states[player]
 	if state.Data.Index[def.Id] then
 		return false
 	end
-	state.Data.Index[def.Id] = zoneOfDef[def.Id] or 1
+	-- o prêmio do Index usa a zona "natural" do bichinho; se veio de uma zona mais fácil (evento,
+	-- presente), usa a mais fácil (senão um bichinho de Halloween da zona 1 pagaria prêmio da zona 10)
+	local natural = zoneOfDef[def.Id] or zoneIndex or 1
+	state.Data.Index[def.Id] = if zoneIndex then math.min(natural, zoneIndex) else natural
 	toast(player, ("\u{1F4D6} NEW in your Index: %s! Claim the reward in the Index."):format(def.Name), "success")
 	return true
 end
@@ -509,7 +514,7 @@ local function hatch(player: Player, index: number, silent: boolean?): boolean
 	end
 	slot.Kind = "Pet"
 	slot.Left = nil
-	discover(player, def)
+	discover(player, def, slot.Zone)
 	questAdd(player, "Hatch")
 	computeIncome(state)
 	-- ANIMAÇÃO NO MUNDO (todo mundo vê): o ovo treme, racha, brilha e explode; o bichinho "pula" para fora
@@ -644,10 +649,13 @@ local function hatch(player: Player, index: number, silent: boolean?): boolean
 	elseif rarity and rarity.Announce then
 		toastAll(("\u{2B50} %s hatched a %s %s!"):format(player.DisplayName, string.upper(def.Rarity), def.Name), "rare")
 	end
-	if not state.Data.StarterBought and not state.StarterOffered then
+	-- Starter Pack: só depois do 3º ovo chocado na sessão (antes era logo no 1º: interrompia a criança
+	-- nos primeiros segundos de jogo, bem quando ela está aprendendo)
+	state.HatchCount = (state.HatchCount or 0) + 1
+	if not state.Data.StarterBought and not state.StarterOffered and state.HatchCount >= 3 then
 		state.StarterOffered = true
 		task.delay(5, function()
-			offer(player, "Starter", "Welcome gift! A big boost for new players")
+			offer(player, "Starter", "A big boost for new players!")
 		end)
 	end
 	return true
@@ -857,7 +865,21 @@ local function poolFor(zoneDef, rarity: string)
 	return list
 end
 
+-- FESTÃO (UPDATE PARTY, v65): começa sozinho na hora da atualização da semana (Config.Update)
+local function partyNow(): boolean
+	local t = os.time()
+	return (workspace:GetAttribute("PartyStart") or math.huge) <= t and (workspace:GetAttribute("PartyEnd") or 0) > t
+end
+
+-- HALLOWEEN (v65): Config.Halloween (o loop de 1 s liga/desliga o atributo)
+local function halloweenNow(): boolean
+	return workspace:GetAttribute("Halloween") == true
+end
+
 local function rollMutation(rng: Random): string?
+	if halloweenNow() and rng:NextNumber() * 100 < Config.Halloween.SpookyChance then
+		return "Spooky"
+	end
 	local m = rng:NextNumber() * 100
 	for _, info in Config.Mutations do
 		if m < info.Chance then
@@ -870,7 +892,7 @@ end
 
 -- sorteia o bichinho (mesma semente = mesmo resultado em todos os servidores)
 local function luckyNow(): boolean
-	return (workspace:GetAttribute("LuckyEnd") or 0) > os.time()
+	return (workspace:GetAttribute("LuckyEnd") or 0) > os.time() or partyNow()
 end
 
 local function rollEgg(zoneDef, rng: Random, minRarity: number?)
@@ -880,7 +902,7 @@ local function rollEgg(zoneDef, rng: Random, minRarity: number?)
 		if #poolFor(zoneDef, rarity) > 0 and (Config.RarityIndex[rarity] or 1) >= (minRarity or 1) then
 			local weight = Config.RarityByName[rarity].Weight
 			if lucky and (Config.RarityIndex[rarity] or 1) >= Config.RarityIndex.Legendary then
-				weight *= Config.LuckyMult
+				weight *= if partyNow() then Config.Update.PartyLuck else Config.LuckyMult
 			end
 			table.insert(options, { rarity, weight })
 			total += weight
@@ -1166,12 +1188,14 @@ beginCarry = function(player: Player, zone, nest, egg)
 	if not state or state.Carry or egg.Thief or nest.Egg ~= egg or night or (state.StunUntil or 0) > os.clock() then
 		return
 	end
-	egg.LooseUntil = nil
-	egg.Model:SetAttribute("Loose", nil)
 	local root = rootOf(player)
 	if not root or (root.Position - egg.Root.Position).Magnitude > 16 + egg.Scale * 2 then
 		return
 	end
+	-- (v65: só limpa o tempo do ovo solto DEPOIS de conferir a distância; antes um pedido de longe
+	-- deixava o ovo no chão para sempre)
+	egg.LooseUntil = nil
+	egg.Model:SetAttribute("Loose", nil)
 	egg.Thief = player
 	egg.Prompt.Enabled = false
 	-- esconde a plaquinha do ovo enquanto carrega (ela ficava por cima dos textos da tela na volta para a base)
@@ -1214,7 +1238,10 @@ beginCarry = function(player: Player, zone, nest, egg)
 	weld:SetAttribute("From", fromOffset) -- a tela anima o ovo saindo do ninho até as mãos
 	weld:SetAttribute("GrabAt", workspace:GetServerTimeNow())
 	weld.Parent = root
-	state.Carry = { Egg = egg, Nest = nest, Zone = zone, Weld = weld, Scale = egg.Scale }
+	-- CAMINHO (anti-teleporte): o servidor acompanha o ovo da pegada até a SAFE ZONE
+	local flat = Vector3.new(root.Position.X, 0, root.Position.Z)
+	local path = { Origin = flat, Last = flat, Allowed = 0, Strikes = 0, CleanSince = os.clock(), Start = os.clock() }
+	state.Carry = { Egg = egg, Nest = nest, Zone = zone, Weld = weld, Scale = egg.Scale, Path = path }
 	player:SetAttribute("Carrying", egg.Def.Name .. " Egg")
 	applySpeed(player)
 	if not zone.Awake then
@@ -1222,6 +1249,51 @@ beginCarry = function(player: Player, zone, nest, egg)
 		setSleeping(zone, false)
 	end
 	net:FireClient(player, "Grabbed", zone.Index)
+end
+
+-- ANTI-TELEPORTE (v65): antes o ovo era entregue assim que o jogador aparecia do lado de cá da SAFE ZONE,
+-- então quem usava trapaça pegava o ovo na zona 12 e se teletransportava para casa. Agora, a cada 0,1 s:
+--   • o jogador tem que estar dentro do mapa (pista ou hub), sem voar;
+--   • a distância desde a pegada não pode passar do que dá para correr com a velocidade que o SERVIDOR deu;
+--   • passos impossíveis (salto grande de uma vez) contam falta: 1 falta passa (lag), 2 seguidas = ovo volta;
+--   • ninguém segura um ovo mais que Config.MaxCarrySeconds.
+-- Quem joga normal nunca percebe nada (as margens são bem folgadas).
+local function carryValid(state, root: BasePart, dt: number): (boolean, string?)
+	local carry = state.Carry
+	local path = carry.Path
+	if not path then
+		return true
+	end
+	local clock = os.clock()
+	if clock - path.Start > Config.MaxCarrySeconds then
+		return false, "time"
+	end
+	local pos = root.Position
+	local M = Config.Map
+	local inLane = pos.Z > -4 and math.abs(pos.X) <= M.LaneWidth / 2 + 20 and pos.Z <= M.LaneLength * #Config.Zones + 20
+	local inHub = pos.Z <= 4 and pos.Z >= -M.HubDepth - 20 and math.abs(pos.X) <= M.HubWidth / 2 + 20
+	if not (inLane or inHub) or pos.Y > M.WallHeight + 40 or pos.Y < -40 then
+		return false, "bounds"
+	end
+	local flat = Vector3.new(pos.X, 0, pos.Z)
+	local walk = math.max(state.Walk or 16, 16)
+	path.Allowed += walk * dt * 1.3
+	local step = (flat - path.Last).Magnitude
+	path.Last = flat
+	if step > walk * dt * 2 + 12 then
+		path.Strikes += 1
+		path.CleanSince = clock
+		if path.Strikes >= 2 then
+			return false, "jump"
+		end
+	elseif path.Strikes > 0 and clock - path.CleanSince > 5 then
+		path.Strikes = 0 -- 5 s sem nada estranho: perdoa o lag
+	end
+	path.TrapLast = flat
+	if (flat - path.Origin).Magnitude > path.Allowed + 30 then
+		return false, "distance"
+	end
+	return true
 end
 
 local function deliver(player: Player)
@@ -1244,9 +1316,16 @@ local function deliver(player: Player)
 	end
 	table.insert(data.Slots, slot)
 	data.Stolen += 1
-	if slot.Left >= 120 then
+	-- HALLOWEEN: doces por ovo roubado (Ovo de Abóbora vale mais)
+	if halloweenNow() then
+		local candy = if egg.Pumpkin then Config.Halloween.CandyPerPumpkin else Config.Halloween.CandyPerEgg
+		data.Candy = (data.Candy or 0) + candy
+		toast(player, ("\u{1F36C} +%d candy! (%d total)"):format(candy, data.Candy), "rare")
+	end
+	if slot.Left >= 120 and not state.GrowOffered then
+		state.GrowOffered = true -- no máximo 1 vez por sessão
 		task.delay(2, function()
-			offer(player, "GrowAll", "Don't want to wait? Hatch ALL your eggs NOW!")
+			offer(player, "GrowAll", "Want them now? Hatch all your eggs!")
 		end)
 	end
 	questAdd(player, "Steal")
@@ -1279,10 +1358,16 @@ local function catchCarrier(zone, player: Player)
 		net:FireClient(player, "Caught", zone.Index)
 	end
 	toast(player, ("The %s guardian caught you! Get FASTER on your treadmill."):format(zone.Def.Name), "warning")
-	task.delay(1.5, function()
-		local need = Config.EscapeSpeed(zone.Def, 1)
-		offer(player, if need > 100_000 then "Speed2" else "Speed1", "Too slow? Get a SPEED boost and escape the guardian!")
-	end)
+	-- oferta depois de ser pego: no máximo 1 vez por sessão e só depois de 5 min de jogo
+	-- (logo depois de perder é o momento em que a criança fica mais vulnerável a comprar no impulso)
+	local state = states[player]
+	if state and not state.CatchOffered and os.time() - (state.SessionStart or os.time()) >= 300 then
+		state.CatchOffered = true
+		task.delay(1.5, function()
+			local need = Config.EscapeSpeed(zone.Def, 1)
+			offer(player, if need > 100_000 then "Speed2" else "Speed1", "Speed packs help you outrun guardians.")
+		end)
+	end
 end
 
 local function tickZone(zone, dt: number, clock: number)
@@ -1318,7 +1403,9 @@ local function tickZone(zone, dt: number, clock: number)
 			local state = states[target]
 			local factor = Config.GuardianFactor(zone.Def, state.Data.Speed, state.Carry.Scale)
 			moveGuardian(zone, targetRoot.Position, (state.Walk or 16) * factor, dt)
-			local flat = (Vector3.new(targetRoot.Position.X, 0, targetRoot.Position.Z) - Vector3.new(zone.Pos.X, 0, zone.Pos.Z)).Magnitude
+			-- (v65: o guardião não chega até a parede; sem isso quem andava colado na parede nunca era pego)
+			local half = Config.Map.LaneWidth / 2 - 6
+			local flat = (Vector3.new(math.clamp(targetRoot.Position.X, -half, half), 0, targetRoot.Position.Z) - Vector3.new(zone.Pos.X, 0, zone.Pos.Z)).Magnitude
 			if flat <= zone.CatchRange then
 				catchCarrier(zone, target)
 			end
@@ -1341,10 +1428,41 @@ end
 -- num ninho brilhante de uma zona aleatória. Quem roubar primeiro leva!
 ---------------------------------------------------------------------
 local goldNests = {}
-local function spawnGoldenEgg()
+
+-- bichinho de Halloween para o Ovo de Abóbora (mundo "spooky" do Critters.luau; raridade com o peso normal)
+local function rollSpooky(rng: Random)
+	local byRarity = Critters.ByWorld.spooky
+	if not byRarity then
+		return nil
+	end
+	local options, total = {}, 0
+	for _, rarity in Config.Rarities do
+		local list = byRarity[rarity.Name]
+		if list and #list > 0 then
+			table.insert(options, { list, rarity.Weight })
+			total += rarity.Weight
+		end
+	end
+	if total <= 0 then
+		return nil
+	end
+	local roll = rng:NextNumber() * total
+	for _, option in options do
+		roll -= option[2]
+		if roll <= 0 then
+			return option[1][rng:NextInteger(1, #option[1])]
+		end
+	end
+	local last = options[#options][1]
+	return last[#last]
+end
+
+-- kind = nil: OVO DOURADO (Lendário+, Gold/Rainbow). kind = "Pumpkin": OVO DE ABÓBORA do Halloween.
+local function spawnGoldenEgg(kind: string?)
 	if night or #zones == 0 then
 		return
 	end
+	local pumpkin = kind == "Pumpkin"
 	local best = 1
 	for _, state in states do
 		for index, zone in Config.Zones do
@@ -1355,24 +1473,32 @@ local function spawnGoldenEgg()
 	end
 	local zoneIndex = math.random(1, math.min(#zones, best + 1))
 	local zone = zones[zoneIndex]
-	local spot = zone.Center + Vector3.new(math.random(-1, 1) * 26, 0, 30)
+	local spot = zone.Center + Vector3.new(math.random(-1, 1) * 26, 0, if pumpkin then 52 else 30)
 	local nest = { CFrame = CFrame.lookAt(spot + Vector3.new(0, 0.6, 0), spot + Vector3.new(0, 0.6, -50)), Egg = nil, Golden = true, Until = os.clock() + 180, Zone = zone }
-	local def, mutation = rollEgg(zone.Def, Random.new(), Config.RarityIndex.Legendary)
+	local def, mutation
+	if pumpkin then
+		def = rollSpooky(Random.new())
+		mutation = if math.random() < 0.3 then "Spooky" else nil
+	else
+		def, mutation = rollEgg(zone.Def, Random.new(), Config.RarityIndex.Legendary)
+		mutation = if math.random() < 0.15 then "Rainbow" else "Gold"
+	end
 	if not def then
 		return
 	end
-	mutation = if math.random() < 0.15 then "Rainbow" else "Gold"
 	placeNestEgg(zone, nest, def, mutation, Config.RollScale(Random.new()))
 	local egg = nest.Egg
+	local glowColor = if pumpkin then Color3.fromRGB(255, 130, 30) else Color3.fromRGB(255, 215, 60)
 	if egg then
+		egg.Pumpkin = pumpkin or nil
 		local glow = Instance.new("Highlight")
-		glow.FillColor = Color3.fromRGB(255, 215, 60)
+		glow.FillColor = glowColor
 		glow.FillTransparency = 0.6
-		glow.OutlineColor = Color3.fromRGB(255, 240, 150)
+		glow.OutlineColor = if pumpkin then Color3.fromRGB(150, 60, 220) else Color3.fromRGB(255, 240, 150)
 		glow.Parent = egg.Model
 		local sparkle = Instance.new("ParticleEmitter")
 		sparkle.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-		sparkle.Color = ColorSequence.new(Color3.fromRGB(255, 220, 80))
+		sparkle.Color = ColorSequence.new(glowColor)
 		sparkle.LightEmission = 1
 		sparkle.Size = NumberSequence.new(1.2, 0)
 		sparkle.Rate = 25
@@ -1387,7 +1513,7 @@ local function spawnGoldenEgg()
 		beam.CanQuery = false
 		beam.CanTouch = false
 		beam.Material = Enum.Material.Neon
-		beam.Color = Color3.fromRGB(255, 215, 60)
+		beam.Color = glowColor
 		beam.Transparency = 0.6
 		beam.Size = Vector3.new(3, 160, 3)
 		beam.CFrame = CFrame.new(spot + Vector3.new(0, 80, 0))
@@ -1395,8 +1521,13 @@ local function spawnGoldenEgg()
 		egg.Model:SetAttribute("Golden", true)
 	end
 	table.insert(goldNests, nest)
-	banner(nil, ("\u{2B50} GOLDEN EGG in %s! Steal it first!"):format(zone.Def.Name), Color3.fromRGB(255, 215, 60))
-	toastAll(("\u{2B50} A GOLDEN %s %s Egg spawned in %s!"):format(def.Rarity, def.Name, zone.Def.Name), "rare")
+	if pumpkin then
+		banner(nil, ("\u{1F383} PUMPKIN EGG in %s! +%d candy!"):format(zone.Def.Name, Config.Halloween.CandyPerPumpkin), glowColor)
+		toastAll(("\u{1F383} A %s Pumpkin Egg (%s) spawned in %s!"):format(def.Rarity, def.Name, zone.Def.Name), "rare")
+	else
+		banner(nil, ("\u{2B50} GOLDEN EGG in %s! Steal it first!"):format(zone.Def.Name), glowColor)
+		toastAll(("\u{2B50} A GOLDEN %s %s Egg spawned in %s!"):format(def.Rarity, def.Name, zone.Def.Name), "rare")
+	end
 	net:FireAllClients("Sfx", "Alarm")
 end
 
@@ -1480,7 +1611,7 @@ local function setNight(on: boolean)
 				nest.RefillAt = nil
 			end
 		end
-		banner(nil, "Night has fallen! Eggs grow x30!", Color3.fromRGB(150, 170, 255))
+		banner(nil, ("Night has fallen! Eggs grow x%d!"):format(Config.NightGrowth), Color3.fromRGB(150, 170, 255))
 	end
 end
 
@@ -1608,9 +1739,12 @@ local function inCommunity(player: Player): boolean
 	return ok2 and result == true
 end
 
+-- v65: a consulta do grupo é pela internet (demora). Antes ela rodava DENTRO do loop do jogo e
+-- travava guardiões, entregas e armadilhas do servidor inteiro; e dava para abrir o baú 2-3 vezes
+-- enquanto a consulta respondia. Agora roda à parte, com trava, e confere tudo de novo depois.
 local function claimChest(player: Player)
 	local state = states[player]
-	if not state then
+	if not state or state.ChestBusy then
 		return
 	end
 	local data = state.Data
@@ -1620,10 +1754,23 @@ local function claimChest(player: Player)
 		return toast(player, ("The FREE chest opens again in %dm %ds"):format(left // 60, left % 60), "info")
 	end
 	-- BAÚ DA COMUNIDADE: só abre para quem está no nosso grupo (a tela abre o convite para entrar)
-	if not inCommunity(player) then
-		toast(player, "\u{1F381} Join our community to open the FREE chest!", "warning")
-		net:FireClient(player, "JoinCommunity", communityId())
+	state.ChestBusy = true
+	local member = state.InGroup == true or inCommunity(player)
+	state.ChestBusy = false
+	if states[player] ~= state then
 		return
+	end
+	if not member then
+		toast(player, "\u{1F381} Join our community to open the FREE chest!", "warning")
+		if os.clock() - (state.JoinPromptAt or -1e9) > 600 then
+			state.JoinPromptAt = os.clock()
+			net:FireClient(player, "JoinCommunity", communityId())
+		end
+		return
+	end
+	state.InGroup = true
+	if now() < (data.ChestAt or 0) + Config.ChestEvery then
+		return -- outro pedido abriu enquanto esperava a resposta
 	end
 	data.ChestAt = now()
 	local cash = math.max(Config.ChestMinCash, math.floor((state.Income or 0) * 60 * Config.ChestMinutes))
@@ -1752,11 +1899,17 @@ local function stun(player: Player, seconds: number, fling: Vector3?)
 	if not state or not humanoid or not root then
 		return
 	end
-	state.StunUntil = os.clock() + seconds
 	if state.Carry then
 		endCarry(player, false, true) -- larga o ovo no chão
 		toast(player, "You got hit and DROPPED the egg! Grab it back!", "warning")
 	end
+	-- v65: depois de um atordoamento, 1,5 s sem poder ser atordoado de novo (antes um taco de zona
+	-- alta prendia a pessoa para sempre: o atordoamento durava mais que a espera do taco)
+	if os.clock() < (state.StunImmuneUntil or 0) then
+		return
+	end
+	state.StunUntil = os.clock() + seconds
+	state.StunImmuneUntil = state.StunUntil + 1.5
 	applySpeed(player)
 	if fling then
 		humanoid.PlatformStand = true
@@ -2039,6 +2192,14 @@ local function swing(player: Player)
 	if not state or not root or state.Carry or (state.StunUntil or 0) > os.clock() then
 		return
 	end
+	-- v65: na SAFE ZONE ninguém bate (antes dava para ficar "acampado" na linha batendo em quem chegava)
+	if inSafeZone(root.Position) then
+		if os.clock() - (state.SafeBatToast or 0) > 4 then
+			state.SafeBatToast = os.clock()
+			toast(player, "No bonking in the SAFE ZONE!", "info")
+		end
+		return
+	end
 	local clock = os.clock()
 	if clock - (state.LastSwing or 0) < Config.Bat.Cooldown then
 		return
@@ -2065,8 +2226,12 @@ local function swing(player: Player)
 				local wasCarrying = otherState.Carry ~= nil
 				if wasCarrying then
 					questAdd(player, "Hit")
+					stun(other, info.Stun, dir * info.Force + Vector3.new(0, 32, 0))
+				else
+					-- v65: quem NÃO carrega ovo só leva um empurrãozinho (sem ficar travado): o taco serve
+					-- para derrubar ovos, não para ficar batendo nos outros
+					net:FireClient(other, "Pushed", dir * 30 + Vector3.new(0, 18, 0))
 				end
-				stun(other, info.Stun, dir * info.Force + Vector3.new(0, 32, 0))
 				sfxAt("Hit", otherRoot.Position)
 				-- estrelinhas no acerto + aviso para quem bateu
 				pcall(function()
@@ -2147,8 +2312,8 @@ local function placeTrap(player: Player)
 	end
 	local spot = root.Position + root.CFrame.LookVector * 4
 	spot = Vector3.new(spot.X, 0, spot.Z)
-	if inSafeZone(spot) then
-		return toast(player, "You can't place traps in the SAFE ZONE!", "error")
+	if inSafeZone(spot) or spot.Z < Config.Trap.MinZ then
+		return toast(player, "You can't place traps in or near the SAFE ZONE!", "error")
 	end
 	if (state.TrapCount or 0) >= trapLimit(state) then
 		return toast(player, ("You can only have %d traps out!"):format(trapLimit(state)), "warning")
@@ -2185,7 +2350,12 @@ local function tickTraps(clock: number)
 			for player, state in states do
 				local root = rootOf(player)
 				if player ~= trap.Owner and state.Carry and root then
-					local flat = (Vector3.new(root.Position.X, 0, root.Position.Z) - trap.Pos).Magnitude
+					-- v65: testa o CAMINHO desde a última checagem (quem corre rápido pulava a armadilha)
+					local here = Vector3.new(root.Position.X, 0, root.Position.Z)
+					local from = (state.Carry.Path and state.Carry.Path.TrapLast) or here
+					local seg = here - from
+					local along = if seg.Magnitude > 0.01 then math.clamp((trap.Pos - from):Dot(seg) / seg:Dot(seg), 0, 1) else 0
+					local flat = (from + seg * along - trap.Pos).Magnitude
 					if flat <= Config.Trap.Radius then
 						sfxAt("Trap", trap.Pos)
 						stun(player, Config.Trap.Stun)
@@ -2259,22 +2429,51 @@ local function addEggSlot(player: Player, def, zoneIndex: number, scale: number,
 end
 
 -- PRESENTES POR TEMPO JOGADO
+-- v65: o tempo jogado e os presentes abertos ficam SALVOS. Antes zeravam a cada entrada, então dava para
+-- sair e voltar sem parar para pegar os primeiros presentes de novo (rendia mais que jogar).
+-- Agora eles só zeram quando o jogador fica Config.GiftResetHours horas fora do jogo.
+local function giftData(state)
+	local data = state.Data
+	local gift = data.Gift
+	local t = now()
+	if type(gift) ~= "table" or type(gift.Played) ~= "number" or type(gift.Claimed) ~= "table" or t - (tonumber(gift.Seen) or 0) >= Config.GiftResetHours * 3600 then
+		gift = { Played = 0, Claimed = {}, Seen = t }
+		data.Gift = gift
+	end
+	return gift
+end
+
+-- a tela calcula "tempo jogado" = agora - SessionStart, então mandamos um começo "virtual"
+local function publishGifts(player: Player)
+	local state = states[player]
+	if not state then
+		return
+	end
+	local gift = giftData(state)
+	local list = {}
+	for key in gift.Claimed do
+		table.insert(list, tostring(key))
+	end
+	player:SetAttribute("SessionStart", workspace:GetServerTimeNow() - gift.Played)
+	player:SetAttribute("GiftsClaimed", table.concat(list, ","))
+end
+
 local function claimGift(player: Player, index: any)
 	local state = states[player]
 	local info = type(index) == "number" and Config.Gifts[index]
 	if not state or not info then
 		return
 	end
-	state.GiftsClaimed = state.GiftsClaimed or {}
-	if state.GiftsClaimed[index] then
+	local gift = giftData(state)
+	if gift.Claimed[tostring(index)] then
 		return
 	end
-	local played = os.time() - (state.SessionStart or os.time())
+	local played = gift.Played
 	if played < info.Minutes * 60 then
 		local left = info.Minutes * 60 - played
 		return toast(player, ("This gift opens in %dm %ds"):format(left // 60, left % 60), "info")
 	end
-	state.GiftsClaimed[index] = true
+	gift.Claimed[tostring(index)] = true
 	local data = state.Data
 	local cash = math.max(info.MinCash, math.floor((state.Income or 0) * 60 * info.Cash))
 	data.Money += cash
@@ -2289,11 +2488,7 @@ local function claimGift(player: Player, index: any)
 			extra = "  + " .. def.Rarity .. " egg!"
 		end
 	end
-	local list = {}
-	for i in state.GiftsClaimed do
-		table.insert(list, tostring(i))
-	end
-	player:SetAttribute("GiftsClaimed", table.concat(list, ","))
+	publishGifts(player)
 	banner(player, ("GIFT! +%s  +%s Speed%s"):format(Format.Money(cash), Format.Short(info.Speed), extra), Color3.fromRGB(255, 120, 200))
 	net:FireClient(player, "Purchased")
 	publish(player, true)
@@ -2335,39 +2530,52 @@ local function grantProduct(player: Player, key: string)
 		data.Money += cash
 		banner(player, "+" .. Format.Money(cash), Color3.fromRGB(110, 255, 90))
 	elseif key == "Starter" then
+		-- v65: SEM ovo sorteado. Item pago com prêmio sorteado é "paid random item" para a Roblox
+		-- (precisa mostrar as chances e usar o PolicyService; no Brasil, o ECA Digital proíbe para menores de 18).
+		-- O pacote agora tem só coisas certas: dinheiro + velocidade + 2x Cash.
 		data.StarterBought = true
-		local zoneIndex = bestZoneFor(state)
-		local def, mutation = rollEgg(Config.Zones[zoneIndex], Random.new(), Config.RarityIndex.Epic)
-		if def then
-			addEggSlot(player, def, zoneIndex, Config.RollScale(Random.new()), mutation, true)
-		end
-		local cash = 50_000
-		data.Money += cash
+		data.Money += info.Cash or 50_000
+		data.Speed += info.Speed or 0
+		applySpeed(player)
 		local start = math.max(now(), data.Boosts.Money2 or 0)
-		data.Boosts.Money2 = start + 15 * 60
+		data.Boosts.Money2 = start + (info.BoostMinutes or 15) * 60
 		computeIncome(state)
-		banner(player, "STARTER PACK! +$50K  + Royal Egg  + 2x Cash 15 min!", Color3.fromRGB(255, 150, 60))
-	elseif key == "LuckyEgg" then
-		local zoneIndex = bestZoneFor(state)
-		local def, mutation = rollEgg(Config.Zones[zoneIndex], Random.new(), Config.RarityIndex.Epic)
-		if def then
-			addEggSlot(player, def, zoneIndex, Config.RollScale(Random.new()), mutation, true)
-			banner(player, ("Lucky Egg: %s %s!"):format(def.Rarity, def.Name), rarityColor(def))
-		end
+		banner(player, ("STARTER PACK! +%s  +%s Speed  + 2x Cash %d min!"):format(Format.Money(info.Cash or 50_000), Format.Short(info.Speed or 0), info.BoostMinutes or 15), Color3.fromRGB(255, 150, 60))
 	end
 	net:FireClient(player, "Purchased")
 	publish(player, true)
 	return true
 end
 
+-- v65: o resultado fica salvo em Data.Passes. Se o Roblox não responder (erro), vale o que estava salvo
+-- (antes a criança que comprou ficava sem o passe naquela sessão).
 local function applyPasses(player: Player)
 	local state = states[player]
+	if not state then
+		return
+	end
 	state.Passes = state.Passes or {}
+	local saved = state.Data.Passes
 	for _, info in Config.Passes do
-		if info.Id and info.Id > 0 and not state.Passes[info.Key] then
-			local ok, owns = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, info.Id)
+		if info.Id and info.Id > 0 then
+			local ok, owns = false, nil
+			for attempt = 1, 3 do
+				ok, owns = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, info.Id)
+				if ok or not player.Parent then
+					break
+				end
+				task.wait(2 * attempt)
+			end
+			if not states[player] then
+				return
+			end
 			if ok and owns then
 				state.Passes[info.Key] = true
+				saved[info.Key] = true
+			elseif ok and not (state.BoughtNow and state.BoughtNow[info.Key]) then
+				-- o Roblox diz que não tem (e não acabou de comprar: logo depois da compra ele pode dizer "não")
+				state.Passes[info.Key] = nil
+				saved[info.Key] = nil
 			end
 		end
 	end
@@ -2391,6 +2599,21 @@ local function buy(player: Player, key: any)
 	if product and product.OneTime and states[player].Data.StarterBought then
 		return toast(player, "You already got the Starter Pack!", "info")
 	end
+	-- v65: não deixa pagar o "Hatch All Now" sem nenhum ovo crescendo (antes cobrava e chocava 0 ovos)
+	if key == "GrowAll" then
+		local growing = false
+		for _, slot in states[player].Data.Slots do
+			if slot.Kind == "Egg" and (slot.Left or 0) > 0 then
+				growing = true
+			end
+		end
+		if not growing then
+			return toast(player, "You have no eggs growing right now!", "info")
+		end
+	end
+	if not Data.CanSave(player) and not RunService:IsStudio() then
+		return toast(player, "Your save didn't load - please rejoin before buying.", "warning")
+	end
 	if pass then
 		if states[player].Passes and states[player].Passes[key] then
 			return toast(player, "You already own this pass!", "info")
@@ -2410,6 +2633,12 @@ local function setupMarketplace()
 			if info.Id == passId and states[player] then
 				states[player].Passes = states[player].Passes or {}
 				states[player].Passes[info.Key] = true
+				-- salva junto com o progresso e lembra que comprou agora (o Roblox demora a "saber")
+				states[player].Data.Passes = states[player].Data.Passes or {}
+				states[player].Data.Passes[info.Key] = true
+				states[player].BoughtNow = states[player].BoughtNow or {}
+				states[player].BoughtNow[info.Key] = true
+				task.spawn(Data.Save, player)
 				banner(player, ("%s unlocked! Thank you!"):format(info.Name), Color3.fromRGB(255, 215, 60))
 				if info.Key == "VIP" then
 					giveTools(player)
@@ -2420,16 +2649,27 @@ local function setupMarketplace()
 			end
 		end
 	end)
+	-- v65: só diz "entregue" para a Roblox DEPOIS de salvar de verdade. Antes confirmava e salvava depois:
+	-- se o servidor caísse nesse meio-tempo, a criança pagava e perdia o item. Agora, se o save falhar,
+	-- a Roblox tenta de novo mais tarde; o número da compra já está anotado, então nunca entrega duas vezes.
+	local studio = game:GetService("RunService"):IsStudio()
+	local function savedOk(player: Player): boolean
+		return studio or Data.Save(player)
+	end
 	MarketplaceService.ProcessReceipt = function(receipt)
 		local player = Players:GetPlayerByUserId(receipt.PlayerId)
 		local state = player and states[player]
 		if not state then
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
+		if not studio and not Data.CanSave(player) then
+			return Enum.ProductPurchaseDecision.NotProcessedYet -- sem save não dá para garantir a entrega
+		end
 		local data = state.Data
 		data.Receipts = data.Receipts or {}
 		if table.find(data.Receipts, receipt.PurchaseId) then
-			return Enum.ProductPurchaseDecision.PurchaseGranted
+			-- já entregue antes: confirma assim que estiver salvo
+			return if savedOk(player) then Enum.ProductPurchaseDecision.PurchaseGranted else Enum.ProductPurchaseDecision.NotProcessedYet
 		end
 		for _, info in Config.Products do
 			if info.Id == receipt.ProductId then
@@ -2442,10 +2682,14 @@ local function setupMarketplace()
 				while #data.Receipts > 50 do
 					table.remove(data.Receipts, 1)
 				end
-				task.spawn(Data.Save, player)
-				return Enum.ProductPurchaseDecision.PurchaseGranted
+				if savedOk(player) then
+					return Enum.ProductPurchaseDecision.PurchaseGranted
+				end
+				warn("[Robux] granted but the save failed; Roblox will retry", receipt.PurchaseId)
+				return Enum.ProductPurchaseDecision.NotProcessedYet
 			end
 		end
+		warn("[Robux] unknown product id", receipt.ProductId, "- add it to Config.Products")
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 end
@@ -2603,23 +2847,216 @@ local function claimQuest(player: Player, key: any)
 end
 
 ---------------------------------------------------------------------
+-- HALLOWEEN (v65): abóboras no hub e Loja de Doces
+---------------------------------------------------------------------
+local halloweenFolder: Folder? = nil
+
+local function pumpkin(parent: Instance, position: Vector3, size: number, faceTo: Vector3, light: boolean)
+	local look = (faceTo - position) * Vector3.new(1, 0, 1)
+	local frame = CFrame.lookAt(position, position + (if look.Magnitude > 0.1 then look.Unit else Vector3.new(0, 0, 1)))
+	local function piece(name: string, shape: Enum.PartType, partSize: Vector3, cframe: CFrame, color: Color3, material: Enum.Material)
+		local item = Instance.new("Part")
+		item.Name = name
+		item.Shape = shape
+		item.Size = partSize
+		item.CFrame = cframe
+		item.Color = color
+		item.Material = material
+		item.Anchored = true
+		item.CanCollide = false
+		item.CanQuery = false
+		item.CanTouch = false
+		item.CastShadow = false
+		item.Parent = parent
+		return item
+	end
+	local body = piece("Pumpkin", Enum.PartType.Ball, Vector3.one * size, frame, Color3.fromRGB(255, 125, 25), Enum.Material.SmoothPlastic)
+	piece("Stem", Enum.PartType.Cylinder, Vector3.new(size * 0.3, size * 0.14, size * 0.14), frame * CFrame.new(0, size * 0.55, 0) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(70, 140, 50), Enum.Material.Wood)
+	local face = Color3.fromRGB(255, 230, 90)
+	for _, side in { -1, 1 } do
+		piece("Eye", Enum.PartType.Block, Vector3.new(size * 0.16, size * 0.16, size * 0.08), frame * CFrame.new(side * size * 0.18, size * 0.1, -size * 0.47) * CFrame.Angles(0, 0, math.rad(45)), face, Enum.Material.Neon)
+	end
+	piece("Mouth", Enum.PartType.Block, Vector3.new(size * 0.42, size * 0.09, size * 0.08), frame * CFrame.new(0, -size * 0.14, -size * 0.47), face, Enum.Material.Neon)
+	if light then
+		local glow = Instance.new("PointLight")
+		glow.Color = Color3.fromRGB(255, 150, 50)
+		glow.Range = size * 3
+		glow.Brightness = 1.2
+		glow.Parent = body
+	end
+end
+
+-- liga/desliga a decoração (o loop de 1 s chama quando o evento começa/acaba)
+local function setHalloweenDecor(on: boolean)
+	if halloweenFolder then
+		halloweenFolder:Destroy()
+		halloweenFolder = nil
+	end
+	if not on then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "HalloweenDecor"
+	local M = Config.Map
+	local hubCenter = Vector3.new(0, 1.5, -M.HubDepth / 2)
+	local wallX = M.HubWidth / 2 - 8
+	for _, side in { -1, 1 } do
+		for k = 0, 5 do
+			pumpkin(folder, Vector3.new(side * wallX, 1.6, -M.HubDepth + 25 + k * 30), 3.2, hubCenter, false)
+		end
+		-- duas abóboras grandes na entrada das zonas (com luz)
+		pumpkin(folder, Vector3.new(side * (M.LaneWidth / 2 + 9), 3, -8), 6, Vector3.new(0, 3, -40), true)
+	end
+	for k, x in { -200, -100, -50, 0, 50, 100, 200 } do
+		pumpkin(folder, Vector3.new(x, 1.6, -M.HubDepth + 8), 3.4, hubCenter, k % 2 == 0)
+	end
+	folder.Parent = workspace
+	halloweenFolder = folder
+end
+
+-- LOJA DE DOCES: troca doces por um ovo PRONTO de um bichinho certo (nada sorteado)
+local function candyBuy(player: Player, index: any)
+	local state = states[player]
+	local item = type(index) == "number" and Config.Halloween.Shop[index]
+	if not state or not item then
+		return
+	end
+	if not halloweenNow() then
+		return toast(player, "The Halloween event is over!", "info")
+	end
+	local data = state.Data
+	local def = Critters.ById[item.Critter]
+	if not def then
+		return
+	end
+	if (data.Candy or 0) < item.Cost then
+		return toast(player, ("You need %d candy \u{1F36C} (you have %d). Steal eggs to get more!"):format(item.Cost, data.Candy or 0), "error")
+	end
+	if #data.Slots >= Config.SlotCount(data.PenLevel) then
+		return toast(player, "Your pen is FULL! Upgrade your pen or sell a pet first.", "warning")
+	end
+	data.Candy -= item.Cost
+	addEggSlot(player, def, bestZoneFor(state), 1, item.Mut, true)
+	banner(player, ("\u{1F383} %s%s egg is ready in your pen!"):format(if item.Mut then item.Mut .. " " else "", def.Name), Color3.fromRGB(255, 140, 40))
+	net:FireClient(player, "Purchased")
+	publish(player, true)
+end
+
+---------------------------------------------------------------------
+-- CÓDIGOS (v65): ficam SÓ aqui no servidor (ninguém consegue ler a lista).
+-- Cada jogador usa cada código uma vez. Maiúsculas, espaços e símbolos não importam ("party 1" = PARTY1).
+-- Prêmios (pode juntar):  Minutes = minutos da sua renda (mínimo $500 por minuto) | Speed = velocidade
+--   Boost = minutos de 2x Cash | Egg = ovo PRONTO dessa raridade mínima da sua melhor zona | Candy = doces
+--   Expires = os.time(...) para o código parar de funcionar (opcional)
+-- Dica: solte 1 código novo em cada atualização de sábado e um para cada YouTuber.
+---------------------------------------------------------------------
+local CODES = {
+	CRITTER = { Minutes = 10, Speed = 1_000 },
+	UPDATE = { Boost = 15 },
+	THANKYOU = { Minutes = 20 },
+	SPOOKY = { Egg = "Rare", Candy = 10, Expires = Config.Halloween.To },
+}
+
+local function normalizeCode(raw: string): string
+	return string.upper((string.gsub(raw, "[^%w]", "")))
+end
+
+local function redeemCode(player: Player, raw: any)
+	local state = states[player]
+	if not state or type(raw) ~= "string" or #raw > 30 then
+		return
+	end
+	local data = state.Data
+	-- limite de chutes: 8 erros a cada 10 minutos
+	local t = now()
+	state.CodeFails = state.CodeFails or {}
+	for i = #state.CodeFails, 1, -1 do
+		if t - state.CodeFails[i] > 600 then
+			table.remove(state.CodeFails, i)
+		end
+	end
+	if #state.CodeFails >= 8 then
+		return toast(player, "Too many tries! Wait a few minutes.", "warning")
+	end
+	local code = normalizeCode(raw)
+	local reward = CODES[code]
+	if code == "" or not reward then
+		table.insert(state.CodeFails, t)
+		return toast(player, "That code doesn't exist. Check the spelling!", "error")
+	end
+	if reward.Expires and t >= reward.Expires then
+		return toast(player, "That code has expired!", "info")
+	end
+	data.Codes = if type(data.Codes) == "table" then data.Codes else {}
+	if data.Codes[code] then
+		return toast(player, "You already used this code!", "info")
+	end
+	if reward.Egg and #data.Slots >= Config.SlotCount(data.PenLevel) then
+		return toast(player, "Your pen is FULL! Make room for the egg and try again.", "warning")
+	end
+	data.Codes[code] = true
+	local parts = {}
+	if reward.Minutes then
+		local cash = math.max(reward.Minutes * 500, math.floor((state.Income or 0) * 60 * reward.Minutes))
+		data.Money += cash
+		table.insert(parts, "+" .. Format.Money(cash))
+	end
+	if reward.Speed then
+		data.Speed += reward.Speed
+		applySpeed(player)
+		table.insert(parts, ("+%s Speed"):format(Format.Short(reward.Speed)))
+	end
+	if reward.Boost then
+		local start = math.max(now(), data.Boosts.Money2 or 0)
+		data.Boosts.Money2 = start + reward.Boost * 60
+		computeIncome(state)
+		table.insert(parts, ("2x Cash %d min"):format(reward.Boost))
+	end
+	if reward.Candy then
+		data.Candy = (data.Candy or 0) + reward.Candy
+		table.insert(parts, ("+%d candy"):format(reward.Candy))
+	end
+	if reward.Egg then
+		local zoneIndex = bestZoneFor(state)
+		local def, mutation = rollEgg(Config.Zones[zoneIndex], Random.new(), Config.RarityIndex[reward.Egg] or Config.RarityIndex.Rare)
+		if def then
+			addEggSlot(player, def, zoneIndex, 1, mutation, true)
+			table.insert(parts, def.Rarity .. " egg")
+		end
+	end
+	banner(player, "CODE! " .. table.concat(parts, "  "), Color3.fromRGB(120, 230, 255))
+	net:FireClient(player, "Purchased")
+	net:FireClient(player, "CodeOk")
+	publish(player, true)
+	task.spawn(Data.Save, player)
+end
+
+---------------------------------------------------------------------
 -- Pedidos da tela
 ---------------------------------------------------------------------
-local lastRequest: { [Player]: number } = {}
+-- limite de pedidos POR AÇÃO (v65): antes era um limite só para todos os botões, e abrir/clicar rápido
+-- em coisas diferentes fazia pedidos sumirem. Agora cada ação tem o seu.
+local lastRequest: { [Player]: { [string]: number } } = {}
+local REQUEST_GAP = { Redeem = 1.5, Buy = 0.5, SlowMode = 0.3 }
 
 local function onRequest(player: Player, action: any, arg: any)
 	local state = states[player]
-	if not state then
+	if not state or type(action) ~= "string" then
 		return
 	end
 	if action == "Swing" then
 		return swing(player)
 	end
 	local clock = os.clock()
-	if clock - (lastRequest[player] or 0) < 0.15 then
+	local mine = lastRequest[player]
+	if not mine then
+		mine = {}
+		lastRequest[player] = mine
+	end
+	if clock - (mine[action] or 0) < (REQUEST_GAP[action] or 0.15) then
 		return
 	end
-	lastRequest[player] = clock
+	mine[action] = clock
 	if action == "Upgrade" and (arg == "Pen" or arg == "Treadmill") then
 		upgrade(player, arg)
 	elseif action == "SlowMode" then
@@ -2696,6 +3133,10 @@ local function onRequest(player: Player, action: any, arg: any)
 		rebirth(player)
 	elseif action == "ClaimQuest" then
 		claimQuest(player, arg)
+	elseif action == "Redeem" then
+		redeemCode(player, arg)
+	elseif action == "CandyBuy" then
+		candyBuy(player, arg)
 	end
 end
 
@@ -2816,6 +3257,14 @@ end
 local function onPlayerAdded(player: Player)
 	local data = Data.Load(player)
 	if not player.Parent then
+		Data.Forget(player) -- saiu enquanto carregava: solta a trava sem salvar nada por cima
+		return
+	end
+	-- não conseguiu carregar o save (Roblox fora do ar): é melhor sair e voltar do que jogar sem salvar
+	-- (antes a criança jogava, comprava coisas e perdia TUDO ao sair). Fora do Studio só.
+	if data.__NoSave and not game:GetService("RunService"):IsStudio() then
+		player:Kick("We couldn't load your save right now. Your progress is safe - please rejoin in a minute!")
+		Data.Forget(player)
 		return
 	end
 	-- campos novos (saves antigos)
@@ -2850,9 +3299,15 @@ local function onPlayerAdded(player: Player)
 	states[player] = state
 	funnel(player, "Joined")
 	state.SessionStart = os.time()
-	state.GiftsClaimed = {}
-	player:SetAttribute("SessionStart", workspace:GetServerTimeNow())
-	player:SetAttribute("GiftsClaimed", "")
+	-- passes que já sabemos que o jogador tem (salvos): valem na hora, mesmo se o Roblox demorar a responder
+	data.Passes = if type(data.Passes) == "table" then data.Passes else {}
+	for key in data.Passes do
+		if Config.PassByKey[key] then
+			state.Passes[key] = true
+		end
+	end
+	giftData(state) -- presentes por tempo jogado (salvos: sair e voltar não zera)
+	publishGifts(player)
 	if plot then
 		plot.Owner = player
 		plot.OwnerLabel.Text = player.DisplayName .. "'s Pen"
@@ -2896,10 +3351,17 @@ local function onPlayerAdded(player: Player)
 	if player.Character then
 		task.spawn(onCharacter, player, player.Character)
 	end
+	if halloweenNow() then
+		task.delay(8, function()
+			if player.Parent then
+				banner(player, "\u{1F383} HALLOWEEN EVENT! Steal eggs for CANDY \u{1F36C} and visit the Candy Shop!", Color3.fromRGB(255, 140, 40))
+			end
+		end)
+	end
 	if data.Stolen == 0 then
 		task.delay(3, function()
 			if player.Parent then
-				banner(player, "Run into the FOREST and STEAL an egg!", Color3.fromRGB(255, 225, 80))
+				banner(player, ("Run into %s and STEAL an egg!"):format(string.upper(Config.Zones[1].Name)), Color3.fromRGB(255, 225, 80))
 			end
 		end)
 	end
@@ -2931,6 +3393,7 @@ local function onPlayerRemoving(player: Player)
 		state.Plot.Belt:SetAttribute("Unlocked", nil)
 	end
 	states[player] = nil
+	lastRequest[player] = nil
 	Data.Release(player)
 	refreshFriendBoosts()
 end
@@ -3072,8 +3535,17 @@ function Game.Init()
 				local root = rootOf(player)
 				if state.Carry and root then
 					local carry = state.Carry
+					local valid, why = carryValid(state, root, dt)
 					if not carry.Egg.Model.Parent or not carry.Weld.Parent then
 						endCarry(player, false)
+					elseif not valid then
+						endCarry(player, false)
+						if why == "time" then
+							toast(player, "You held the egg too long - it went back to its nest!", "warning")
+						else
+							warn(("[Game] carry blocked (%s): %s"):format(tostring(why), player.Name))
+							toast(player, "The egg slipped back to its nest!", "warning")
+						end
 					elseif root.Position.Z < -1 then
 						deliver(player)
 					end
@@ -3095,7 +3567,7 @@ function Game.Init()
 						if inside and not state.InShop[shop.Name] then
 							state.InShop[shop.Name] = true
 							if shop.Name == "Chest" then
-								claimChest(player)
+								task.spawn(claimChest, player)
 							else
 								net:FireClient(player, "Open", shop.Name)
 							end
@@ -3111,8 +3583,9 @@ function Game.Init()
 	-- loop de 1 segundo: dinheiro, ovos crescendo, esteira, dia/noite
 	task.spawn(function()
 		local tick = 0
+		local partyWarned, partyAnnounced, nextPartyGolden, nextPumpkin = 0, 0, 0, math.huge
 		while true do
-			task.wait(1)
+			local elapsed = math.min(task.wait(1), 5)
 			tick += 1
 			local t = os.time()
 			local id = t // Config.Cycle
@@ -3127,6 +3600,41 @@ function Game.Init()
 			-- ovo dourado a cada 8 minutos (no meio do ciclo, nunca na noite)
 			if t % 480 == 150 then
 				task.spawn(spawnGoldenEgg)
+			end
+			-- FESTÃO (v65): contagem para a atualização da semana e começo automático
+			local partyStart, partyEnd = Config.PartyWindow(t)
+			if workspace:GetAttribute("PartyStart") ~= partyStart then
+				workspace:SetAttribute("PartyStart", partyStart)
+				workspace:SetAttribute("PartyEnd", partyEnd)
+			end
+			if t >= partyStart - 3600 and t < partyStart and partyWarned ~= partyStart then
+				partyWarned = partyStart
+				banner(nil, ("\u{1F389} UPDATE PARTY in 1 hour! Rare eggs x%d!"):format(Config.Update.PartyLuck), Color3.fromRGB(255, 200, 80))
+			elseif t >= partyStart and t < partyEnd then
+				if partyAnnounced ~= partyStart then
+					partyAnnounced = partyStart
+					nextPartyGolden = t + 30
+					banner(nil, ("\u{1F389} UPDATE PARTY! Rare eggs x%d + golden eggs for %d min!"):format(Config.Update.PartyLuck, Config.Update.PartyMinutes), Color3.fromRGB(255, 200, 80))
+					net:FireAllClients("Sfx", "Alarm")
+				end
+				if t >= nextPartyGolden then
+					nextPartyGolden = t + Config.Update.PartyGoldenEvery
+					task.spawn(spawnGoldenEgg)
+				end
+			end
+			-- HALLOWEEN (v65)
+			local halloween = (t >= Config.Halloween.From and t < Config.Halloween.To) or (Config.Halloween.TestInStudio == true and RunService:IsStudio())
+			if workspace:GetAttribute("Halloween") ~= halloween then
+				workspace:SetAttribute("Halloween", halloween)
+				setHalloweenDecor(halloween)
+				if halloween then
+					nextPumpkin = t + 60
+					banner(nil, "\u{1F383} HALLOWEEN EVENT! Steal eggs for CANDY \u{1F36C}", Color3.fromRGB(255, 140, 40))
+				end
+			end
+			if halloween and t >= nextPumpkin then
+				nextPumpkin = t + Config.Halloween.PumpkinEvery
+				task.spawn(spawnGoldenEgg, "Pumpkin")
 			end
 			if t < luckyEnd then
 				if workspace:GetAttribute("LuckyEnd") ~= luckyEnd then
@@ -3163,7 +3671,14 @@ function Game.Init()
 				if (state.Income or 0) > 0 then
 					data.Money += state.Income
 				end
+				-- tempo jogado para os presentes (salvo; zera só depois de Config.GiftResetHours fora)
+				do
+					local gift = giftData(state)
+					gift.Played += elapsed
+					gift.Seen = t
+				end
 				local growth = (if night then Config.NightGrowth else 1) * (if boostOn(state, "Grow2") then 2 else 1) * (if state.Passes and state.Passes.Grow2 then 2 else 1)
+					* (if partyNow() then Config.Update.PartyGrowth else 1)
 				for _, slot in data.Slots do
 					if slot.Kind == "Egg" and (slot.Left or 0) > 0 then
 						slot.Left = math.max(0, slot.Left - growth)
