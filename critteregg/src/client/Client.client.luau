@@ -74,6 +74,7 @@ do
 		MaxZone = { "MAX SPEED ZONE!", "ZONA MÁXIMA!" },
 		ZoneUnlocked = { "NEW ZONE UNLOCKED: %s!", "ZONA NOVA LIBERADA: %s!" },
 		CarryRun = { "\u{1F3C3} RUN BACK TO THE SAFE ZONE!", "\u{1F3C3} VOLTE PARA A ZONA SEGURA!" },
+		StealStreak = { "\u{1F525} Steal streak %d! Bonus at %d", "\u{1F525} Sequência de roubos: %d! Bônus no %d" },
 		HintCarry = { "\u{1F3C3} Run back to the SAFE ZONE with the egg!", "\u{1F3C3} Volte para a ZONA SEGURA com o ovo!" },
 		HintSteal = { "\u{1F95A} Go into %s and %s on an egg to STEAL it!", "\u{1F95A} Vá até %s e %s num ovo para ROUBAR!" },
 		HoldButton = { "hold the button", "segure o botão" },
@@ -291,8 +292,13 @@ local function rescale()
 	local scale = math.clamp(math.min(size.X / 1366, size.Y / 768), 0.4, 1.15)
 	if TOUCH then
 		-- celular: um pouco menor, mas NO MÍNIMO 0.6 (v66: antes caía para 0.40 e ficava tudo minúsculo).
-		-- Janela que não cabe nesse tamanho encolhe sozinha (fitWindows).
-		scale = math.max(scale * 0.85, 0.6)
+		-- Em tela bem baixinha (iPhone SE, 320 px) o mínimo cai até caber ~520 px de altura (v66.1: senão a dica
+		-- e a velocidade ficavam em cima dos botões). Janela que não cabe encolhe sozinha (fitWindows).
+		local guiH = gui.AbsoluteSize.Y
+		if guiH < 50 then
+			guiH = size.Y - 58 -- antes do 1º layout: tela menos a barra do Roblox
+		end
+		scale = math.max(scale * 0.85, math.min(0.6, guiH / 520))
 	end
 	scale = math.floor(scale * 20 + 0.5) / 20
 	if math.abs(uiScale.Scale - scale) > 0.001 then
@@ -413,6 +419,10 @@ do
 			add(true, bestBoost.Icon, ("%s %s"):format(bestBoost.Name, clockText(bestLeft)), bestBoost.Color)
 		end
 		-- (não ativos)
+		-- HALLOWEEN (v66.1): o evento aparece no relógio, com os doces (a loja fica em Menu > Doces)
+		if workspace:GetAttribute("Halloween") == true then
+			add(false, "\u{1F383}", ("HALLOWEEN \u{1F36C} %d"):format(player:GetAttribute("Candy") or 0), Color3.fromRGB(255, 140, 40))
+		end
 		if workspace:GetAttribute("Weekend") == true then
 			add(false, "\u{1F4B5}", "WEEKEND 2x MONEY!", GREEN_TEXT)
 		end
@@ -821,7 +831,9 @@ do
 		detailRarity.TextColor3 = Theme.rarityColor(def.Rarity)
 		local income = Config.BaseIncome(def, indexZone)
 		detailIncome.Text = if found then Format.Money(income) .. "/s" else "Steal it to find out!"
-		local cash, speed = Config.IndexReward(def, indexZone)
+		-- prêmio pela zona onde o bicho foi achado (v66.1)
+		local rewardZone = (found == 1 and decode("IndexZone", {})[def.Id]) or indexZone
+		local cash, speed = Config.IndexReward(def, rewardZone)
 		detailReward.Text = ("Reward: %s  +%s Speed"):format(Format.Money(cash), Format.Short(speed))
 		claimButton.Visible = found == 1
 		claimLabel.Text = "CLAIM"
@@ -1106,7 +1118,9 @@ do
 							end)
 							return
 						end
-						net:FireServer("Sell", { slot.i, slot.id })
+						-- manda o bicho inteiro (espécie, mutação, tamanho, zona): tocando rápido, a posição pode
+						-- já ser de OUTRO bicho da mesma espécie (ex.: um Dourado) - aí o servidor não vende (v66.1)
+						net:FireServer("Sell", { slot.i, slot.id, slot.m or false, slot.s or 1, slot.z or 1 })
 						-- some na hora (a lista é refeita quando chega a resposta)
 						card.Visible = false
 					end)
@@ -1289,25 +1303,37 @@ refreshers.Daily = refreshDaily
 local questWindow, questBody = Theme.window(gui, "Quests", "\u{1F4DC} Daily Quests", Theme.Blue, Vector2.new(820, 520))
 windows.Quests = questWindow
 local questList = scroller(questBody)
+-- v66.1: as linhas são feitas 1 vez e só os textos mudam (correndo na esteira o progresso muda todo segundo:
+-- antes a lista era refeita e o toque no CLAIM! se perdia)
+local questRows: { [string]: any } = {}
 local function refreshQuests()
-	clear(questList)
 	local q = decode("Quests", { p = {}, c = {} })
 	local income = player:GetAttribute("BaseIncome") or player:GetAttribute("Income") or 0 -- prêmios usam a renda sem os 2x (v66)
 	for order, info in Config.Quests do
+		local entry = questRows[info.Key]
+		if not entry then
+			local row, btn, label, sub = shopRow(questList, order, info.Icon, info.Name, "", "", Color3.fromRGB(80, 80, 95), function()
+				-- confere na hora do toque (a linha não é mais refeita)
+				local now = decode("Quests", { p = {}, c = {} })
+				if ((now.p and now.p[info.Key]) or 0) >= info.Goal and not (now.c and now.c[info.Key]) then
+					net:FireServer("ClaimQuest", info.Key)
+				end
+			end, Theme.Blue)
+			-- barrinha de progresso
+			local bar = create("Frame", { Size = UDim2.new(1, -310, 0, 8), Position = UDim2.new(0, 100, 1, -14), BackgroundColor3 = Color3.fromRGB(25, 25, 32), BorderSizePixel = 0, ZIndex = 13, Parent = row }, { corner(4) })
+			local fill = create("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Theme.Cyan, BorderSizePixel = 0, ZIndex = 14, Parent = bar }, { corner(4) })
+			entry = { Button = btn, Label = label, Sub = sub, Fill = fill }
+			questRows[info.Key] = entry
+		end
 		local progress = math.min((q.p and q.p[info.Key]) or 0, info.Goal)
 		local claimed = q.c and q.c[info.Key]
 		local done = progress >= info.Goal
 		local cash = math.max(info.MinCash, math.floor(income * 60 * info.Minutes))
-		local row = shopRow(questList, order, info.Icon, info.Name, ("%d/%d  \u{2022}  %s + %s Speed"):format(progress, info.Goal, Format.Money(cash), Format.Short(info.Speed)),
-			if claimed then "CLAIMED" elseif done then "CLAIM!" else ("%d%%"):format(math.floor(progress / info.Goal * 100)),
-			if claimed then Theme.Gray elseif done then Theme.Green else Color3.fromRGB(80, 80, 95), function()
-				if done and not claimed then
-					net:FireServer("ClaimQuest", info.Key)
-				end
-			end, Theme.Blue)
-		-- barrinha de progresso
-		local bar = create("Frame", { Size = UDim2.new(1, -310, 0, 8), Position = UDim2.new(0, 100, 1, -14), BackgroundColor3 = Color3.fromRGB(25, 25, 32), BorderSizePixel = 0, ZIndex = 13, Parent = row }, { corner(4) })
-		create("Frame", { Size = UDim2.fromScale(progress / info.Goal, 1), BackgroundColor3 = if done then Theme.Green else Theme.Cyan, BorderSizePixel = 0, ZIndex = 14, Parent = bar }, { corner(4) })
+		entry.Sub.Text = ("%d/%d  \u{2022}  %s + %s Speed"):format(progress, info.Goal, Format.Money(cash), Format.Short(info.Speed))
+		entry.Label.Text = if claimed then "CLAIMED" elseif done then "CLAIM!" else ("%d%%"):format(math.floor(progress / info.Goal * 100))
+		entry.Button.BackgroundColor3 = if claimed then Theme.Gray elseif done then Theme.Green else Color3.fromRGB(80, 80, 95)
+		entry.Fill.Size = UDim2.fromScale(progress / info.Goal, 1)
+		entry.Fill.BackgroundColor3 = if done then Theme.Green else Theme.Cyan
 	end
 end
 onOpen.Quests = refreshQuests
@@ -1615,7 +1641,6 @@ local refreshMenuBadge: () -> () = function() end -- (a de verdade fica dentro d
 do
 	local MENU_COLOR = Color3.fromRGB(70, 90, 210)
 	local soundOn = true
-	local slowOn = false
 	local adminMenuSeen = false -- admin: "!" no Menu até abrir uma vez (para achar o painel)
 	local menuWindow, menuBody = Theme.window(gui, "Menu", L("Menu"), MENU_COLOR, Vector2.new(840, 440))
 	windows.Menu = menuWindow
@@ -1676,8 +1701,8 @@ do
 		end
 	end, true)
 	menuTile("SlowMode", 9, "\u{1F422}", Color3.fromRGB(70, 150, 90), function()
-		slowOn = not slowOn
-		net:FireServer("SlowMode", slowOn)
+		-- o estado vem do servidor (atributo): 2 toques rápidos não deixam o botão dizendo OFF com o modo ligado
+		net:FireServer("SlowMode", player:GetAttribute("SlowMode") ~= true)
 	end, true)
 	menuTile("Admin", 10, "\u{26A1}", Theme.Red, function()
 		open("Admin")
@@ -1725,8 +1750,9 @@ do
 		menuTiles.Sound.Icon.Text = if soundOn then "\u{1F50A}" else "\u{1F507}"
 		menuTiles.Sound.Sub.Text = if soundOn then L("On") else L("Off")
 		menuTiles.Sound.Sub.TextColor3 = if soundOn then GREEN_TEXT else Color3.fromRGB(255, 120, 120)
-		menuTiles.SlowMode.Sub.Text = if slowOn then L("On") else L("Off")
-		menuTiles.SlowMode.Sub.TextColor3 = if slowOn then GREEN_TEXT else Color3.fromRGB(255, 120, 120)
+		local slow = player:GetAttribute("SlowMode") == true
+		menuTiles.SlowMode.Sub.Text = if slow then L("On") else L("Off")
+		menuTiles.SlowMode.Sub.TextColor3 = if slow then GREEN_TEXT else Color3.fromRGB(255, 120, 120)
 		menuTiles.Admin.Tile.Visible = admin
 		return dailyReady or questReady or progress >= 1 or candyReady or (admin and not adminMenuSeen)
 	end
@@ -2095,6 +2121,23 @@ local stunText = text({ AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fr
 -- grande "RUN!!" (y 40..126). Ali embaixo não encosta em nada: carregando ovo, a dica do tutorial e o painel
 -- da esteira ficam escondidos; o joystick e o botão de pular ficam nos cantos)
 local carryText = text({ AnchorPoint = Vector2.new(0.5, 1), Position = if TOUCH then UDim2.new(0.5, 0, 1, -150) else UDim2.new(0.5, 0, 1, -30), Size = UDim2.fromOffset(if TOUCH then 600 else 760, if TOUCH then 48 else 54), Text = L("CarryRun"), TextColor3 = Color3.fromRGB(255, 225, 80), Stroke = 5, Visible = false, Parent = gui })
+-- SEQUÊNCIA DE ROUBOS (v66.1): aparece no aviso de correr e num aviso a cada entrega (o bônus vem a cada
+-- Config.StealStreak.Every entregas sem ser pego; o servidor avisa o bônus)
+do
+	local lastStreak = 0
+	local function showStealStreak()
+		local n = player:GetAttribute("StealStreak")
+		n = if type(n) == "number" then n else 0
+		carryText.Text = L("CarryRun") .. (if n > 0 then ("  \u{1F525}%d"):format(n) else "")
+		local every = Config.StealStreak.Every
+		if n > lastStreak and n % every ~= 0 then
+			showToast(L("StealStreak"):format(n, (n // every + 1) * every), "info")
+		end
+		lastStreak = n
+	end
+	player:GetAttributeChangedSignal("StealStreak"):Connect(showStealStreak)
+	task.defer(showStealStreak)
+end
 
 -- tela escura da noite (o muro e o céu fazem o resto)
 local nightShade = create("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(10, 15, 50), BackgroundTransparency = 1, ZIndex = 0, Parent = gui })
@@ -2515,7 +2558,6 @@ function Rig.new(model: Model)
 		end
 	end
 	return setmetatable({
-		Model = model,
 		Parts = parts,
 		Lift = pivot.Position.Y - bottomY,
 		Height = size.Y,
@@ -2704,7 +2746,8 @@ local function animateGuardian(model: Model, info, dt: number, t: number, near: 
 end
 
 -- PETS DO CERCADO ----------------------------------------------------
-local petState: { [Model]: any } = setmetatable({}, { __mode = "k" }) :: any -- (v65: chave fraca: não vaza memória)
+-- (chave fraca não basta no Luau quando o valor aponta para o modelo: a limpeza é feita no RenderStepped)
+local petState: { [Model]: any } = setmetatable({}, { __mode = "k" }) :: any
 local function petInfo(model: Model)
 	local info = petState[model]
 	if not info then
@@ -2882,6 +2925,13 @@ RunService.RenderStepped:Connect(function(dt)
 	for model in guardianState do
 		if not model.Parent then
 			guardianState[model] = nil
+		end
+	end
+	-- v66.1: bicho vendido/fundido/rebirth: o modelo some e sai do wanderers antes daqui, então a limpeza
+	-- de baixo nunca o via e cada bicho destruído ficava na memória até o fim da partida
+	for model in petState do
+		if not model.Parent then
+			petState[model] = nil
 		end
 	end
 	for model in wanderers do
