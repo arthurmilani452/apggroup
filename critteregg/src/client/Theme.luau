@@ -197,6 +197,33 @@ function Theme.fit(object: GuiObject, scale: number)
 	pop.Scale = scale
 end
 
+-- v67: chama a atenção para um botão (balança e a borda pisca amarela) até chamar a função devolvida.
+-- (não mexe no UIScale: ele é do springy, e o toque/hover cancelaria o efeito)
+local PULSE = TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+function Theme.pulse(object: GuiObject): () -> ()
+	local edge = object:FindFirstChildOfClass("UIStroke")
+	local oldColor = if edge then edge.Color else nil
+	local oldThickness = if edge then edge.Thickness else nil
+	object.Rotation = -4
+	local tweens = { TweenService:Create(object, PULSE, { Rotation = 4 }) }
+	if edge and oldThickness then
+		table.insert(tweens, TweenService:Create(edge, PULSE, { Color = Color3.fromRGB(255, 230, 80), Thickness = oldThickness + 2 }))
+	end
+	for _, tween in tweens do
+		tween:Play()
+	end
+	return function()
+		for _, tween in tweens do
+			tween:Cancel()
+		end
+		object.Rotation = 0
+		if edge and oldColor and oldThickness then
+			edge.Color = oldColor
+			edge.Thickness = oldThickness
+		end
+	end
+end
+
 -- v66: selo vermelho no canto de cima à direita ("!" ou um número). Começa escondido.
 function Theme.badge(parent: GuiObject, label: string?): (Frame, TextLabel)
 	local layer = parent.ZIndex + 2

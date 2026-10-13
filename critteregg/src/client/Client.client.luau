@@ -84,7 +84,21 @@ do
 		HintBuyPen = { "\u{1F3E1} Buy PEN LEVEL 1 at the yellow board to unlock your TREADMILL!", "\u{1F3E1} Compre o CERCADO NÍVEL 1 na placa amarela para liberar a ESTEIRA!" },
 		HintSavePen = { "\u{1F4B5} Your pets make money! Save %s to unlock the treadmill.", "\u{1F4B5} Seus pets dão dinheiro! Junte %s para liberar a esteira." },
 		HintTread = { "\u{1F45F} Stand on your TREADMILL and tap AUTO RUN to get FASTER!", "\u{1F45F} Suba na sua ESTEIRA e toque em AUTO CORRER para ficar MAIS RÁPIDO!" },
-		HintBat = { "\u{2694}\u{FE0F} Use your BAT to make egg thieves drop their egg! Traps catch them too.", "\u{2694}\u{FE0F} Use o TACO para o ladrão soltar o ovo! As armadilhas também pegam." },
+		-- v67: PRÓXIMA META (a linha de dica nunca acaba) e avisos curtos
+		HintNight = { "\u{1F319} Night! Eggs come back in %s", "\u{1F319} Noite! Os ovos voltam em %s" },
+		HintPenFull = { "\u{1F3E1} Pen full! Upgrade (%s) or SELL a pet", "\u{1F3E1} Cercado cheio! Melhore (%s) ou VENDA um pet" },
+		HintPenFullMax = { "\u{1F3E1} Pen full! SELL or FUSE pets to make room", "\u{1F3E1} Cercado cheio! VENDA ou FUNDA pets para abrir espaço" },
+		HintClaimIndex = { "\u{1F4D6} Claim your Index rewards! (%d)", "\u{1F4D6} Pegue seus prêmios do Índice! (%d)" },
+		HintGolden = { "\u{2B50} GOLDEN EGG in %s! Steal it first!", "\u{2B50} OVO DOURADO em %s! Roube primeiro!" },
+		HintGoZone = { "\u{1F95A} Steal a %s egg - %dx money!", "\u{1F95A} Roube um ovo de %s - %dx dinheiro!" },
+		HintGoalSpeed = { "\u{1F3AF} Train to %s speed \u{2192} %s (%d%%)", "\u{1F3AF} Treine até %s de velocidade \u{2192} %s (%d%%)" },
+		HintRebirth = { "\u{1F3AF} Next: REBIRTH %d%% (Menu)", "\u{1F3AF} Próximo: RENASCER %d%% (Menu)" },
+		GoldenTicker = { "GOLDEN EGG: %s %s", "OVO DOURADO: %s %s" },
+		PumpkinTicker = { "Pumpkin Egg in %s", "Ovo de Abóbora em %s" },
+		HalloweenTicker = { "HALLOWEEN %s", "HALLOWEEN %s" },
+		FirstHit = { "\u{2694}\u{FE0F} Ouch! Hit thieves with YOUR BAT so they drop the egg!", "\u{2694}\u{FE0F} Ai! Use o seu TACO no ladrão para ele soltar o ovo!" },
+		NightKeep = { "\u{1F319} The night guard let you keep it!", "\u{1F319} O guarda da noite deixou você ficar com ele!" },
+		FirstRare = { "\u{1F389} SURPRISE! Your first egg is RARE!", "\u{1F389} SURPRESA! Seu primeiro ovo é RARO!" },
 	}
 	L = function(key: string): string
 		local entry = TEXTS[key]
@@ -196,6 +210,18 @@ Theme.OnClick = function()
 end
 local GREEN_TEXT = Color3.fromRGB(110, 255, 90)
 local PINK_TEXT = Color3.fromRGB(255, 70, 140)
+-- v67: estado dos primeiros minutos e da PRÓXIMA META (tudo numa tabela: limite de 200 locais do Luau)
+local firstMin = {
+	JoinClock = os.clock(),
+	DailyShown = false, -- Diário já abriu sozinho nesta sessão
+	HitTold = false, -- dica do taco já apareceu (1ª vez que levou taco)
+	Pulse = nil :: string?, -- botão balançando agora ("Index")
+	StopPulse = nil :: (() -> ())?,
+	IndexButton = nil :: GuiObject?,
+	Small = false, -- linha da dica já encolheu (depois do tutorial)
+	FavDone = false, -- já pediu para favoritar nesta sessão
+	TryFavorite = function() end, -- (a de verdade fica perto do net.OnClientEvent)
+}
 
 -- JSON dos atributos (Slots, Index, Quests, Boosts) com CACHE (v66 perf): só decodifica de novo quando o texto
 -- do atributo muda (o servidor troca o atributo => o texto muda). Antes cada chamada (4x por segundo no tutorial,
@@ -325,8 +351,9 @@ end
 ---------------------------------------------------------------------
 -- RELÓGIOS (v66): só 2 "pílulas" (antes eram 5 linhas).
 --   A = noite (como antes).  B = a coisa MAIS importante agora, nesta ordem:
---   sorte do admin > 2x dinheiro do admin > FESTÃO > evento da sorte > boost > fim de semana 2x > noite chegando
---   > "UPDATE in ..." > "Lucky in m:ss" > bicho da semana. Nada acontecendo = alterna os 2 primeiros a cada 4 s.
+--   sorte do admin > 2x dinheiro do admin > FESTÃO > ovo dourado (v67) > abóbora em 1 min (v67) > evento da sorte
+--   > boost > fim de semana 2x > noite chegando > "UPDATE in ..." > "Lucky in m:ss" > Halloween (v67) > bicho da semana.
+--   Nada acontecendo = alterna até 4 a cada 4 s (v67; antes só 2). Dia de semana: bicho da semana em 2º.
 -- PC: embaixo à direita. Celular: em cima à direita, logo abaixo da barra do Roblox (longe do botão de pular).
 ---------------------------------------------------------------------
 do
@@ -390,6 +417,15 @@ do
 			local left = math.max(0, partyEnd - t)
 			add(true, "\u{1F389}", ("PARTY x%d! %d:%02d"):format(Config.Update.PartyLuck, math.floor(left / 60), math.floor(left % 60)), Color3.fromRGB(255, 200, 80))
 		end
+		-- v67: OVO DOURADO no mapa agora (zona + tempo) e Ovo de Abóbora chegando (último minuto)
+		local goldenUntil, goldenZone = workspace:GetAttribute("GoldenUntil"), workspace:GetAttribute("GoldenZone")
+		if typeof(goldenUntil) == "number" and goldenUntil > t and typeof(goldenZone) == "number" and Config.Zones[goldenZone] then
+			add(true, "\u{2B50}", L("GoldenTicker"):format(Config.Zones[goldenZone].Name, clockText(goldenUntil - t)), Color3.fromRGB(255, 215, 60))
+		end
+		local pumpkinAt = workspace:GetAttribute("PumpkinAt")
+		if typeof(pumpkinAt) == "number" and pumpkinAt > t and pumpkinAt - t <= 60 then
+			add(true, "\u{1F383}", L("PumpkinTicker"):format(clockText(pumpkinAt - t)), Color3.fromRGB(255, 150, 50))
+		end
 		-- evento da sorte (raros x3)
 		local luckyStart = t - t % Config.LuckyEvery
 		local luckyLeft = luckyStart + Config.LuckyLength - t
@@ -429,11 +465,24 @@ do
 			local left = luckyStart + Config.LuckyEvery - t
 			add(false, "\u{1F340}", ("Lucky in %d:%02d"):format(math.floor(left / 60), math.floor(left % 60)), Color3.new(1, 1, 1))
 		end
-		-- BICHO DA SEMANA
+		-- v67: quanto falta para o Halloween acabar
+		if workspace:GetAttribute("Halloween") == true then
+			local left = (Config.Halloween.To or 0) - t
+			add(false, "\u{1F383}", L("HalloweenTicker"):format(if left >= 86400 then ("%dd"):format(math.floor(left / 86400))
+				elseif left >= 3600 then ("%dh"):format(math.floor(left / 3600)) elseif left > 0 then clockText(left) else ""), Color3.fromRGB(255, 150, 50))
+		end
+		-- BICHO DA SEMANA (v67: nos dias de semana entra em 2º na fila, para aparecer sempre; antes a fila só
+		-- girava os 2 primeiros e ele nunca aparecia)
 		local weekly = Critters.ById[Config.WeeklyCritter(math.floor(t))]
 		if weekly then
 			local left = Config.WeeklyEnds(math.floor(t)) - t
-			add(false, "\u{2B50}", ("%s x%d! %dd %dh"):format(weekly.Name, Config.WeeklyMult, math.floor(left / 86400), math.floor(left % 86400 / 3600)), Color3.fromRGB(255, 220, 90))
+			local message = ("%s x%d! %dd %dh"):format(weekly.Name, Config.WeeklyMult, math.floor(left / 86400), math.floor(left % 86400 / 3600))
+			local entry = { Active = false, Icon = "\u{2B50}", Text = message, Color = Color3.fromRGB(255, 220, 90) }
+			if workspace:GetAttribute("Weekend") ~= true then
+				table.insert(items, math.min(2, #items + 1), entry)
+			else
+				table.insert(items, entry)
+			end
 		end
 		local pick = nil
 		for _, item in items do
@@ -443,7 +492,7 @@ do
 			end
 		end
 		if not pick and #items > 0 then
-			pick = items[math.floor(os.clock() / 4) % math.min(#items, 2) + 1]
+			pick = items[math.floor(os.clock() / 4) % math.min(#items, 4) + 1]
 		end
 		tickerChip.Visible = pick ~= nil
 		if pick then
@@ -503,6 +552,15 @@ local function open(name: string, toggle: boolean?)
 	if onOpen[name] then
 		onOpen[name]()
 	end
+end
+-- v67: tem alguma janela aberta? (olha a janela de verdade: o X e o "Hatched" fecham sem mexer no currentWindow)
+local function anyWindowOpen(): boolean
+	for _, window in windows do
+		if window.Visible then
+			return true
+		end
+	end
+	return false
 end
 
 -- PRÉVIAS 3D PREGUIÇOSAS (v66 perf): ViewportFrame + cópia do modelo é a peça mais cara da tela.
@@ -1355,6 +1413,7 @@ do
 	local indexButton = sideButton(2, "\u{1F4D6}", L("Index"), Theme.Blue, function()
 		open("Index", true)
 	end)
+	firstMin.IndexButton = indexButton -- (v67: a PRÓXIMA META faz ele balançar quando tem prêmio para pegar)
 	local eggsButton = sideButton(3, "\u{1F95A}", L("Eggs"), Theme.Red, function()
 		open("Eggs", true)
 	end)
@@ -1812,8 +1871,15 @@ do
 	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
 end
 
+-- DIÁRIO ABRE SOZINHO (v67: "primeiros minutos quietos"): quem já jogou antes (Stolen > 0) vê aos 6 s, como antes.
+-- Novato não: o Diário espera o 1º ovo chocado (ver "Hatched"), para a criança aprender a roubar primeiro.
 task.delay(6, function()
-	if player:GetAttribute("DailyReady") == true then
+	local waited = 0
+	while player:GetAttribute("Stolen") == nil and waited < 20 do
+		waited += task.wait(1) -- (o save ainda carregando)
+	end
+	if (player:GetAttribute("Stolen") or 0) > 0 and player:GetAttribute("DailyReady") == true and not firstMin.DailyShown and (waited == 0 or not anyWindowOpen()) then
+		firstMin.DailyShown = true
 		open("Daily")
 	end
 end)
@@ -2099,6 +2165,23 @@ local carryText = text({ AnchorPoint = Vector2.new(0.5, 1), Position = if TOUCH 
 -- tela escura da noite (o muro e o céu fazem o resto)
 local nightShade = create("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(10, 15, 50), BackgroundTransparency = 1, ZIndex = 0, Parent = gui })
 
+-- v67: pede para FAVORITAR o jogo 1 vez por conta, SEM prêmio (a Roblox não deixa premiar favorito).
+-- Só num momento feliz (zona nova ou Lendário+ chocado), depois de 8 min jogando e nunca carregando ovo.
+firstMin.TryFavorite = function()
+	local waited = 0
+	while (hatchBusy or hatchLayer.Visible) and waited < 15 do
+		waited += task.wait(0.5) -- espera o cartão do bichinho sumir
+	end
+	if firstMin.FavDone or player:GetAttribute("FavAsked") ~= false or os.clock() - firstMin.JoinClock < 480 or player:GetAttribute("Carrying") then
+		return
+	end
+	firstMin.FavDone = true
+	net:FireServer("FavAsked")
+	pcall(function()
+		game:GetService("AvatarEditorService"):PromptSetFavorite(game.PlaceId, Enum.AvatarItemType.Asset, true)
+	end)
+end
+
 net.OnClientEvent:Connect(function(kind, a, b)
 	if kind == "Toast" then
 		showToast(a, b)
@@ -2145,6 +2228,28 @@ net.OnClientEvent:Connect(function(kind, a, b)
 		task.delay(1.15, function()
 			queueHatch(a)
 		end)
+		-- v67: o Diário abre sozinho 4 s depois do 1º ovo chocado da sessão (novato: nada abre antes disso),
+		-- só sem janela aberta e sem ovo nas mãos; senão tenta de novo no próximo ovo
+		if not firstMin.DailyShown and player:GetAttribute("DailyReady") == true and (player:GetAttribute("Stolen") or 0) >= 1 then
+			task.delay(4, function()
+				local waited = 0
+				while (hatchBusy or hatchLayer.Visible) and waited < 15 do
+					waited += task.wait(0.5)
+				end
+				if not firstMin.DailyShown and player:GetAttribute("DailyReady") == true and not anyWindowOpen() and not player:GetAttribute("Carrying") then
+					firstMin.DailyShown = true
+					open("Daily")
+				end
+			end)
+		end
+		-- v67: chocou Lendário ou melhor = momento feliz para pedir o favorito (1 vez por conta)
+		for _, entry in a do
+			local def = type(entry) == "table" and Critters.ById[entry[1]]
+			if def and (Config.RarityIndex[def.Rarity] or 1) >= Config.RarityIndex.Legendary then
+				task.delay(4, firstMin.TryFavorite)
+				break
+			end
+		end
 	elseif kind == "Sfx" then
 		sfx(a)
 	elseif kind == "SfxAt" and typeof(b) == "Vector3" then
@@ -2167,6 +2272,13 @@ net.OnClientEvent:Connect(function(kind, a, b)
 		task.delay(a or 1, function()
 			stunText.Visible = false
 		end)
+		-- v67: a dica do taco virou aviso de 1 vez (na 1ª vez que a criança leva um taco)
+		if not firstMin.HitTold and (player:GetAttribute("Stolen") or 0) < 10 then
+			firstMin.HitTold = true
+			task.delay(1.5, function()
+				showToast(L("FirstHit"), "info")
+			end)
+		end
 	elseif kind == "GuardianAwake" then
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if typeof(b) == "Vector3" then
@@ -2239,6 +2351,15 @@ net.OnClientEvent:Connect(function(kind, a, b)
 					sfx("Coin", 1 + k * 0.12)
 				end)
 			end
+			task.delay(4, firstMin.TryFavorite) -- (v67: momento feliz para pedir o favorito)
+		end
+	elseif kind == "Say" and type(a) == "string" then
+		-- v67: aviso do servidor com o texto da TELA (PT/EN pelo L()): "banner" = faixa grande, senão aviso
+		if b == "banner" then
+			showBanner(L(a), Color3.fromRGB(255, 220, 90))
+			sfx("Pop")
+		else
+			showToast(L(a), if type(b) == "string" then b else "info")
 		end
 	elseif kind == "NightTeleport" then
 		task.delay(0.1, faceCameraForward)
@@ -2315,8 +2436,11 @@ end)
 local tutorialText = text({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, if TOUCH then -160 else -96), Size = UDim2.fromOffset(if TOUCH then 820 else 700, 46), Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Stroke = 4, Visible = false, Parent = gui })
 local tutorialStep = ""
 
--- devolve (alvo da seta, texto) conforme o progresso do jogador
-local function tutorial(root: BasePart): (Vector3?, string?)
+-- devolve (alvo da seta, texto, botão para balançar) conforme o progresso do jogador.
+-- v67: PRÓXIMA META: depois dos passos do tutorial a linha NUNCA acaba. Ordem: carregando > tutorial > noite
+-- > cercado cheio > prêmios do Índice > ovo dourado (20 s) > zona nova sem roubo > treinar até a próxima zona
+-- > rebirth. A dica do taco saiu daqui (virou aviso na 1ª vez que a criança leva taco).
+local function tutorial(root: BasePart): (Vector3?, string?, string?)
 	local slots = decode("Slots", {})
 	local eggs, ready, pets = 0, 0, 0
 	for _, slot in slots do
@@ -2334,33 +2458,50 @@ local function tutorial(root: BasePart): (Vector3?, string?)
 	local pen = player:GetAttribute("PenLevel") or 0
 	local money = player:GetAttribute("Money") or 0
 	local speed = player:GetAttribute("Speed") or 0
-	local function nearestForestEgg(): Vector3?
-		local best, target = math.huge, nil
+	-- ovo mais perto numa zona (golden = só ovo dourado que dá para alcançar)
+	local function nearestEgg(zoneIndex: number?, golden: boolean?): (Vector3?, number?)
+		local best, target, where = math.huge, nil, nil
 		for egg in nestEggSet do
-			if egg:GetAttribute("Zone") == 1 and egg.PrimaryPart then
+			local z = egg:GetAttribute("Zone")
+			local okEgg = if golden then egg:GetAttribute("Golden") == true and not egg:GetAttribute("Pumpkin") and typeof(z) == "number"
+				and Config.Zones[z] ~= nil and speed >= Config.Zones[z].Speed else z == zoneIndex
+			if okEgg and egg.PrimaryPart then
 				local d = (egg.PrimaryPart.Position - root.Position).Magnitude
 				if d < best then
-					best = d
+					best, where = d, z
 					target = egg.PrimaryPart.Position + Vector3.new(0, 3, 0)
 				end
 			end
 		end
-		return target
+		return target, where
 	end
 	if player:GetAttribute("Carrying") then
-		return Vector3.new(root.Position.X, 2, -8), L("HintCarry")
+		return Vector3.new(root.Position.X, 2, -8), L("HintCarry"), nil
+	end
+	-- NOITE: os ninhos ficam vazios, então "vá roubar" vira "os ovos voltam em 0:08"
+	local nightHint: string? = nil
+	if workspace:GetAttribute("Night") == true then
+		local cycleEnd = workspace:GetAttribute("CycleEnd")
+		local left = if typeof(cycleEnd) == "number" then math.max(0, math.floor(cycleEnd - workspace:GetServerTimeNow())) else 0
+		nightHint = L("HintNight"):format(("%d:%02d"):format(left // 60, left % 60))
 	end
 	if stolen == 0 then
-		return nearestForestEgg(), L("HintSteal"):format(string.upper(Config.Zones[1].Name), if TOUCH then L("HoldButton") else L("HoldE"))
+		if nightHint then
+			return nil, nightHint, nil
+		end
+		return nearestEgg(1), L("HintSteal"):format(string.upper(Config.Zones[1].Name), if TOUCH then L("HoldButton") else L("HoldE")), nil
 	end
 	if typeof(x) ~= "number" or typeof(front) ~= "number" then
-		return nil, nil
+		return nil, nightHint, nil
 	end
 	if ready > 0 then
-		return Vector3.new(x, 3, front - 12), L("HintHatch")
+		return Vector3.new(x, 3, front - 12), L("HintHatch"), nil
 	end
 	if pets == 0 and eggs > 0 then
-		return nearestForestEgg(), L("HintGrowing")
+		if nightHint then
+			return nil, nightHint, nil
+		end
+		return nearestEgg(1), L("HintGrowing"), nil
 	end
 	local unclaimedIndex = 0
 	for _, value in decode("Index", {}) do
@@ -2369,21 +2510,74 @@ local function tutorial(root: BasePart): (Vector3?, string?)
 		end
 	end
 	if pen == 0 and unclaimedIndex > 0 then
-		return nil, L("HintIndex")
+		return nil, L("HintIndex"), "Index"
 	end
 	if pen == 0 and pets > 0 then
 		if money >= (Config.PenLevels[1] and Config.PenLevels[1].Cost or 1000) then
-			return Vector3.new(x - 12, 4, front + 6), L("HintBuyPen")
+			return Vector3.new(x - 12, 4, front + 6), L("HintBuyPen"), nil
 		end
-		return nil, L("HintSavePen"):format(Format.Money(Config.PenLevels[1] and Config.PenLevels[1].Cost or 1000))
+		return nil, L("HintSavePen"):format(Format.Money(Config.PenLevels[1] and Config.PenLevels[1].Cost or 1000)), nil
 	end
+	local treadSpot = Vector3.new(x + 13, 3, front + 22)
 	if pen >= 1 and speed < 300 then
-		return Vector3.new(x + 13, 3, front + 22), L("HintTread")
+		return treadSpot, L("HintTread"), nil
 	end
-	if speed >= 300 and speed < 1000 and stolen < 6 then
-		return nil, L("HintBat")
+	-- ===== PRÓXIMA META =====
+	if nightHint then
+		return nil, nightHint, nil
 	end
-	return nil, nil
+	-- cercado cheio: melhorar (seta na placa amarela) ou vender
+	if #slots >= Config.SlotCount(pen) then
+		local nextPen = Config.PenLevels[pen + 1]
+		if nextPen then
+			return Vector3.new(x - 12, 4, front + 6), L("HintPenFull"):format(Format.Money(nextPen.Cost)), nil
+		end
+		return nil, L("HintPenFullMax"), nil
+	end
+	if unclaimedIndex > 0 then
+		return nil, L("HintClaimIndex"):format(unclaimedIndex), "Index"
+	end
+	-- ovo dourado nos primeiros 20 s, numa zona que você alcança (só depois do 3º ovo: antes atrapalha)
+	if stolen >= 3 then
+		local goldenUntil = workspace:GetAttribute("GoldenUntil")
+		if typeof(goldenUntil) == "number" and workspace:GetServerTimeNow() < goldenUntil - 160 then
+			local target, where = nearestEgg(nil, true)
+			if target and where then
+				return target, L("HintGolden"):format(string.upper(Config.Zones[where].Name)), nil
+			end
+		end
+	end
+	-- zona mais funda que a velocidade alcança e a próxima zona
+	local reached, nextIndex = 1, nil
+	for index, zone in Config.Zones do
+		if speed >= zone.Speed then
+			reached = index
+		elseif not nextIndex then
+			nextIndex = index
+		end
+	end
+	-- chegou numa zona nova e ainda não roubou de lá: seta na entrada (ou no ovo mais perto, se já está dentro)
+	if reached >= 2 and reached > (player:GetAttribute("BestStolenZone") or 0) then
+		local zone = Config.Zones[reached]
+		local startZ = Config.Map.LaneLength * (reached - 1)
+		local target = if root.Position.Z >= startZ then nearestEgg(reached) else nil
+		return target or Vector3.new(0, 3, startZ + 20),
+			L("HintGoZone"):format(string.upper(zone.Name), math.floor(zone.Mult / math.max(Config.Zones[reached - 1].Mult, 1))), nil
+	end
+	if nextIndex then
+		if pen < 1 then
+			-- (sem esteira ainda: roube mais ovos para juntar dinheiro)
+			return nearestEgg(1), L("HintGrowing"), nil
+		end
+		local gate = Config.Zones[nextIndex].Speed
+		local pct = math.clamp(math.floor(speed / math.max(gate, 1) * 100), 0, 99)
+		-- seta para a esteira só quando está longe dela (perto, o painel da esteira já explica)
+		return if (root.Position - treadSpot).Magnitude > 40 then treadSpot else nil,
+			L("HintGoalSpeed"):format(Format.Short(gate), string.upper(Config.Zones[nextIndex].Name), pct), nil
+	end
+	-- última zona: rebirth
+	local cost = Config.RebirthCost(player:GetAttribute("Rebirths") or 0)
+	return nil, L("HintRebirth"):format(math.clamp(math.floor(money / math.max(cost, 1) * 100), 0, 100)), nil
 end
 
 ---------------------------------------------------------------------
@@ -3349,14 +3543,38 @@ RunService.Heartbeat:Connect(function(dt)
 	-- seta guia + dica do tutorial
 	local target: Vector3? = nil
 	local hint: string? = nil
+	local pulse: string? = nil
 	if root then
-		target, hint = tutorial(root)
+		target, hint, pulse = tutorial(root)
 	end
-	tutorialText.Visible = hint ~= nil and not carrying and not treadHud.Visible -- (na esteira o painel já explica)
+	-- (na esteira o painel já explica; v67: some também com janela aberta e no cartão do bichinho novo)
+	tutorialText.Visible = hint ~= nil and not carrying and not treadHud.Visible and not hatchLayer.Visible and not anyWindowOpen()
 	if hint and hint ~= tutorialStep then
+		-- pulinho só quando muda a META (v67: o relógio da noite e o % mudam o texto toda hora)
+		local newGoal = string.sub(hint, 1, 12) ~= string.sub(tutorialStep, 1, 12)
 		tutorialStep = hint
 		tutorialText.Text = hint
-		Theme.popIn(tutorialText)
+		if newGoal then
+			Theme.popIn(tutorialText)
+		end
+	end
+	-- v67: depois do tutorial a linha da meta fica mais fina (46 -> 34 px)
+	local small = (player:GetAttribute("Stolen") or 0) >= 6 and (player:GetAttribute("PenLevel") or 0) >= 1
+	if small ~= firstMin.Small then
+		firstMin.Small = small
+		tutorialText.Size = UDim2.fromOffset(tutorialText.Size.X.Offset, if small then 34 else 46)
+	end
+	-- v67: botão da esquerda balançando (Índice com prêmio para pegar)
+	if pulse ~= firstMin.Pulse then
+		firstMin.Pulse = pulse
+		local stop = firstMin.StopPulse
+		firstMin.StopPulse = nil
+		if stop then
+			stop()
+		end
+		if pulse == "Index" and firstMin.IndexButton then
+			firstMin.StopPulse = Theme.pulse(firstMin.IndexButton)
+		end
 	end
 	if target and root then
 		arrow0.Parent = root

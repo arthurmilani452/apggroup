@@ -367,7 +367,9 @@ local function publish(player: Player, full: boolean?)
 	player:SetAttribute("DailyStreak", data.DailyStreak or 0)
 	player:SetAttribute("DailyReady", (data.DailyDay or 0) < os.time() // 86400)
 	player:SetAttribute("Candy", data.Candy or 0)
+	player:SetAttribute("BestStolenZone", data.BestStolenZone or 0) -- (v67) zona mais funda de onde já trouxe ovo
 	if full then
+		player:SetAttribute("FavAsked", data.FavAsked == true) -- (v67) já pediu para favoritar (1 vez por conta)
 		local passes = {}
 		for key in state.Passes or {} do
 			table.insert(passes, key)
@@ -523,8 +525,9 @@ end
 
 -- FUNIL DOS PRIMEIROS MINUTOS (Creator Hub > Analytics > Funnels > Onboarding): mostra em qual passo
 -- as crianças desistem. Cada passo é registrado só uma vez por jogador.
-local FUNNEL = { Joined = 1, Steal = 2, Hatch = 3, Pen = 4, Steps = 5, Treadmill = 6, Zone2 = 7, Hit = 8 }
-local FUNNEL_NAMES = { "Joined", "First egg stolen", "First hatch", "First pen upgrade", "First treadmill step", "First treadmill upgrade", "Stole from zone 2+", "First bat hit" }
+-- (v67: passo 9 = 1º prêmio do Índice pego; a PRÓXIMA META da tela faz o botão do Índice balançar)
+local FUNNEL = { Joined = 1, Steal = 2, Hatch = 3, Pen = 4, Steps = 5, Treadmill = 6, Zone2 = 7, Hit = 8, Index = 9 }
+local FUNNEL_NAMES = { "Joined", "First egg stolen", "First hatch", "First pen upgrade", "First treadmill step", "First treadmill upgrade", "Stole from zone 2+", "First bat hit", "First Index claim" }
 local function funnel(player: Player, key: string)
 	local state = states[player]
 	local step = FUNNEL[key]
@@ -1081,6 +1084,13 @@ local function setSleeping(zone, sleeping: boolean)
 		zone.Ring.Color = if sleeping then zone.ZoneColor else Color3.fromRGB(255, 50, 50)
 		zone.Ring.Transparency = if sleeping then 0.75 else 0.45
 	end
+	-- (v67 celular: dormindo a aura brilha menos: 12 guardiões x 9 partículas/s a menos)
+	if zone.Aura then
+		zone.Aura.Rate = if sleeping then 3 else 12
+	end
+	if zone.Glow then
+		zone.Glow.Brightness = if sleeping then 0.4 else 1.2
+	end
 end
 
 local function buildGuardian(zone)
@@ -1194,6 +1204,8 @@ local function buildGuardian(zone)
 	zone.Ring = ring
 	zone.Outline = outline
 	zone.ZoneColor = zoneColor
+	zone.Aura = aura
+	zone.Glow = glow
 	-- placa do chefão
 	local plate = billboard(root, size.Y * 0.6 + crownSize + 7, 14, 3)
 	plate.Parent.Name = "BossName"
@@ -1418,9 +1430,31 @@ local function deliver(player: Player)
 	endCarry(player, true)
 	if (data.Stolen or 0) == 0 then
 		slot.Left = math.min(slot.Left, Config.FirstEggSeconds) -- o primeiro ovo choca na hora
+		-- v67: SURPRESA: o 1º ovo da conta (zona 1) vira Raro ou melhor (sorteado de novo, choca em 5 s igual)
+		if (carry.Zone.Index or 1) == 1 and not egg.Pumpkin and (Config.RarityIndex[egg.Def.Rarity] or 1) < Config.RarityIndex.Rare then
+			local ok, def = pcall(rollEgg, Config.Zones[1], Random.new(), Config.RarityIndex.Rare)
+			if ok and def then
+				slot.Id = def.Id
+				slot.Left = math.min(Config.GrowSeconds(def, slot.Scale or 1), Config.FirstEggSeconds)
+				task.delay(1.5, function()
+					if player.Parent then
+						net:FireClient(player, "Say", "FirstRare", "banner") -- (texto PT/EN na tela)
+					end
+				end)
+			end
+		end
 	end
 	table.insert(data.Slots, slot)
 	data.Stolen += 1
+	data.BestStolenZone = math.max(data.BestStolenZone or 0, carry.Zone.Index or 1) -- (v67) a PRÓXIMA META usa
+	-- v67: novato só ouve do Halloween depois de trazer o 1º ovo (antes era aos 8 s, junto com tudo)
+	if data.Stolen == 1 and halloweenNow() then
+		task.delay(6, function()
+			if player.Parent then
+				banner(player, "\u{1F383} HALLOWEEN EVENT! Steal eggs for CANDY \u{1F36C} and visit the Candy Shop!", Color3.fromRGB(255, 140, 40))
+			end
+		end)
+	end
 	-- HALLOWEEN: doces por ovo roubado (Ovo de Abóbora vale mais)
 	if halloweenNow() then
 		local candy = if egg.Pumpkin then Config.Halloween.CandyPerPumpkin else Config.Halloween.CandyPerEgg
@@ -1651,8 +1685,15 @@ local function spawnGoldenEgg(kind: string?)
 		beam.CFrame = CFrame.new(spot + Vector3.new(0, 80, 0))
 		beam.Parent = egg.Model
 		egg.Model:SetAttribute("Golden", true)
+		egg.Model:SetAttribute("Pumpkin", pumpkin or nil) -- (v67: a seta da PRÓXIMA META só vai no dourado)
 	end
+	nest.Pumpkin = pumpkin
 	table.insert(goldNests, nest)
+	if not pumpkin then
+		-- v67: a tela mostra "OVO DOURADO: zona 2:59" no relógio (os.time: o Until do ninho é os.clock)
+		workspace:SetAttribute("GoldenZone", zone.Index)
+		workspace:SetAttribute("GoldenUntil", os.time() + 180)
+	end
 	if pumpkin then
 		banner(nil, ("\u{1F383} PUMPKIN EGG in %s! +%d candy!"):format(zone.Def.Name, Config.Halloween.CandyPerPumpkin), glowColor)
 		toastAll(("\u{1F383} A %s Pumpkin Egg (%s) spawned in %s!"):format(def.Rarity, def.Name, zone.Def.Name), "rare")
@@ -1664,6 +1705,7 @@ local function spawnGoldenEgg(kind: string?)
 end
 
 local function tickGoldNests(clock: number)
+	local golden = false
 	for index = #goldNests, 1, -1 do
 		local nest = goldNests[index]
 		local egg = nest.Egg
@@ -1678,6 +1720,14 @@ local function tickGoldNests(clock: number)
 			egg.Model:SetAttribute("Loose", nil)
 			egg.Model:PivotTo(nest.CFrame + Vector3.new(0, pivotHeight(egg.Model), 0))
 		end
+		if goldNests[index] == nest and nest.Egg and not nest.Pumpkin then
+			golden = true
+		end
+	end
+	-- (v67) nenhum ovo dourado sobrando: o relógio da tela para de mostrar
+	if not golden and workspace:GetAttribute("GoldenUntil") ~= nil then
+		workspace:SetAttribute("GoldenUntil", nil)
+		workspace:SetAttribute("GoldenZone", nil)
 	end
 end
 
@@ -1729,7 +1779,21 @@ local function setNight(on: boolean)
 	if on then
 		for player, state in states do
 			if state.Carry then
-				endCarry(player, false)
+				-- v67: NOVATO (menos de 3 ovos, zona 1) carregando quando a noite chega: o ovo é entregue
+				-- (antes o 1º ovo se perdia e muita criança saía do jogo ali)
+				local before = state.Data.Stolen or 0
+				if before < 3 and (state.Carry.Zone.Index or 1) == 1 then
+					local ok, err = pcall(deliver, player) -- (pcall: um erro aqui não pode parar a noite)
+					if not ok then
+						warn("[Game] entrega da noite:", err)
+					end
+					if (state.Data.Stolen or 0) > before then
+						net:FireClient(player, "Say", "NightKeep", "success")
+					end
+				end
+				if state.Carry then
+					endCarry(player, false)
+				end
 			end
 			local root = rootOf(player)
 			if root and root.Position.Z > 0 and state.Plot then
@@ -1950,6 +2014,7 @@ local function claimIndex(player: Player, id: string?): number
 		data.Speed += speedTotal
 		applySpeed(player)
 		toast(player, ("Index reward! +%s  +%s Speed"):format(Format.Money(cashTotal), Format.Short(speedTotal)), "success")
+		funnel(player, "Index")
 		net:FireClient(player, "Purchased")
 		publish(player, true)
 	end
@@ -3312,13 +3377,13 @@ end
 -- limite de pedidos POR AÇÃO (v65): antes era um limite só para todos os botões, e abrir/clicar rápido
 -- em coisas diferentes fazia pedidos sumirem. Agora cada ação tem o seu.
 local lastRequest: { [Player]: { [string]: number } } = {}
-local REQUEST_GAP = { Redeem = 1.5, Buy = 0.5, SlowMode = 0.3, Admin = 1 }
+local REQUEST_GAP = { Redeem = 1.5, Buy = 0.5, SlowMode = 0.3, Admin = 1, FavAsked = 5 }
 -- (v65.1) só ações que existem (antes qualquer texto que a tela mandasse ficava guardado na memória)
 local KNOWN_ACTIONS = {
 	Swing = true, Upgrade = true, SlowMode = true, Hatch = true, HatchAll = true, Sell = true, SellAll = true,
 	Fuse = true, Trail = true, Boost = true, Chest = true, Gift = true, ClaimIndex = true, PlaceTrap = true,
 	EquipBat = true, Buy = true, Daily = true, Rebirth = true, ClaimQuest = true, Redeem = true, CandyBuy = true,
-	Admin = true,
+	Admin = true, FavAsked = true,
 }
 
 local function onRequest(player: Player, action: any, arg: any)
@@ -3430,6 +3495,13 @@ local function onRequest(player: Player, action: any, arg: any)
 		candyBuy(player, arg)
 	elseif action == "Admin" then
 		adminCommand(player, arg)
+	elseif action == "FavAsked" then
+		-- v67: a tela pediu para favoritar (1 vez por conta, SEM prêmio). Só marca; não usa o arg.
+		if not state.Data.FavAsked then
+			state.Data.FavAsked = true
+			player:SetAttribute("FavAsked", true)
+			custom(player, "FavoritePromptShown")
+		end
 	end
 end
 
@@ -3710,7 +3782,7 @@ local function onPlayerAdded(player: Player)
 		end)
 		publish(player)
 	end)
-	if halloweenNow() then
+	if halloweenNow() and (data.Stolen or 0) > 0 then -- (v67: novato vê depois do 1º ovo, ver deliver)
 		task.delay(8, function()
 			if player.Parent then
 				banner(player, "\u{1F383} HALLOWEEN EVENT! Steal eggs for CANDY \u{1F36C} and visit the Candy Shop!", Color3.fromRGB(255, 140, 40))
@@ -4035,6 +4107,11 @@ function Game.Init()
 			if halloween and t >= nextPumpkin and not isNight and not night and phase >= 5 and phase < Config.Cycle - Config.Night - 45 then
 				nextPumpkin = t + Config.Halloween.PumpkinEvery
 				task.spawn(spawnGoldenEgg, "Pumpkin")
+			end
+			-- (v67) a tela mostra "Ovo de Abóbora em 0:45" no último minuto
+			local pumpkinAt = if halloween and nextPumpkin < math.huge then nextPumpkin else nil
+			if workspace:GetAttribute("PumpkinAt") ~= pumpkinAt then
+				workspace:SetAttribute("PumpkinAt", pumpkinAt)
 			end
 			if t < luckyEnd then
 				if workspace:GetAttribute("LuckyEnd") ~= luckyEnd then
