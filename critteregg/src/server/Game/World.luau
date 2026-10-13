@@ -8,6 +8,7 @@
 
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Format = require(ReplicatedStorage.Shared.Format)
@@ -171,8 +172,15 @@ local function billboard(adornee: BasePart, offset: Vector3, size: UDim2, lines:
 	return gui
 end
 
+-- (v67) XADREZ "BASE + LADRILHOS": em vez de 1 peça por casa, 1 bloco grande na cor A (bate, tem studs)
+-- e só as casas da cor B, finas, coladas na frente (sem física e sem sombra). Mesmo visual, metade das peças.
+-- Se os ladrilhos piscarem no celular, aumente a espessura (o ladrilho fica um pouco mais saltado).
+local TILE_WALL = 0.15 -- espessura do ladrilho da parede
+local TILE_FLOOR = 0.1 -- espessura do ladrilho do chão (o topo fica em y = 0.1; enfeites do chão ficam acima)
+
 -- parede de xadrez com studs, faixa de grama em cima e barreira invisível alta
-local function checkerWall(parent: Instance, from: Vector3, to: Vector3, height: number, colors: { Color3 }, top: Color3?, square: number?)
+-- inward = para onde o jogador olha a parede (os ladrilhos ficam desse lado)
+local function checkerWall(parent: Instance, from: Vector3, to: Vector3, height: number, colors: { Color3 }, top: Color3?, inward: Vector3, square: number?)
 	local dir = to - from
 	local length = dir.Magnitude
 	local unit = dir.Unit
@@ -182,15 +190,24 @@ local function checkerWall(parent: Instance, from: Vector3, to: Vector3, height:
 	local rows = math.max(1, math.floor(height / size + 0.5))
 	local rowH = height / rows
 	local alongX = math.abs(unit.X) > 0.5
+	local mid = (from + to) / 2
+	-- base: a parede inteira na cor A (studs nas 4 faces em pé, como antes)
+	part(parent, "Wall", if alongX then Vector3.new(length, height, 3) else Vector3.new(3, height, length), CFrame.new(mid.X, height / 2, mid.Z), colors[1], Enum.Material.Plastic,
+		{ FrontSurface = STUDS, BackSurface = STUDS, LeftSurface = STUDS, RightSurface = STUDS, CastShadow = false })
+	-- ladrilhos da cor B (mesmas casas de antes: c + r ímpar), studs só na face de fora
+	local tileProps: { [string]: any } = { CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false }
+	local face = if inward.Z > 0.5 then "BackSurface" elseif inward.Z < -0.5 then "FrontSurface" elseif inward.X > 0.5 then "RightSurface" else "LeftSurface"
+	tileProps[face] = STUDS
+	local push = inward * (1.5 + TILE_WALL / 2 + 0.01)
+	local tileSize = if alongX then Vector3.new(step, rowH, TILE_WALL) else Vector3.new(TILE_WALL, rowH, step)
 	for c = 1, columns do
-		local center = from + unit * (step * (c - 0.5))
+		local center = from + unit * (step * (c - 0.5)) + push
 		for r = 1, rows do
-			local sz = if alongX then Vector3.new(step, rowH, 3) else Vector3.new(3, rowH, step)
-			part(parent, "Wall", sz, CFrame.new(center.X, rowH * (r - 0.5), center.Z), colors[((c + r) % 2) + 1], Enum.Material.Plastic,
-				{ FrontSurface = STUDS, BackSurface = STUDS, LeftSurface = STUDS, RightSurface = STUDS, CastShadow = false })
+			if (c + r) % 2 == 1 then
+				part(parent, "WallTile", tileSize, CFrame.new(center.X, rowH * (r - 0.5), center.Z), colors[2], Enum.Material.Plastic, tileProps)
+			end
 		end
 	end
-	local mid = (from + to) / 2
 	if top then
 		local sz = if alongX then Vector3.new(length, 3, 5) else Vector3.new(5, 3, length)
 		part(parent, "WallTop", sz, CFrame.new(mid.X, height + 1.5, mid.Z), top, Enum.Material.Plastic, { TopSurface = STUDS })
@@ -203,9 +220,16 @@ local function checkerFloor(parent: Instance, x0: number, x1: number, z0: number
 	local nx = math.max(1, math.floor((x1 - x0) / square + 0.5))
 	local nz = math.max(1, math.floor((z1 - z0) / square + 0.5))
 	local sx, sz = (x1 - x0) / nx, (z1 - z0) / nz
+	-- (v67) base: o chão inteiro na cor A (bate, studs, topo em y = 0). Sem sombra: nada embaixo dele.
+	part(parent, "Floor", Vector3.new(x1 - x0, 2, z1 - z0), CFrame.new((x0 + x1) / 2, -1, (z0 + z1) / 2), colors[1], Enum.Material.Plastic, { TopSurface = STUDS, CastShadow = false })
+	-- ladrilhos da cor B (mesmas casas de antes: i + j ímpar), finos, por cima
+	local tileProps = { TopSurface = STUDS, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false }
+	local tileSize = Vector3.new(sx, TILE_FLOOR, sz)
 	for i = 1, nx do
 		for j = 1, nz do
-			part(parent, "Floor", Vector3.new(sx, 2, sz), CFrame.new(x0 + sx * (i - 0.5), -1, z0 + sz * (j - 0.5)), colors[((i + j) % 2) + 1], Enum.Material.Plastic, { TopSurface = STUDS })
+			if (i + j) % 2 == 1 then
+				part(parent, "FloorTile", tileSize, CFrame.new(x0 + sx * (i - 0.5), TILE_FLOOR / 2, z0 + sz * (j - 0.5)), colors[2], Enum.Material.Plastic, tileProps)
+			end
 		end
 	end
 end
@@ -387,16 +411,28 @@ local function placeAsset(parent: Instance, name: string, position: Vector3, hei
 	-- v65.1: limpa o que veio junto do Toolbox. Scripts escondidos (vírus/backdoor) passam a rodar quando
 	-- o modelo entra no mapa; placas/textos de OUTROS criadores ("ThreadPRO" na esteira, "Group Rewards
 	-- 23:59:59" no baú) confundiam as crianças; luz com sombra pesa muito no celular.
+	-- (v67) celular: sombra só nos modelos grandes (8+ studs: árvore, pilar); no máximo 1 efeito
+	-- (partícula ou fogo) por modelo, partícula com no máximo 4 por segundo; fumaça e brilho somem.
+	local shadow = newSize.Y >= 8
+	local effects = 0
 	for _, item in model:GetDescendants() do
 		if item:IsA("BasePart") then
 			item.Anchored = true
 			item.CanCollide = collide == true
 			item.CanTouch = false
 			item.CanQuery = collide == true
-			item.CastShadow = true
+			item.CastShadow = shadow
 		elseif item:IsA("Light") then
 			item.Shadows = false
-		elseif item:IsA("Sound") or item:IsA("LuaSourceContainer") or item:IsA("BillboardGui") or item:IsA("SurfaceGui")
+		elseif item:IsA("ParticleEmitter") or item:IsA("Fire") then
+			effects += 1
+			if effects > 1 then
+				item:Destroy()
+			elseif item:IsA("ParticleEmitter") then
+				item.Rate = math.min(item.Rate, 4)
+			end
+		elseif item:IsA("Smoke") or item:IsA("Sparkles")
+			or item:IsA("Sound") or item:IsA("LuaSourceContainer") or item:IsA("BillboardGui") or item:IsA("SurfaceGui")
 			or item:IsA("ProximityPrompt") or item:IsA("ClickDetector")
 			-- logos e textos pintados do kit do Toolbox
 			or ((name == "Chest" or name == "Treadmill") and (item:IsA("Decal") or item:IsA("Beam"))) then
@@ -458,7 +494,8 @@ local function landmarks(parent: Instance, theme: string, z0: number, z1: number
 	end
 end
 
--- o que aparece em cada zona: { nome do modelo, altura mínima, altura máxima, peso, bate? }
+-- o que aparece em cada zona: { nome do modelo, altura mínima, altura máxima, peso, bate?, máximo na zona? }
+-- (v67) máximo na zona: o esqueleto de dino (135 peças) e o pilar (66 peças) pesavam demais no celular
 local ZONE_ASSETS = {
 	forest = { { "TreeA", 22, 30, 3 }, { "TreeB", 22, 30, 3 }, { "TreeC", 20, 26, 2 }, { "PineTree", 24, 32, 2 }, { "Bush", 5, 8, 3 }, { "Mushroom", 4, 7, 2 }, { "Mushrooms", 3, 5, 2 }, { "FlowerBush", 4, 6, 2 }, { "Flower", 3, 4, 2 }, { "Rocks", 3, 5, 1 } },
 	lake = { { "TreeC", 20, 26, 2 }, { "LilyFlowers", 3, 4, 3 }, { "Rock", 4, 7, 2, true }, { "Bush", 5, 7, 2 }, { "Flower", 3, 4, 2 }, { "TreeA", 22, 28, 1 } },
@@ -467,23 +504,32 @@ local ZONE_ASSETS = {
 	snow = { { "SnowTree", 20, 30, 3 }, { "SnowPine", 22, 32, 3 }, { "IceCrystal", 8, 14, 3 }, { "Rock", 4, 7, 1, true } },
 	volcano = { { "LavaRock", 6, 12, 4, true }, { "DarkRock", 8, 14, 3, true }, { "Volcano", 34, 46, 1, true } },
 	abyss = { { "Coral", 6, 10, 3 }, { "CoralReef", 8, 12, 3 }, { "Seaweed", 10, 16, 3 }, { "Rocks", 4, 6, 1 } },
-	prehistoric = { { "DinoSkeleton", 10, 16, 2 }, { "PalmB", 20, 28, 3 }, { "RockPile", 5, 8, 2 }, { "Bush", 6, 9, 2 }, { "Volcano", 36, 46, 1, true } },
+	prehistoric = { { "DinoSkeleton", 10, 16, 2, false, 2 }, { "PalmB", 20, 28, 3 }, { "RockPile", 5, 8, 2 }, { "Bush", 6, 9, 2 }, { "Volcano", 36, 46, 1, true } },
 	cosmic = { { "Crystals", 6, 10, 3 }, { "CrystalBlue", 8, 12, 3 }, { "Crystal", 8, 14, 2 } },
 	cherry = { { "CherryTree", 22, 34, 4 }, { "Flower", 3, 4, 2 }, { "Bench", 3.5, 4, 1 } },
-	titan = { { "Pillar", 20, 28, 3, true }, { "PillarB", 16, 22, 3, true }, { "Rock", 5, 8, 2, true }, { "Bush", 5, 8, 2 } },
+	titan = { { "Pillar", 20, 28, 3, true, 3 }, { "PillarB", 16, 22, 3, true }, { "Rock", 5, 8, 2, true }, { "Bush", 5, 8, 2 } },
 	heaven = { { "CrystalBlue", 8, 12, 3 }, { "Crystals", 6, 9, 2 }, { "FlowerBush", 4, 6, 2 }, { "Flower", 3, 4, 2 } },
 }
 
-local function pickAsset(list, rng: Random)
+-- (v67) used = quantos de cada modelo já entraram na zona; quem bateu o máximo sai do sorteio.
+-- Continua gastando 1 número do rng por sorteio: o resto do mapa não muda de lugar.
+local function pickAsset(list, rng: Random, used: { [string]: number }?)
+	local function allowed(entry): boolean
+		return not (used and entry[6] and (used[entry[1]] or 0) >= entry[6])
+	end
 	local total = 0
 	for _, entry in list do
-		total += entry[4]
+		if allowed(entry) then
+			total += entry[4]
+		end
 	end
 	local roll = rng:NextNumber() * total
 	for _, entry in list do
-		roll -= entry[4]
-		if roll <= 0 then
-			return entry
+		if allowed(entry) then
+			roll -= entry[4]
+			if roll <= 0 then
+				return entry
+			end
 		end
 	end
 	return list[#list]
@@ -497,8 +543,9 @@ local function assetProps(parent: Instance, theme: string, z0: number, z1: numbe
 	end
 	local half = M.LaneWidth / 2
 	local placed = 0
+	local used: { [string]: number } = {}
 	for i = 1, 26 do
-		local entry = pickAsset(list, rng)
+		local entry = pickAsset(list, rng, used)
 		local z = z0 + 16 + (z1 - z0 - 24) * (i - 0.5) / 26 + rng:NextNumber(-4, 4)
 		local side = if i % 2 == 0 then 1 else -1
 		local big = entry[3] >= 18
@@ -506,6 +553,7 @@ local function assetProps(parent: Instance, theme: string, z0: number, z1: numbe
 		local model = placeAsset(parent, entry[1], Vector3.new(x, 0, z), rng:NextNumber(entry[2], entry[3]), rng:NextNumber(0, math.pi * 2), entry[5])
 		if model then
 			placed += 1
+			used[entry[1]] = (used[entry[1]] or 0) + 1
 		end
 	end
 	-- planetas e nuvens flutuando
@@ -1187,7 +1235,8 @@ local function buildShops(hub: Instance)
 		surface(sign, Enum.NormalId.Back, { { "\u{2728} SPARKLE TRAILS", WHITE, 0.85 } }, 20, rgb(140, 70, 220))
 		surface(sign, Enum.NormalId.Front, { { "\u{2728} SPARKLE TRAILS", WHITE, 0.85 } }, 20, rgb(140, 70, 220))
 		for k, c in colors do
-			deco(model, "TrailStripe", Vector3.new(2.4, 0.12, 16), CFrame.new(x - 7.2 + (k - 1) * 2.9, 0.08, z), c, Enum.Material.Neon).Transparency = 0.3
+			-- (v67) y 0.12: fica acima dos ladrilhos finos do chão (topo em 0.1)
+			deco(model, "TrailStripe", Vector3.new(2.4, 0.12, 16), CFrame.new(x - 7.2 + (k - 1) * 2.9, 0.12, z), c, Enum.Material.Neon).Transparency = 0.3
 		end
 		sparkles(sign, rgb(255, 240, 160))
 		shopArea("Trails", Vector3.new(x, 0, z), 7)
@@ -1313,8 +1362,8 @@ local function buildZone(index: number, def, rng: Random)
 			warn("terrainZone falhou:", natural)
 		end
 		checkerFloor(folder, -half, half, z0, z1, def.Floor, 20)
-		checkerWall(folder, Vector3.new(-half - 1.5, 0, z0), Vector3.new(-half - 1.5, 0, z1), H, def.Wall, def.Top)
-		checkerWall(folder, Vector3.new(half + 1.5, 0, z0), Vector3.new(half + 1.5, 0, z1), H, def.Wall, def.Top)
+		checkerWall(folder, Vector3.new(-half - 1.5, 0, z0), Vector3.new(-half - 1.5, 0, z1), H, def.Wall, def.Top, Vector3.xAxis)
+		checkerWall(folder, Vector3.new(half + 1.5, 0, z0), Vector3.new(half + 1.5, 0, z1), H, def.Wall, def.Top, -Vector3.xAxis)
 	end
 	-- faixa clara na divisa com a zona anterior
 	deco(folder, "Boundary", Vector3.new(W, 0.25, 2), CFrame.new(0, 0.12, z0 + 1), def.Floor[1]:Lerp(WHITE, 0.6), Enum.Material.SmoothPlastic)
@@ -1364,9 +1413,14 @@ local function buildZone(index: number, def, rng: Random)
 	for n = 1, Config.NestsPerZone do
 		local angle = math.rad(-90 + (n - 1) * 360 / Config.NestsPerZone)
 		local spot = center + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+		-- (v67) palha: 5 pedaços mais grossos em vez de 10 finos (metade das peças). O rng continua
+		-- sorteando 10 vezes como antes, para o resto do mapa ficar no mesmo lugar.
 		for k = 1, 10 do
-			local a = math.rad(k * 36)
-			deco(folder, "Straw", Vector3.new(2.6, 1, 1), CFrame.new(spot + Vector3.new(math.cos(a) * 3, 0.5, math.sin(a) * 3)) * CFrame.Angles(0, -a + math.pi / 2, math.rad(rng:NextNumber(-20, 20))), if k % 2 == 0 then rgb(222, 182, 100) else rgb(176, 130, 68), Enum.Material.Fabric)
+			local tilt = rng:NextNumber(-20, 20)
+			if k % 2 == 0 then
+				local a = math.rad(k * 36)
+				deco(folder, "Straw", Vector3.new(4.4, 1.2, 1.2), CFrame.new(spot + Vector3.new(math.cos(a) * 3, 0.6, math.sin(a) * 3)) * CFrame.Angles(0, -a + math.pi / 2, math.rad(tilt * 0.5)), if k % 4 == 0 then rgb(222, 182, 100) else rgb(176, 130, 68), Enum.Material.Fabric)
+			end
 		end
 		deco(folder, "NestBed", Vector3.new(0.5, 5.4, 5.4), CFrame.new(spot + Vector3.new(0, 0.25, 0)) * CFrame.Angles(0, 0, math.rad(90)), rgb(176, 130, 68), Enum.Material.Fabric, Enum.PartType.Cylinder)
 		table.insert(nests, CFrame.lookAt(spot + Vector3.new(0, 0.6, 0), Vector3.new(spot.X, 0.6, z0 - 50)))
@@ -1439,12 +1493,13 @@ function World.Build()
 	checkerFloor(hub, -hw, hw, -hd, 0, { rgb(96, 200, 60), rgb(84, 180, 52) }, 16)
 	local wallColors = { rgb(214, 120, 64), rgb(190, 100, 52) }
 	local grass = rgb(80, 200, 60)
-	checkerWall(hub, Vector3.new(-hw, 0, -hd - 1.5), Vector3.new(hw, 0, -hd - 1.5), M.WallHeight, wallColors, grass)
-	checkerWall(hub, Vector3.new(-hw - 1.5, 0, -hd), Vector3.new(-hw - 1.5, 0, 0), M.WallHeight, wallColors, grass)
-	checkerWall(hub, Vector3.new(hw + 1.5, 0, -hd), Vector3.new(hw + 1.5, 0, 0), M.WallHeight, wallColors, grass)
+	-- (v67) último argumento = lado de dentro do hub (os ladrilhos do xadrez ficam virados para ele)
+	checkerWall(hub, Vector3.new(-hw, 0, -hd - 1.5), Vector3.new(hw, 0, -hd - 1.5), M.WallHeight, wallColors, grass, Vector3.zAxis)
+	checkerWall(hub, Vector3.new(-hw - 1.5, 0, -hd), Vector3.new(-hw - 1.5, 0, 0), M.WallHeight, wallColors, grass, Vector3.xAxis)
+	checkerWall(hub, Vector3.new(hw + 1.5, 0, -hd), Vector3.new(hw + 1.5, 0, 0), M.WallHeight, wallColors, grass, -Vector3.xAxis)
 	local lane = M.LaneWidth / 2
-	checkerWall(hub, Vector3.new(-hw, 0, 1.5), Vector3.new(-lane - 3, 0, 1.5), M.WallHeight, wallColors, grass)
-	checkerWall(hub, Vector3.new(lane + 3, 0, 1.5), Vector3.new(hw, 0, 1.5), M.WallHeight, wallColors, grass)
+	checkerWall(hub, Vector3.new(-hw, 0, 1.5), Vector3.new(-lane - 3, 0, 1.5), M.WallHeight, wallColors, grass, -Vector3.zAxis)
+	checkerWall(hub, Vector3.new(lane + 3, 0, 1.5), Vector3.new(hw, 0, 1.5), M.WallHeight, wallColors, grass, -Vector3.zAxis)
 
 	-- avenida de areia em frente às bases até a pista
 	deco(hub, "Avenue", Vector3.new(M.HubWidth - 20, 0.2, 16), CFrame.new(0, 0.07, -55), rgb(235, 215, 160), Enum.Material.SmoothPlastic)
@@ -1581,7 +1636,7 @@ function World.Build()
 		part(mapFolder, "EndBarrier", Vector3.new(M.LaneWidth + 10, 400, 3), CFrame.new(0, 200, lastZ + 1.5), WHITE, nil, { Transparency = 1, CanQuery = false })
 	end)
 	if not okEnd then
-		checkerWall(mapFolder, Vector3.new(-lane - 1.5, 0, lastZ + 1.5), Vector3.new(lane + 1.5, 0, lastZ + 1.5), M.WallHeight, Config.Zones[#Config.Zones].Wall, Config.Zones[#Config.Zones].Top)
+		checkerWall(mapFolder, Vector3.new(-lane - 1.5, 0, lastZ + 1.5), Vector3.new(lane + 1.5, 0, lastZ + 1.5), M.WallHeight, Config.Zones[#Config.Zones].Wall, Config.Zones[#Config.Zones].Top, -Vector3.zAxis)
 	end
 
 	local spawn = Instance.new("SpawnLocation")
@@ -1594,6 +1649,16 @@ function World.Build()
 	spawn.Neutral = true
 	spawn.Duration = 0
 	spawn.Parent = mapFolder
+	-- (v67) no Studio: quantas peças o mapa tem (para comparar antes/depois de mexer no mapa)
+	if RunService:IsStudio() then
+		local count = 0
+		for _, item in mapFolder:GetDescendants() do
+			if item:IsA("BasePart") then
+				count += 1
+			end
+		end
+		print(("[World] BaseParts no mapa: %d"):format(count))
+	end
 end
 
 return World
