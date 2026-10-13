@@ -326,6 +326,8 @@ Config.Trails = {
 	{ Id = "gold", Name = "Golden Trail", Mult = 8, Cost = 120_000_000_000, Color = rgb(255, 205, 50) },
 	{ Id = "rainbow", Name = "Rainbow Trail", Mult = 11, Cost = 20_000_000_000_000, Color = rgb(255, 110, 200) },
 	{ Id = "divine", Name = "Starlight Trail", Mult = 15, Cost = 4_000_000_000_000_000, Color = rgb(255, 245, 190) },
+	-- v67: Hidden = não está à venda; só da escada de convites (Config.InviteLadder). Mult igual à Pebble (sem vantagem)
+	{ Id = "friend", Name = "Friendship Trail", Mult = 1.5, Cost = 0, Hidden = true, Color = rgb(255, 170, 220) },
 }
 Config.TrailById = {}
 for _, trail in Config.Trails do
@@ -577,6 +579,53 @@ Config.FriendEggSeconds = 120 -- jogar 2 min com amigo = ovo da amizade (1 por d
 -- Inviter* (minutos da renda, mínimo InviterMinCash) se estiver no mesmo servidor. 1 vez por amigo.
 -- O prêmio de quem convidou sai depois que o amigo jogou 5 min e roubou 1 ovo (no máximo PerDay por dia).
 Config.Invite = { NewCash = 2_000, NewSpeed = 500, InviterMinutes = 15, InviterMinCash = 5_000, InviterSpeed = 1_000, PerDay = 5 }
+-- v67 ESCADA DE CONVITES: conta os amigos DIFERENTES que entraram pelo seu convite e jogaram de verdade (5 min +
+--   1 ovo roubado). Tudo garantido, nada sorteado, nada pago. Quem convidou estava fora? O crédito fica guardado
+--   (DataStore InviteCreditStore, até InviteCreditMax) e chega quando ele entra. A escada conta todos; o dinheiro
+--   continua no máximo Invite.PerDay por dia. Id = nome salvo (NUNCA mude) | Count = amigos
+--   Trail = trilha escondida (volta depois do Rebirth) | Critter = ovo PRONTO de um exclusivo (World "friend", Keep)
+--   Title = título "Squad Leader" + placa dourada no cercado
+Config.InviteLadder = {
+	{ Id = "trail", Count = 1, Trail = "friend" },
+	{ Id = "palpup", Count = 3, Critter = "palpup" },
+	{ Id = "squad", Count = 5, Title = "Squad" },
+	{ Id = "panda", Count = 10, Critter = "partypanda" },
+}
+Config.InviteCreditStore = "InviteCredit_v1"
+Config.InviteCreditMax = 20
+-- "Mostrar pros amigos" (cartão de Lendário+ ou com mutação): 1 convite a cada ShareGap s; quem entra por ele vê a
+-- seta no cercado do amigo por VisitSeconds s. Compartilhar não dá prêmio.
+Config.ShareGap = 120
+Config.VisitSeconds = 30
+-- quantos amigos contam (chaves da tabela Referred: { ["UserId"] = true })
+function Config.InviteCount(referred: any): number
+	local count = 0
+	if type(referred) == "table" then
+		for _ in referred do
+			count += 1
+		end
+	end
+	return count
+end
+-- degraus que o número de amigos já alcançou e ainda não foram entregues (got = { [Id] = true })
+function Config.LadderDue(count: number, got: any): { any }
+	local due = {}
+	for _, step in Config.InviteLadder do
+		if (count or 0) >= step.Count and not (type(got) == "table" and got[step.Id]) then
+			table.insert(due, step)
+		end
+	end
+	return due
+end
+-- próximo degrau que falta (para "2/3 → Pal Pup"); nil = escada completa
+function Config.LadderNext(count: number): any
+	for _, step in Config.InviteLadder do
+		if (count or 0) < step.Count then
+			return step
+		end
+	end
+	return nil
+end
 -- EVENTO DA SORTE: a cada LuckyEvery segundos (relógio UTC), durante LuckyLength, raros aparecem x3 nos ninhos.
 -- Fim de semana (sáb/dom de Brasília, v67; antes UTC): dinheiro x2 para todo mundo.
 -- BICHO DA SEMANA: muda toda segunda (UTC). Na zona onde ele vive, a raridade dele pesa WeeklyRarityMult vezes mais

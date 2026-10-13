@@ -204,6 +204,11 @@ local function slotZone(state, slot, def): number
 	return if def and def.Keep then reachZone(state) else slot.Zone or 1
 end
 
+-- v67: marca dos exclusivos (Keep): 📅 do calendário, 🤝 da escada de convites (World "friend")
+local function keepIcon(def): string
+	return if def and def.World == "friend" then "\u{1F91D}" else "\u{1F4C5}"
+end
+
 ---------------------------------------------------------------------
 -- Estado mandado para a tela
 ---------------------------------------------------------------------
@@ -404,6 +409,7 @@ local function publish(player: Player, full: boolean?)
 	end
 	player:SetAttribute("Candy", data.Candy or 0)
 	player:SetAttribute("BestStolenZone", data.BestStolenZone or 0) -- (v67) zona mais funda de onde já trouxe ovo
+	player:SetAttribute("Referred", Config.InviteCount(data.Referred)) -- (v67) amigos que contam na escada de convites
 	if full then
 		player:SetAttribute("FavAsked", data.FavAsked == true) -- (v67) já pediu para favoritar (1 vez por conta)
 		local passes = {}
@@ -698,7 +704,7 @@ local function sellAt(player: Player, index: number): number
 	end
 	local def = Critters.ById[slot.Id]
 	if def and def.Keep then
-		return 0 -- (v67) exclusivo do calendário não vende
+		return 0 -- (v67) exclusivo (calendário/convites) não vende
 	end
 	local value = if def then Config.SellValue(def, slot.Scale or 1, slot.Mut, slot.Zone) else 0
 	table.remove(state.Data.Slots, index)
@@ -836,7 +842,7 @@ renderSlot = function(player: Player, index: number, popIn: boolean?)
 		local label = Config.SizeLabel(s)
 		local info = billboard(root, 3 + s * 2, 10, 4)
 		info.Text = ('<font color="%s">%s%s</font>\n%s%s%s\n<font color="#78FF78">%s/s</font>'):format(
-			hex(rarityColor(def)), if def.Keep then "\u{1F4C5} " else "", def.Rarity, if slot.Mut then slot.Mut .. " " else "", if label then label .. " " else "", def.Name,
+			hex(rarityColor(def)), if def.Keep then keepIcon(def) .. " " else "", def.Rarity, if slot.Mut then slot.Mut .. " " else "", if label then label .. " " else "", def.Name,
 			Format.Money(Config.PetIncome(def, s, slot.Mut, incomeZone)))
 	end
 	model.Name = ("Slot%d"):format(index)
@@ -1850,6 +1856,10 @@ local function buyTrail(player: Player, id: string)
 	if not trail then
 		return
 	end
+	-- (v67) trilha escondida (custa 0) só da escada de convites: sem isso qualquer um pegava de graça
+	if trail.Hidden and not table.find(data.Trails, id) then
+		return
+	end
 	if not table.find(data.Trails, id) then
 		if data.Money < trail.Cost then
 			return toast(player, "Not enough money! You need " .. Format.Money(trail.Cost), "error")
@@ -2021,7 +2031,7 @@ local function fuse(player: Player, indices: any)
 			return toast(player, "Pick 3 hatched pets!", "error")
 		end
 		if def.Keep then
-			return toast(player, "\u{1F4C5} Calendar critters can't be fused!", "warning")
+			return toast(player, keepIcon(def) .. " Exclusive critters can't be fused!", "warning")
 		end
 		if rarity and def.Rarity ~= rarity then
 			return toast(player, "All 3 pets must have the SAME rarity!", "error")
@@ -2621,7 +2631,7 @@ local function addEggSlot(player: Player, def, zoneIndex: number, scale: number,
 	return true
 end
 
--- v67: bichinho do calendário que chegou com o cercado cheio fica guardado (data.PendingGifts) e entra sozinho na
+-- v67: bichinho do calendário (ou da escada de convites) que chegou com o cercado cheio fica guardado (data.PendingGifts) e entra sozinho na
 -- 1ª vaga livre (o loop de 1 s chama). Nunca vira dinheiro. Espera enquanto você carrega um ovo (a vaga é dele).
 local function givePending(player: Player)
 	local state = states[player]
@@ -2636,7 +2646,7 @@ local function givePending(player: Player)
 		local def = type(item) == "table" and Critters.ById[item.Id]
 		if def then
 			addEggSlot(player, def, reachZone(state), 1, item.Mut, true)
-			banner(player, ("\u{1F4C5} Your %s%s egg is ready in your pen!"):format(if item.Mut then item.Mut .. " " else "", def.Name), Color3.fromRGB(255, 215, 90))
+			banner(player, ("%s Your %s%s egg is ready in your pen!"):format(keepIcon(def), if item.Mut then item.Mut .. " " else "", def.Name), Color3.fromRGB(255, 215, 90))
 			gave = true
 		end
 	end
@@ -2950,6 +2960,9 @@ local function applyTag(player: Player)
 	if state.Data.CalMark then
 		table.insert(parts, "\u{1F4C5}")
 	end
+	if state.Data.SquadTitle then
+		table.insert(parts, '<font color="#FFAADC">\u{1F91D}</font>') -- (v67) Squad Leader: 5 amigos da escada de convites
+	end
 	if #parts == 0 then
 		return
 	end
@@ -2957,6 +2970,70 @@ local function applyTag(player: Player)
 	label.Parent.Name = "PlayerTag"
 	label.Parent.MaxDistance = 80
 	label.Text = table.concat(parts, "  ")
+end
+
+-- v67: placa do dono em cima do cercado fica DOURADA para o Squad Leader (5 amigos da escada de convites)
+local function paintPenSign(player: Player)
+	local state = states[player]
+	local label = state and state.Plot and state.Plot.OwnerLabel
+	if label then
+		label.TextColor3 = if state.Data.SquadTitle then Color3.fromRGB(255, 215, 70) else Color3.new(1, 1, 1)
+	end
+end
+
+-- v67 ESCADA DE CONVITES (Config.InviteLadder): entrega os degraus que o número de amigos (data.Referred) já
+-- alcançou e ainda não foram entregues (data.LadderGot[Id] = true). Tudo garantido, nada sorteado. Bichinho com o
+-- cercado cheio (ou carregando ovo) espera vaga (PendingGifts/givePending). after = segundos até a faixa (para não
+-- cobrir a faixa do convite que acabou de aparecer).
+local function grantLadder(player: Player, after: number?)
+	local state = states[player]
+	local data = state and state.Data
+	if not data then
+		return
+	end
+	data.LadderGot = if type(data.LadderGot) == "table" then data.LadderGot else {}
+	local due = Config.LadderDue(Config.InviteCount(data.Referred), data.LadderGot)
+	if #due == 0 then
+		return
+	end
+	local parts = {}
+	for _, step in due do
+		data.LadderGot[step.Id] = true
+		custom(player, "InviteLadder", step.Count)
+		local trail = step.Trail and Config.TrailById[step.Trail]
+		local def = step.Critter and Critters.ById[step.Critter]
+		if trail then
+			if not table.find(data.Trails, trail.Id) then
+				table.insert(data.Trails, trail.Id)
+			end
+			if not data.Trail then -- sem trilha nenhuma: já sai usando
+				data.Trail = trail.Id
+				applyTrail(player)
+			end
+			table.insert(parts, ("%s (x%s treadmill)"):format(trail.Name, tostring(trail.Mult)))
+		elseif def then
+			if state.Carry or #data.Slots >= Config.SlotCount(data.PenLevel) then
+				data.PendingGifts = if type(data.PendingGifts) == "table" then data.PendingGifts else {}
+				table.insert(data.PendingGifts, { Id = def.Id })
+				table.insert(parts, ("%s %s egg (free a pen slot to get it)"):format(def.Rarity, def.Name))
+			else
+				addEggSlot(player, def, reachZone(state), 1, nil, true)
+				table.insert(parts, ("READY %s %s egg in your pen"):format(def.Rarity, def.Name))
+			end
+		elseif step.Title then
+			data.SquadTitle = true -- título "Squad Leader" (para sempre)
+			paintPenSign(player)
+			applyTag(player)
+			table.insert(parts, "SQUAD LEADER title + gold pen sign")
+		end
+	end
+	task.delay(after or 0, function()
+		if player.Parent and #parts > 0 then
+			banner(player, ("\u{1F91D} %d FRIENDS! You got: %s!"):format(due[#due].Count, table.concat(parts, " + ")), Color3.fromRGB(255, 170, 220))
+			net:FireClient(player, "Purchased")
+		end
+	end)
+	publish(player, true)
 end
 
 -- PRÊMIO DIÁRIO 2.0 (v67): o dia vira à meia-noite de Brasília (Config.Day); perdeu SÓ 1 dia = o escudo segura a
@@ -3068,8 +3145,15 @@ local function rebirth(player: Player)
 	data.TreadLevel = 1
 	data.Trails = {}
 	data.Trail = nil
+	-- (v67) a trilha da escada de convites volta (e já sai equipada: é melhor que nenhuma)
+	for _, step in Config.InviteLadder do
+		if step.Trail and type(data.LadderGot) == "table" and data.LadderGot[step.Id] and Config.TrailById[step.Trail] then
+			table.insert(data.Trails, step.Trail)
+			data.Trail = data.Trail or step.Trail
+		end
+	end
 	-- REBIRTH agora também leva os bichinhos e os ovos do cercado (fica o cercado, o Index, os passes e, v67,
-	-- os exclusivos do calendário, que voltam a render como a zona 1 e sobem junto com a velocidade)
+	-- os exclusivos do calendário e dos convites, que voltam a render como a zona 1 e sobem junto com a velocidade)
 	local kept = {}
 	for _, slot in data.Slots do
 		local def = Critters.ById[slot.Id]
@@ -3518,7 +3602,7 @@ local function onRequest(player: Player, action: any, arg: any)
 		end
 		local slotDef = Critters.ById[slot.Id]
 		if slotDef and slotDef.Keep then
-			return toast(player, "\u{1F4C5} Calendar critters can't be sold - they're yours forever!", "info")
+			return toast(player, keepIcon(slotDef) .. " Exclusive critters can't be sold - they're yours forever!", "info")
 		end
 		local value = sellAt(player, index)
 		if value > 0 then
@@ -3677,6 +3761,131 @@ local function freePlot()
 	return nil
 end
 
+-- v67 CONVITES 2.0 ---------------------------------------------------
+-- créditos de convite de quem estava FORA quando o amigo passou a valer: { UserId do amigo, ... } por quem convidou
+pcall(function()
+	stores.InviteCredit = DataStoreService:GetDataStore(Config.InviteCreditStore)
+end)
+
+-- soma amigos novos (UserIds) na lista de quem convidou (data.Referred). A escada conta TODOS; dinheiro e velocidade
+-- continuam no máximo Config.Invite.PerDay por dia. name = quem acabou de jogar (online) ou nil (créditos de fora).
+local function creditInvite(inviter: Player, uids: { any }, name: string?)
+	local inviterState = states[inviter]
+	if not inviterState then
+		return
+	end
+	local idata = inviterState.Data
+	local list = idata.Referred
+	if type(list) ~= "table" then
+		list = {}
+		idata.Referred = list
+	end
+	local today = Config.Day(os.time())
+	if idata.InviteDay ~= today then
+		idata.InviteDay = today
+		idata.InviteCount = 0
+	end
+	local gift = Config.Invite
+	local added, paid = 0, 0
+	for _, uid in uids do
+		local id = tonumber(uid)
+		local key = id and tostring(math.floor(id))
+		if id and id > 0 and id ~= inviter.UserId and key and not list[key] then
+			list[key] = true
+			added += 1
+			if (idata.InviteCount or 0) < gift.PerDay then
+				idata.InviteCount = (idata.InviteCount or 0) + 1
+				paid += 1
+			end
+		end
+	end
+	if added == 0 then
+		return
+	end
+	local cash = paid * math.max(gift.InviterMinCash, math.floor((inviterState.BaseIncome or 0) * 60 * gift.InviterMinutes))
+	if paid > 0 then
+		idata.Money += cash
+		idata.Speed += gift.InviterSpeed * paid
+		applySpeed(inviter)
+		econ(inviter, true, cash, "Gameplay", "InviteReward")
+	end
+	custom(inviter, "FriendInvited", added)
+	local count = Config.InviteCount(list)
+	local prize = if paid > 0 then ("! +%s  +%s Speed"):format(Format.Money(cash), Format.Short(gift.InviterSpeed * paid)) else "!"
+	if name then
+		banner(inviter, ("%s played from your invite%s (%d friends)"):format(name, prize, count), Color3.fromRGB(120, 220, 255))
+	else
+		banner(inviter, ("While you were away, %d friend%s played from your invite%s"):format(added, if added == 1 then "" else "s", prize), Color3.fromRGB(120, 220, 255))
+	end
+	grantLadder(inviter, 3.5) -- (a faixa da escada vem depois desta)
+	publish(inviter, true)
+end
+
+-- o amigo que entrou pelo convite vale depois de JOGAR de verdade: 5 min nesta entrada + 1 ovo roubado (se ainda
+-- não roubou, confere a cada 30 s por até 30 min). Quem convidou está aqui = ganha na hora; está fora (ou em outro
+-- servidor) = o crédito fica guardado no DataStore e chega quando ele entrar (antes sumia). 1 vez por amigo.
+local function watchInvite(player: Player, inviterId: number)
+	task.delay(300, function()
+		local waited = 0
+		while player.Parent and states[player] and (states[player].Data.Stolen or 0) < 1 and waited < 1800 do
+			waited += task.wait(30)
+		end
+		local state = states[player]
+		if not player.Parent or not state or (state.Data.Stolen or 0) < 1 or state.Data.InviteCredited then
+			return
+		end
+		local inviter = Players:GetPlayerByUserId(inviterId)
+		if inviter and states[inviter] then
+			state.Data.InviteCredited = true
+			creditInvite(inviter, { player.UserId }, player.DisplayName)
+			return
+		end
+		local store = stores.InviteCredit
+		if not store then
+			return
+		end
+		local ok = pcall(function()
+			store:UpdateAsync(tostring(inviterId), function(old)
+				local list = if type(old) == "table" then old else {}
+				if table.find(list, player.UserId) or #list >= Config.InviteCreditMax then
+					return nil -- já está guardado (ou a fila está cheia): não grava nada
+				end
+				table.insert(list, player.UserId)
+				return list
+			end)
+		end)
+		if ok and states[player] then
+			states[player].Data.InviteCredited = true
+		end
+	end)
+end
+
+-- entrou: pega os créditos guardados enquanto estava fora (lê e apaga numa vez só), soma e entrega a escada
+-- (também a de quem já tinha amigos salvos antes da v67)
+local function pullInviteCredits(player: Player)
+	local got = nil
+	local store = stores.InviteCredit
+	if store then
+		pcall(function()
+			store:UpdateAsync(tostring(player.UserId), function(old)
+				got = nil
+				if type(old) ~= "table" or #old == 0 then
+					return nil -- nada guardado: não grava
+				end
+				got = old
+				return {}
+			end)
+		end)
+	end
+	if not player.Parent or not states[player] then
+		return
+	end
+	if got then
+		creditInvite(player, got, nil)
+	end
+	grantLadder(player, 3.5)
+end
+
 local function onCharacter(player: Player, character: Model)
 	local state = states[player]
 	local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
@@ -3784,6 +3993,7 @@ local function onPlayerAdded(player: Player)
 	if plot then
 		plot.Owner = player
 		plot.OwnerLabel.Text = player.DisplayName .. "'s Pen"
+		paintPenSign(player) -- (v67) dourada para o Squad Leader
 		World.BuildPen(plot, data.PenLevel)
 		while #data.Slots > Config.SlotCount(data.PenLevel) do
 			table.remove(data.Slots)
@@ -3827,12 +4037,43 @@ local function onPlayerAdded(player: Player)
 		task.spawn(onCharacter, player, player.Character)
 	end
 	-- CONVITE DE AMIGO (v65): quem entrou pelo convite oficial (botão "Invite") de um amigo ganha um
-	-- presente, e o amigo que convidou também (se estiver no servidor; 1 vez por amigo, até 50).
+	-- presente, e o amigo que convidou também (1 vez por amigo; v67: mesmo se estava fora, ver watchInvite).
 	-- A Roblox permite prêmio por convite ("referral rewards"); NÃO dá prêmio por like/favorito.
+	-- v67 "MOSTRAR PROS AMIGOS": o convite do cartão do bichinho leva LaunchData "b:<UserId do dono>:<Id do bichinho>".
+	-- Quem entra por ele vê a seta no cercado do amigo por Config.VisitSeconds (só texto fixo: nome do bichinho
+	-- vem do Critters, nunca do LaunchData).
 	task.spawn(function()
 		local ok, joinData = pcall(player.GetJoinData, player)
-		local inviterId = ok and type(joinData) == "table" and tonumber((joinData :: any).ReferredByPlayerId) or nil
+		local info: any = if ok and type(joinData) == "table" then joinData else {}
+		local launch = tostring(info.LaunchData or "")
+		local shareUid, shareCritter = string.match(string.sub(launch, 1, 80), "^b:(%d+):([%w_]+)$")
+		local shareOwner = tonumber(shareUid)
+		local owner = shareOwner and Players:GetPlayerByUserId(shareOwner)
+		local ownerState = owner and owner ~= player and states[owner]
+		if owner and ownerState and ownerState.Plot then
+			player:SetAttribute("VisitPen", ownerState.Plot.X)
+			player:SetAttribute("VisitName", owner.DisplayName)
+			player:SetAttribute("VisitUntil", os.time() + Config.VisitSeconds + 9) -- (+9: a faixa vem depois da do convite)
+			local def = shareCritter and Critters.ById[shareCritter]
+			local has = false
+			for _, slot in ownerState.Data.Slots do
+				has = has or (def ~= nil and slot.Id == def.Id)
+			end
+			local what = if def and has then ("%s %s"):format(def.Rarity, def.Name) else "pen"
+			task.delay(9.5, function()
+				if player.Parent then
+					banner(player, ("\u{1F440} You came to see %s's %s! Follow the arrow!"):format(owner.DisplayName, what), Color3.fromRGB(255, 170, 220))
+				end
+			end)
+			custom(owner, "ShareVisit")
+		end
+		local referred = tonumber(info.ReferredByPlayerId)
+		local inviterId = if referred and referred > 0 then referred else shareOwner
 		if not inviterId or inviterId <= 0 or inviterId == player.UserId or data.InvitedBy or (data.Stolen or 0) > 5 then
+			-- (v67) convidado que saiu antes de valer (ou de antes da v67): tenta de novo nesta entrada
+			if type(data.InvitedBy) == "number" and not data.InviteCredited then
+				watchInvite(player, data.InvitedBy)
+			end
 			return
 		end
 		data.InvitedBy = inviterId
@@ -3848,43 +4089,12 @@ local function onPlayerAdded(player: Player)
 		end)
 		-- (v65.1) quem convidou só ganha depois que o amigo JOGOU de verdade (5 min e 1 ovo roubado),
 		-- no máximo Config.Invite.PerDay por dia: senão dava para farmar com contas falsas
-		task.delay(300, function()
-			if not player.Parent or states[player] == nil or (data.Stolen or 0) < 1 then
-				return
-			end
-			local inviter = Players:GetPlayerByUserId(inviterId)
-			local inviterState = inviter and states[inviter]
-			if not inviter or not inviterState then
-				return
-			end
-			local idata = inviterState.Data
-			local list = idata.Referred
-			if type(list) ~= "table" then
-				list = {}
-				idata.Referred = list
-			end
-			local key = tostring(player.UserId)
-			local today = Config.Day(os.time())
-			if idata.InviteDay ~= today then
-				idata.InviteDay = today
-				idata.InviteCount = 0
-			end
-			if list[key] or (idata.InviteCount or 0) >= gift.PerDay then
-				return
-			end
-			list[key] = true
-			idata.InviteCount = (idata.InviteCount or 0) + 1
-			local cash = math.max(gift.InviterMinCash, math.floor((inviterState.BaseIncome or 0) * 60 * gift.InviterMinutes))
-			idata.Money += cash
-			idata.Speed += gift.InviterSpeed
-			applySpeed(inviter)
-			econ(inviter, true, cash, "Gameplay", "InviteReward")
-			custom(inviter, "FriendInvited")
-			banner(inviter, ("%s played from your invite! +%s  +%s Speed"):format(player.DisplayName, Format.Money(cash), Format.Short(gift.InviterSpeed)), Color3.fromRGB(120, 220, 255))
-			publish(inviter)
-		end)
+		watchInvite(player, inviterId)
 		publish(player)
 	end)
+	-- (v67) créditos de convite guardados enquanto estava fora + escada de convites (depois das faixas da entrada:
+	-- dinheiro offline aos 4 s e Halloween aos 8 s; antes disso a tela ainda pode nem estar ouvindo)
+	task.delay(12, pullInviteCredits, player)
 	if halloweenNow() and (data.Stolen or 0) > 0 then -- (v67: novato vê depois do 1º ovo, ver deliver)
 		task.delay(8, function()
 			if player.Parent then
@@ -3894,7 +4104,8 @@ local function onPlayerAdded(player: Player)
 	end
 	if data.Stolen == 0 then
 		task.delay(3, function()
-			if player.Parent then
+			-- (v67: veio ver o bichinho de um amigo = primeiro a visita; a dica de roubar vem depois na linha de baixo)
+			if player.Parent and not ((tonumber(player:GetAttribute("VisitUntil")) or 0) > os.time()) then
 				banner(player, ("Run into %s and STEAL an egg!"):format(string.upper(Config.Zones[1].Name)), Color3.fromRGB(255, 225, 80))
 			end
 		end)
@@ -3920,6 +4131,7 @@ local function onPlayerRemoving(player: Player)
 	if state.Plot then
 		state.Plot.Owner = nil
 		state.Plot.OwnerLabel.Text = "Empty Pen"
+		state.Plot.OwnerLabel.TextColor3 = Color3.new(1, 1, 1)
 		World.BuildPen(state.Plot, 0)
 		World.SetTreadmillLocked(state.Plot, true)
 		World.StyleTreadmill(state.Plot, 0)
@@ -4023,6 +4235,31 @@ function Game.Init()
 					carry.NearAt = os.clock() + 20
 				end
 				return carry ~= nil
+			end,
+			-- v67: testar a ESCADA DE CONVITES (convite não funciona no Studio). Soma N amigos falsos como se
+			-- tivessem jogado agora (away = true: como créditos de quando você estava fora); reset = zera a escada
+			Invite = function(player, count, away, reset)
+				local data = states[player].Data
+				if reset then
+					data.Referred, data.LadderGot, data.SquadTitle = {}, {}, nil
+					paintPenSign(player)
+				end
+				local ids = {}
+				local base = Config.InviteCount(data.Referred)
+				for k = 1, count or 1 do
+					table.insert(ids, 9_000_000_000 + base + k)
+				end
+				creditInvite(player, ids, if away then nil else "TestFriend")
+				publish(player, true)
+				return Config.InviteCount(data.Referred)
+			end,
+			-- v67: testar a seta da visita ("Mostrar pros amigos"): aponta para o cercado da vaga N por 30 s
+			Visit = function(player, plotIndex)
+				local plot = World.Plots[plotIndex or 1]
+				player:SetAttribute("VisitPen", plot.X)
+				player:SetAttribute("VisitName", "TestFriend")
+				player:SetAttribute("VisitUntil", os.time() + Config.VisitSeconds)
+				return plot.X
 			end,
 		}
 		local bindable = Instance.new("BindableFunction")

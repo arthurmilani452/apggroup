@@ -337,7 +337,8 @@ class Econ:
         self.zones = cfg["Zones"]
         self.treads = treadmills(cfg)
         self.pens = cfg["_PenCosts"]
-        self.trails = [(t["Mult"], t["Cost"]) for t in cfg["Trails"]]
+        # (v67) Hidden = trilha que não está à venda (prêmio da escada de convites; o simulador não tem amigos)
+        self.trails = [(t["Mult"], t["Cost"]) for t in cfg["Trails"] if not t.get("Hidden")]
         self.muts = [(m["Name"], m["Chance"], m["Income"]) for m in cfg["Mutations"]]
         self.by_id = {c["Id"]: c for c in critters}
         # poolFor do Game.luau: bichinhos dos mundos da zona, por raridade, em ordem de Id

@@ -119,6 +119,16 @@ do
 		Gold = { "GOLD", "OURO" },
 		DailyTomorrow = { "Tomorrow: DAY %d \u{2192} %s", "Amanhã: DIA %d \u{2192} %s" },
 		CalExclusive = { "\u{1F4C5} Exclusive!", "\u{1F4C5} Exclusivo!" },
+		-- v67: CONVITES (escada de prêmios, "Mostrar pros amigos" no cartão do bichinho, visita ao cercado do amigo)
+		InviteNext = { "%d/%d friends \u{2192} %s", "%d/%d amigos \u{2192} %s" },
+		InviteMsg = { "Invite friends who PLAY: %s", "Convide amigos que JOGAM: %s" },
+		LadderTrail = { "Friendship Trail", "Trilha da Amizade" },
+		LadderTitle = { "Squad Leader title", "título Squad Leader" },
+		FriendExclusive = { "\u{1F91D} Friend exclusive!", "\u{1F91D} Exclusivo de amigo!" },
+		ShareBtn = { "\u{1F4F8} Show friends", "\u{1F4F8} Mostrar pros amigos" },
+		ShareMsg = { "Come see my %s!", "Venha ver meu %s!" },
+		ShareWait = { "Wait a little to show again!", "Espere um pouco para mostrar de novo!" },
+		HintVisit = { "\u{1F440} Go see %s's pen!", "\u{1F440} Vá ver o cercado de %s!" },
 		-- v67: EMOÇÃO (carimbo na entrega e fuga por pouco)
 		Safe = { "SAFE!", "SALVO!" },
 		CloseCall = { "\u{1F605} CLOSE CALL! +%s", "\u{1F605} UFA! POR UM TRIZ! +%s" },
@@ -244,6 +254,8 @@ local firstMin = {
 	Small = false, -- linha da dica já encolheu (depois do tutorial)
 	FavDone = false, -- já pediu para favoritar nesta sessão
 	TryFavorite = function() end, -- (a de verdade fica perto do net.OnClientEvent)
+	ShareAt = -1e9, -- (v67) último "Mostrar pros amigos" (os.clock)
+	CanInvite = nil :: boolean?, -- (v67) a Roblox deixa esta conta mandar convite? (nil = ainda não sabe)
 }
 
 -- JSON dos atributos (Slots, Index, Quests, Boosts) com CACHE (v66 perf): só decodifica de novo quando o texto
@@ -743,6 +755,9 @@ refreshShop = function()
 		local equipped = player:GetAttribute("Trail") or ""
 		for order, trail in Config.Trails do
 			local has = table.find(owned, trail.Id) ~= nil
+			if trail.Hidden and not has then
+				continue -- (v67) trilha da escada de convites: só aparece para quem ganhou
+			end
 			local label = if equipped == trail.Id then "EQUIPPED" elseif has then "Equip" else Format.Money(trail.Cost)
 			local color = if equipped == trail.Id then Theme.Gray elseif has then Theme.Blue elseif money >= trail.Cost then Theme.Green else Theme.Red
 			shopRow(shopList, order, "\u{2728}", trail.Name, ("x%s treadmill speed"):format(tostring(trail.Mult)), label, color, function()
@@ -1172,8 +1187,8 @@ do
 				order += 1
 				petCard(petsGrid, slot, def, order, function(card)
 					if def.Keep then
-						-- v67: exclusivo do calendário não vende (e fica até no Rebirth)
-						text({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.new(1, -14, 0, 44), Text = L("CalExclusive"), TextColor3 = Color3.fromRGB(255, 225, 120), ZIndex = 15, Parent = card })
+						-- v67: exclusivo (do calendário ou dos convites) não vende (e fica até no Rebirth)
+						text({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.new(1, -14, 0, 44), Text = if def.World == "friend" then L("FriendExclusive") else L("CalExclusive"), TextColor3 = Color3.fromRGB(255, 225, 120), ZIndex = 15, Parent = card })
 						return
 					end
 					local value = math.floor((slot.inc or 0) * 100)
@@ -1875,12 +1890,29 @@ do
 		open("Halloween")
 	end)
 	-- (v65: o bônus é por AMIGO JOGANDO junto, não por convite enviado)
-	local inviteTile = menuTile("Invite", 7, "\u{1F465}", Color3.fromRGB(255, 120, 60), function()
+	-- v67 ESCADA DE CONVITES: o texto pequeno mostra o próximo degrau ("2/3 amigos → Pal Pup") e a janela de
+	-- convite da Roblox mostra a escada inteira (Config.InviteLadder; só conta amigo que entrou e jogou)
+	local function ladderPrize(step): string
+		local def = step.Critter and Critters.ById[step.Critter]
+		return if def then def.Name elseif step.Trail then L("LadderTrail") else L("LadderTitle")
+	end
+	menuTile("Invite", 7, "\u{1F465}", Color3.fromRGB(255, 120, 60), function()
+		local steps = {}
+		for _, step in Config.InviteLadder do
+			table.insert(steps, ("%d = %s"):format(step.Count, ladderPrize(step)))
+		end
 		pcall(function()
-			game:GetService("SocialService"):PromptGameInvite(player)
+			local options = Instance.new("ExperienceInviteOptions")
+			options.PromptMessage = L("InviteMsg"):format(table.concat(steps, ", "))
+			game:GetService("SocialService"):PromptGameInvite(player, options)
 		end)
 	end)
-	inviteTile.Sub.Text = L("InviteSub"):format(math.floor((Config.FriendBoost or 0.25) * 100 + 0.5))
+	task.spawn(function()
+		local ok, can = pcall(function()
+			return game:GetService("SocialService"):CanSendGameInviteAsync(player)
+		end)
+		firstMin.CanInvite = if ok then can == true else nil
+	end)
 	menuTile("Sound", 8, "\u{1F50A}", Color3.fromRGB(110, 90, 200), function()
 		soundOn = not soundOn
 		player:SetAttribute("Muted", not soundOn)
@@ -1944,6 +1976,11 @@ do
 		menuTiles.SlowMode.Sub.Text = if slowOn then L("On") else L("Off")
 		menuTiles.SlowMode.Sub.TextColor3 = if slowOn then GREEN_TEXT else Color3.fromRGB(255, 120, 120)
 		menuTiles.Admin.Tile.Visible = admin
+		-- (v67) próximo degrau da escada de convites; escada completa = o bônus de amigo jogando junto
+		local friends = player:GetAttribute("Referred") or 0
+		local nextStep = Config.LadderNext(friends)
+		menuTiles.Invite.Sub.Text = if nextStep then L("InviteNext"):format(friends, nextStep.Count, ladderPrize(nextStep))
+			else L("InviteSub"):format(math.floor((Config.FriendBoost or 0.25) * 100 + 0.5))
 		return dailyReady or questReady or progress >= 1 or candyReady or (admin and not adminMenuSeen)
 	end
 	refreshMenuBadge = function()
@@ -2366,8 +2403,37 @@ local function playHatch(entry)
 	Theme.popIn(card)
 	Theme.popIn(title)
 	confetti(rarityColor)
-	task.wait(2.2)
+	-- v67 MOSTRAR PROS AMIGOS: Lendário+ ou com mutação = o cartão fica 4 s com um botão (à direita do bichinho:
+	-- embaixo não cabe no celular) que abre o convite da Roblox ("Venha ver meu ...!"). Quem entra por ele vê a seta
+	-- no seu cercado. Compartilhar não dá prêmio; só conta o amigo que entra e joga (escada de convites).
+	local share: GuiObject? = nil
+	local stopPulse: (() -> ())? = nil
+	if (revealIndex >= Config.RarityIndex.Legendary or mutation ~= nil) and firstMin.CanInvite ~= false then
+		share = button({ AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0.5, 170, 0.45, 0), Size = UDim2.fromOffset(280, 84), BackgroundColor3 = Theme.Blue, ZIndex = 45, Parent = hatchLayer }, L("ShareBtn"), function()
+			if os.clock() - firstMin.ShareAt < Config.ShareGap then
+				showToast(L("ShareWait"), "info")
+				return
+			end
+			firstMin.ShareAt = os.clock()
+			pcall(function()
+				local options = Instance.new("ExperienceInviteOptions")
+				options.PromptMessage = L("ShareMsg"):format((if mutation then mutation .. " " else "") .. def.Name)
+				options.LaunchData = ("b:%d:%s"):format(player.UserId, def.Id)
+				game:GetService("SocialService"):PromptGameInvite(player, options)
+			end)
+		end)
+		if share then
+			stopPulse = Theme.pulse(share)
+		end
+	end
+	task.wait(if share then 4 else 2.2)
 	spinning = false
+	if stopPulse then
+		stopPulse()
+	end
+	if share then
+		share:Destroy()
+	end
 	for _, item in { card, title, sub, rays } do
 		item:Destroy()
 	end
@@ -2428,7 +2494,8 @@ firstMin.TryFavorite = function()
 	while (hatchBusy or hatchLayer.Visible) and waited < 15 do
 		waited += task.wait(0.5) -- espera o cartão do bichinho sumir
 	end
-	if firstMin.FavDone or player:GetAttribute("FavAsked") ~= false or os.clock() - firstMin.JoinClock < 480 or player:GetAttribute("Carrying") then
+	if firstMin.FavDone or player:GetAttribute("FavAsked") ~= false or os.clock() - firstMin.JoinClock < 480 or player:GetAttribute("Carrying")
+		or os.clock() - firstMin.ShareAt < 30 then -- (v67: acabou de abrir o convite: não empilha outro pedido)
 		return
 	end
 	firstMin.FavDone = true
@@ -2755,6 +2822,12 @@ local function tutorial(root: BasePart): (Vector3?, string?, string?)
 	end
 	if player:GetAttribute("Carrying") then
 		return Vector3.new(root.Position.X, 2, -8), L("HintCarry"), nil
+	end
+	-- v67: entrou pelo "Mostrar pros amigos": a seta mostra o cercado do amigo por uns 30 s (todos os cercados
+	-- têm a mesma frente, então serve a sua PlotFront)
+	local visitUntil, visitX = player:GetAttribute("VisitUntil"), player:GetAttribute("VisitPen")
+	if typeof(visitUntil) == "number" and typeof(visitX) == "number" and typeof(front) == "number" and workspace:GetServerTimeNow() < visitUntil then
+		return Vector3.new(visitX, 3, front - 12), L("HintVisit"):format(tostring(player:GetAttribute("VisitName") or "")), nil
 	end
 	-- NOITE: os ninhos ficam vazios, então "vá roubar" vira "os ovos voltam em 0:08"
 	local nightHint: string? = nil

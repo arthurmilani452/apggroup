@@ -20,7 +20,8 @@
 	  RebirthRequired -> (opcional) só sai dos ovos para quem já tem esse rebirth
 	  Hint     -> (opcional) dica misteriosa no álbum enquanto o jogador não descobriu
 	  World    -> (opcional) mundo de onde sai: "candy", "frost", "lava", "reef", "galaxy", "dino", "pirate", "robot" (sem World = Meadow)
-	  Keep     -> (opcional, v67) exclusivo do calendário: fica no Rebirth, não vende e não funde
+	  Keep     -> (opcional, v67) exclusivo do calendário ("calendar") ou dos convites ("friend"): fica no Rebirth,
+	              não vende, não funde e não sai de ovo
 
 	Pra adicionar um bichinho novo é só copiar uma linha, mudar o Id e os valores.
 ]]
@@ -266,6 +267,10 @@ Critters.List = {
 	{ Id = "calendarcat", World = "calendar", Keep = true, Name = "Calendar Cat", Rarity = "Epic", Price = 150_000, Income = 2_500, Body = "cat", Color = rgb(255, 245, 235), Accent = rgb(235, 70, 80), EyeColor = rgb(90, 170, 255), Glow = true },
 	{ Id = "sunnypup", World = "calendar", Keep = true, Name = "Sunny Pup", Rarity = "Legendary", Price = 2_000_000, Income = 30_000, Body = "bunny", Color = rgb(255, 210, 70), Accent = rgb(255, 140, 40), Glow = true, Sparkles = true },
 	{ Id = "crowncritter", World = "calendar", Keep = true, Name = "Crown Critter", Rarity = "Mythic", Price = 12_000_000, Income = 120_000, Body = "blob", Color = rgb(150, 90, 255), Accent = rgb(255, 215, 70), Material = "Foil", Crown = true, Glow = true, Sparkles = true, SparkleColors = "rainbow" },
+	-- v67 AMIGOS (World = "friend", Keep = true): só da escada de convites (Config.InviteLadder: 3 e 10 amigos que
+	--   jogaram). Mesmas regras dos do calendário: sem ovo, sem Índice, ficam no Rebirth, não vendem e não fundem.
+	{ Id = "palpup", World = "friend", Keep = true, Name = "Pal Pup", Rarity = "Legendary", Price = 2_000_000, Income = 30_000, Body = "cat", Color = rgb(255, 185, 110), Accent = rgb(255, 110, 80), HeadBand = rgb(255, 90, 150), Glow = true },
+	{ Id = "partypanda", World = "friend", Keep = true, Name = "Party Panda", Rarity = "Mythic", Price = 12_000_000, Income = 120_000, Body = "bunny", Color = rgb(250, 250, 250), Accent = rgb(35, 35, 40), Glow = true, Sparkles = true, SparkleColors = "rainbow" },
 }
 
 -- CRITTER DA SEMANA (v26): um exclusivo por semana (segunda a domingo, UTC). Só sai do "Weekly Egg" da esteira

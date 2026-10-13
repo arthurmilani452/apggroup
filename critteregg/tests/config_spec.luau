@@ -304,6 +304,50 @@ end
 check("calendar milestones point to real boosts and exclusive critters", calendarOk and calendarCritters == 3)
 check("day 28 gives the mark and a Mythic", Config.Calendar[28] ~= nil and Config.Calendar[28].Mark == true and critters[Config.Calendar[28].Critter].Rarity == "Mythic")
 
+-- v67: ESCADA DE CONVITES (amigos que jogaram: trilha, exclusivos e título; nada sorteado)
+check("InviteCount counts friend keys", Config.InviteCount(nil) == 0 and Config.InviteCount({}) == 0
+	and Config.InviteCount({ ["11"] = true, ["22"] = true, ["33"] = true }) == 3)
+local due3 = Config.LadderDue(3, nil)
+check("ladder: 3 friends = steps 1 and 3", #due3 == 2 and due3[1].Count == 1 and due3[2].Count == 3)
+check("ladder: steps already given are skipped", #Config.LadderDue(3, { [due3[1].Id] = true }) == 1
+	and #Config.LadderDue(0, {}) == 0 and #Config.LadderDue(1000, nil) == #Config.InviteLadder)
+check("ladder: next step", Config.LadderNext(0).Count == 1 and Config.LadderNext(1).Count == 3 and Config.LadderNext(2).Count == 3
+	and Config.LadderNext(1000) == nil)
+local ladderOk, lastCount, ladderIds, ladderCritters = true, 0, {}, 0
+local cheapest = math.huge
+for _, trail in Config.Trails do
+	if not trail.Hidden then
+		cheapest = math.min(cheapest, trail.Mult)
+	end
+end
+for _, step in Config.InviteLadder do
+	local prizes = (if step.Trail then 1 else 0) + (if step.Critter then 1 else 0) + (if step.Title then 1 else 0)
+	if step.Count <= lastCount or ladderIds[step.Id] or prizes ~= 1 then
+		ladderOk = false
+		print("  bad ladder step", step.Id)
+	end
+	lastCount = step.Count
+	ladderIds[step.Id] = true
+	local trail = step.Trail and Config.TrailById[step.Trail]
+	if step.Trail and (not trail or not trail.Hidden or trail.Cost ~= 0 or trail.Mult > cheapest) then
+		ladderOk = false
+		print("  ladder trail must be hidden, free and no better than the cheapest trail", step.Trail)
+	end
+	if step.Critter then
+		ladderCritters += 1
+		local line = string.match(critterSrc, '[^\n]*Id = "' .. step.Critter .. '"[^\n]*')
+		if not line or not string.find(line, 'World = "friend"', 1, true) or not string.find(line, "Keep = true", 1, true) then
+			ladderOk = false
+			print("  ladder critter missing or not exclusive", step.Critter)
+		elseif naturalZone(step.Critter) then
+			ladderOk = false
+			print("  ladder critter drops from a zone", step.Critter)
+		end
+	end
+end
+check("ladder: growing counts, 1 prize per step, hidden free trail, exclusive critters", ladderOk and ladderCritters == 2)
+check("share and visit timings are sane", Config.ShareGap >= 60 and Config.VisitSeconds >= 10 and Config.InviteCreditMax >= 5)
+
 -- v67: POR UM TRIZ, sequência de roubos e quando é MOMENTO ÉPICO
 check("close call pays at least MinCash", Config.CloseCallBonus(nil) == Config.CloseCall.MinCash and Config.CloseCallBonus(0) == Config.CloseCall.MinCash)
 check("close call pays Minutes of base income", Config.CloseCallBonus(1000) == math.max(Config.CloseCall.MinCash, 1000 * 60 * Config.CloseCall.Minutes))
