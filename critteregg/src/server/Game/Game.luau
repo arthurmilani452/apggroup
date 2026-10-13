@@ -345,8 +345,7 @@ local function publish(player: Player, full: boolean?)
 			data.ZoneReached = reached -- save antigo: só começa a contar daqui
 		elseif reached > data.ZoneReached then
 			data.ZoneReached = reached
-			net:FireClient(player, "ZoneUnlocked", reached)
-			banner(player, ("NEW ZONE UNLOCKED: %s %s!"):format(string.upper(Config.Zones[reached].Name), Config.Zones[reached].Emoji or ""), Color3.fromRGB(120, 255, 160))
+			net:FireClient(player, "ZoneUnlocked", reached) -- (o cliente faz a festa com o nome da zona)
 			custom(player, "ZoneUnlocked", reached)
 		end
 	end

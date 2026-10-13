@@ -315,10 +315,11 @@ text({ Size = UDim2.fromOffset(56, 52), Position = UDim2.fromOffset(0, 58), Text
 local moneyText = text({ Size = UDim2.new(1, -64, 0, 56), Position = UDim2.fromOffset(62, 56), Text = "$0", TextColor3 = GREEN_TEXT, TextXAlignment = Enum.TextXAlignment.Left, Stroke = 4.5, Parent = stats })
 local incomeText = text({ Size = UDim2.new(1, -64, 0, 22), Position = UDim2.fromOffset(64, 112), Text = "+$0/s", TextColor3 = Color3.fromRGB(255, 230, 120), TextXAlignment = Enum.TextXAlignment.Left, Parent = stats })
 
--- celular: dinheiro/velocidade embaixo NO MEIO (longe do joystick à esquerda e do botão de pular à direita)
+-- celular: dinheiro/velocidade embaixo, logo à ESQUERDA do meio: o bastão e a armadilha (barra de itens do
+-- Roblox, por cima de tudo) ficam no meio, o joystick mais à esquerda e o botão de pular à direita
 if TOUCH then
-	stats.AnchorPoint = Vector2.new(0.5, 1)
-	stats.Position = UDim2.new(0.5, 30, 1, -6)
+	stats.AnchorPoint = Vector2.new(1, 1)
+	stats.Position = UDim2.new(0.5, -115, 1, -6)
 end
 
 ---------------------------------------------------------------------
@@ -719,7 +720,7 @@ refreshShop = function()
 		end)
 	else
 		local boosts = decode("Boosts", {})
-		local income = player:GetAttribute("Income") or 0
+		local income = player:GetAttribute("BaseIncome") or player:GetAttribute("Income") or 0 -- prêmios usam a renda sem os 2x (v66)
 		for order, boost in Config.Boosts do
 			local price = math.max(boost.MinPrice, math.floor(income * 60 * boost.Price))
 			local left = (boosts[boost.Id] or 0) - workspace:GetServerTimeNow()
@@ -1285,7 +1286,7 @@ local questList = scroller(questBody)
 local function refreshQuests()
 	clear(questList)
 	local q = decode("Quests", { p = {}, c = {} })
-	local income = player:GetAttribute("Income") or 0
+	local income = player:GetAttribute("BaseIncome") or player:GetAttribute("Income") or 0 -- prêmios usam a renda sem os 2x (v66)
 	for order, info in Config.Quests do
 		local progress = math.min((q.p and q.p[info.Key]) or 0, info.Goal)
 		local claimed = q.c and q.c[info.Key]
@@ -1321,8 +1322,14 @@ do
 		create("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	if TOUCH then
-		-- celular: um pouco acima do meio (o joystick fica embaixo à esquerda)
-		leftColumn.Position = UDim2.new(0, 10, 0.44, 0)
+		-- celular: colada em cima, logo abaixo da barra do Roblox (o joystick fica embaixo à esquerda;
+		-- no meio da tela o botão Presentes cobria o lugar onde a criança põe o dedão)
+		leftColumn.AnchorPoint = Vector2.new(0, 0)
+		leftColumn.Position = UDim2.new(0, 10, 0, 4)
+		local layout = leftColumn:FindFirstChildOfClass("UIListLayout")
+		if layout then
+			layout.Padding = UDim.new(0, 6)
+		end
 	end
 	-- botão largo da coluna da esquerda (ícone + nome)
 	sideButton = function(order: number, icon: string, label: string, color: Color3, onClick): TextButton
@@ -1426,7 +1433,7 @@ do
 			end
 		end
 		local played = playedSeconds()
-		local income = player:GetAttribute("Income") or 0
+		local income = player:GetAttribute("BaseIncome") or player:GetAttribute("Income") or 0 -- prêmios usam a renda sem os 2x (v66)
 		local claimedList = string.split(player:GetAttribute("GiftsClaimed") or "", ",")
 		for index, info in Config.Gifts do
 			local row = giftRows[index]
@@ -1809,6 +1816,10 @@ end)
 -- Faixa grande e avisos
 ---------------------------------------------------------------------
 local bannerText = text({ AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 40), Size = UDim2.fromOffset(900, 86), Text = "", Stroke = 6, Visible = false, ZIndex = 30, Parent = gui })
+if TOUCH then
+	-- celular: não passa por cima dos 2 relógios do canto de cima à direita (320 de largura de cada lado)
+	bannerText.Size = UDim2.new(1, -680, 0, 76)
+end
 local bannerToken = 0
 local function showBanner(message: string, color: Color3?)
 	bannerToken += 1
@@ -2049,6 +2060,11 @@ local function queueHatch(list)
 	end
 	hatchBusy = true
 	task.spawn(function()
+		-- celular: a barra do bastão/armadilha (por cima de tudo) cobria o nome e a raridade do bichinho novo
+		local StarterGui = game:GetService("StarterGui")
+		if TOUCH then
+			pcall(StarterGui.SetCoreGuiEnabled, StarterGui, Enum.CoreGuiType.Backpack, false)
+		end
 		while #hatchQueue > 0 do
 			local ok, err = pcall(playHatch, table.remove(hatchQueue, 1))
 			if not ok then
@@ -2058,6 +2074,9 @@ local function queueHatch(list)
 		TweenService:Create(hatchLayer, TweenInfo.new(0.25), { BackgroundTransparency = 1 }):Play()
 		task.wait(0.3)
 		hatchLayer.Visible = false
+		if TOUCH then
+			pcall(StarterGui.SetCoreGuiEnabled, StarterGui, Enum.CoreGuiType.Backpack, true)
+		end
 		hatchBusy = false
 	end)
 end
@@ -2287,7 +2306,7 @@ workspace:GetAttributeChangedSignal("Night"):Connect(function()
 	end
 end)
 
-local tutorialText = text({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, if TOUCH then -160 else -96), Size = UDim2.fromOffset(820, 46), Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Stroke = 4, Visible = false, Parent = gui })
+local tutorialText = text({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, if TOUCH then -160 else -96), Size = UDim2.fromOffset(if TOUCH then 820 else 700, 46), Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Stroke = 4, Visible = false, Parent = gui })
 local tutorialStep = ""
 
 -- devolve (alvo da seta, texto) conforme o progresso do jogador
@@ -2473,11 +2492,15 @@ function Rig.new(model: Model)
 			local offset = base:ToObjectSpace(item.CFrame)
 			local rot = offset - offset.Position
 			local entry: any = { Part = item, Offset = offset, Pos = offset.Position, Rot = rot }
-			-- (MeshPart nunca recebe SpecialMesh: o squash dela é só pela posição das peças)
+			-- (MeshPart nunca muda de tamanho: o squash dela é só pela posição das peças)
 			local mesh = item:FindFirstChildOfClass("SpecialMesh")
 			if mesh then
 				entry.Mesh = mesh
 				entry.MeshScale = mesh.Scale
+			elseif item.ClassName == "Part" then
+				entry.Size = item.Size -- peça simples: só muda de tamanho no "nascer" do pet (resize)
+			end
+			if mesh or entry.Size then
 				entry.AX = absVector(rot.RightVector)
 				entry.AY = absVector(rot.UpVector)
 				entry.AZ = absVector(rot.LookVector)
@@ -2495,14 +2518,16 @@ function Rig.new(model: Model)
 		Frames = {}, -- CFrames deste frame (tabela reaproveitada: não cria lixo)
 		CheckAt = 0,
 		Squashed = false,
+		Resized = false,
 	}, Rig)
 end
 
 -- ground = CFrame no chão (posição + direção); sx/sy/sz = amassar/esticar.
 -- squash = também estica as peças com SpecialMesh (só de perto).
--- (v66 perf) NUNCA muda o Size das peças (MeshPart redimensionada 60x/s trava o celular): o "amassar" vem da
--- posição das peças + SpecialMesh.Scale. Todas as peças andam num único workspace:BulkMoveTo.
-function Rig:Pose(ground: CFrame, sx: number, sy: number, sz: number, squash: boolean?)
+-- resize = também muda o Size das peças simples (Part); só nos 0.7 s do pet "nascendo" do ovo.
+-- (v66 perf) MeshPart NUNCA muda de Size (redimensionada 60x/s trava o celular) e Part só no nascer: o
+-- "amassar" vem da posição das peças + SpecialMesh.Scale. Todas as peças andam num único workspace:BulkMoveTo.
+function Rig:Pose(ground: CFrame, sx: number, sy: number, sz: number, squash: boolean?, resize: boolean?)
 	local clock = os.clock()
 	local live, list, frames = self.Live, self.List, self.Frames
 	if clock >= self.CheckAt then
@@ -2539,6 +2564,7 @@ function Rig:Pose(ground: CFrame, sx: number, sy: number, sz: number, squash: bo
 			end
 		end
 	end
+	local resizing = resize == true and squash == true and scaled
 	if squash and scaled then
 		-- aproxima: escala no eixo do próprio pedaço
 		self.Squashed = true
@@ -2547,6 +2573,8 @@ function Rig:Pose(ground: CFrame, sx: number, sy: number, sz: number, squash: bo
 			local mesh = info.Mesh
 			if mesh then
 				mesh.Scale = info.MeshScale * Vector3.new(info.AX:Dot(scale), info.AY:Dot(scale), info.AZ:Dot(scale))
+			elseif resizing and info.Size then
+				info.Part.Size = info.Size * Vector3.new(info.AX:Dot(scale), info.AY:Dot(scale), info.AZ:Dot(scale))
 			end
 		end
 	elseif self.Squashed then
@@ -2555,6 +2583,16 @@ function Rig:Pose(ground: CFrame, sx: number, sy: number, sz: number, squash: bo
 		for _, info in self.Parts do
 			if info.Mesh then
 				info.Mesh.Scale = info.MeshScale
+			end
+		end
+	end
+	if resizing then
+		self.Resized = true
+	elseif self.Resized then
+		self.Resized = false
+		for _, info in self.Parts do
+			if info.Size and info.Part.Parent then
+				info.Part.Size = info.Size
 			end
 		end
 	end
@@ -2746,9 +2784,11 @@ local function animatePet(model: Model, info, dt: number, t: number, root: BaseP
 	end
 	-- acabou de chocar: o bichinho "pula" para fora do ovo (cresce com elástico + gira)
 	local popAt = model:GetAttribute("PopIn")
+	local popping = false
 	if typeof(popAt) == "number" then
 		local p = (workspace:GetServerTimeNow() - popAt) / 0.7
 		if p >= 0 and p < 1 then
+			popping = true
 			local k = 1 - math.exp(-6 * p) * math.cos(p * 14) -- elástico: 0 -> passa de 1 -> volta para 1
 			k = math.max(k, 0.05)
 			sx *= k
@@ -2761,7 +2801,7 @@ local function animatePet(model: Model, info, dt: number, t: number, root: BaseP
 		* CFrame.Angles(0, math.rad(spin), 0)
 		* CFrame.new(0, y, 0)
 		* CFrame.Angles(math.rad(pitch), 0, math.rad(roll))
-	rig:Pose(ground, sx, sy, sx, full)
+	rig:Pose(ground, sx, sy, sx, full, full and popping)
 end
 
 -- OVOS NOS NINHOS: balançam de vez em quando (os prontos no cercado balançam mais)
@@ -2951,7 +2991,22 @@ end)
 -- pegar um ovo ou mexer o personagem.
 ---------------------------------------------------------------------
 local treadHud = create("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = if TOUCH then UDim2.new(0.5, 0, 1, -150) else UDim2.new(0.5, 0, 1, -14), Size = UDim2.fromOffset(440, 150), BackgroundTransparency = 1, Visible = false, Parent = gui })
+-- PC: acima da barra de itens do Roblox (bastão/armadilha, ~72 px embaixo no meio, por cima de tudo).
+-- A barra não muda com a escala da tela, então a distância é calculada em pixels de verdade.
+local function aboveHotbar(object: GuiObject, extra: number)
+	if TOUCH then
+		return
+	end
+	local function place()
+		object.Position = UDim2.new(0.5, 0, 1, -math.ceil((78 + extra) / math.max(uiScale.Scale, 0.1)))
+	end
+	uiScale:GetPropertyChangedSignal("Scale"):Connect(place)
+	place()
+end
+aboveHotbar(treadHud, 0)
+aboveHotbar(carryText, 0)
 local autoRun = false
+local autoArmed = false -- (v66) só desliga o AUTO RUN num movimento NOVO, não no dedo que já estava no joystick
 local setAutoRun: (boolean) -> ()
 local movingByHand: () -> boolean
 local updateTreadHud: (number) -> ()
@@ -2968,6 +3023,7 @@ do
 	end)
 	setAutoRun = function(on: boolean)
 		autoRun = on
+		autoArmed = false
 		autoButton.BackgroundColor3 = if on then Theme.Green else Theme.Gray
 		autoLabel.Text = if on then L("AutoRunOn") else L("AutoRun")
 	end
@@ -3141,7 +3197,8 @@ RunService.Heartbeat:Connect(function(dt)
 					collectStripes(myBelt)
 				end
 				local rel = myBelt.CFrame:PointToObjectSpace(root.Position)
-				local inside = math.abs(rel.X) < myBelt.Size.X / 2 + 0.5 and math.abs(rel.Z) < myBelt.Size.Z / 2 + 0.5 and rel.Y > -1 and rel.Y < 7
+				-- altura folgada: no pulo (~7 studs) você continua "em cima da esteira" (o AUTO RUN e o painel não piscam)
+				local inside = math.abs(rel.X) < myBelt.Size.X / 2 + 0.5 and math.abs(rel.Z) < myBelt.Size.Z / 2 + 0.5 and rel.Y > -1 and rel.Y < 16
 				local move = humanoid.MoveDirection * Vector3.new(1, 0, 1)
 				local forward = move.Magnitude > 0.1 and move.Unit:Dot(Vector3.new(0, 0, -1)) > 0.4
 				onMyBelt = inside
@@ -3161,8 +3218,13 @@ RunService.Heartbeat:Connect(function(dt)
 	if not running then
 		beltPin = nil
 	end
-	-- AUTO CORRER desliga sozinho: saiu da esteira, pegou um ovo ou mexeu o personagem
-	if autoRun and (not onMyBelt or carrying or movingByHand()) then
+	-- AUTO CORRER desliga sozinho: saiu da esteira, pegou um ovo ou mexeu o personagem.
+	-- O dedo que já estava no joystick quando ligou não conta: só depois de soltar uma vez (autoArmed).
+	local hand = autoRun and movingByHand()
+	if autoRun and not hand then
+		autoArmed = true
+	end
+	if autoRun and (not onMyBelt or carrying or (hand and autoArmed)) then
 		setAutoRun(false)
 	end
 	if treadHud.Visible ~= onMyBelt then
