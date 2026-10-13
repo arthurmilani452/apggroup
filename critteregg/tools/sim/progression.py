@@ -38,7 +38,8 @@ O "JOGADOR TÍPICO" (criança no celular), passo de 1 segundo:
   * compra sempre a coisa mais barata que dá (cercado, esteira, trilha); cercado cheio = vende o pior bichinho;
   * a cada StealStreak.Every roubos seguidos ganha StealStreak.Minutes da renda;
   * joga 1 sessão de --session minutos por dia: presentes por tempo (zeram depois de 3 h fora), prêmio diário
-    (sequência de 7 dias), missões do dia (menos a de PvP) e dinheiro offline. O tempo das tabelas é tempo JOGADO
+    (sequência de 7 dias + calendário de 28 dias da v67: boosts 2x e bichinhos exclusivos que ficam no rebirth e
+    rendem pela zona de agora), missões do dia (menos a de PvP) e dinheiro offline. O tempo das tabelas é tempo JOGADO
     (minutos de tela), não dias de calendário. Sem baú do grupo, sem Robux, sem amigos, sem fim de semana x2.
   * rebirth: "nunca" ou "assim que tem o dinheiro" (o que a criança faz quando o botão acende).
 """
@@ -551,6 +552,13 @@ def simulate(econ, reward, kid, seed):
     quest_done, gift_done = set(), set()
     day = clock // 86400
     daily_streak = 0
+    # v67 calendário de 28 dias (Config.Calendar): boosts (relógio de verdade) e bichinhos exclusivos (Keep)
+    calendar = {int(k): v for k, v in (cfg.get("Calendar") or {}).items()} if kid.extras else {}
+    cal_days = int(cfg.get("CalendarDays", 28))
+    gold_after = int(cfg.get("CalendarGoldAfter", 1))
+    daily_total = 0
+    boost_until = {"Money2": 0, "Tread2": 0}
+    first_keep_day = min([d for d, v in calendar.items() if v.get("Critter")] or [10 ** 9])
     first_egg = True
     from_index = from_tread = 0.0
 
@@ -579,13 +587,32 @@ def simulate(econ, reward, kid, seed):
         return max(min_cash, math.floor(income() * 60 * minutes))
 
     def claim_daily():
-        nonlocal daily_streak
+        nonlocal daily_streak, daily_total
         daily_streak = daily_streak % len(daily) + 1
         info = daily[daily_streak - 1]
         st["money"] += minutes_cash(info["Minutes"], info["MinCash"])
         st["speed"] += info["Speed"]
         if info.get("Egg"):
             add_ready_egg(best_zone())
+        # v67 calendário (claimDaily do Game.luau): conta todos os dias pegos
+        daily_total += 1
+        cal = calendar.get((daily_total - 1) % cal_days + 1)
+        if cal:
+            for bid, minutes in (cal.get("Boost") or {}).items():
+                if bid in boost_until:
+                    boost_until[bid] = max(clock, boost_until[bid]) + minutes * 60
+            cid = cal.get("Critter")
+            if cid in econ.by_id:
+                mut = "Gold" if (daily_total - 1) // cal_days >= gold_after else None
+                if len(slots) >= slot_cap():  # cercado cheio: no jogo ele espera vaga; aqui a criança vende o pior
+                    pets = [x for x in slots if x["left"] <= 0 and not x.get("keep")]
+                    if pets:
+                        worst = min(pets, key=lambda x: x["inc"])
+                        slots.remove(worst)
+                        st["money"] += math.floor(worst["inc"] * 100)
+                if len(slots) < slot_cap():
+                    z = best_zone()
+                    slots.append({"id": cid, "s": 1, "mut": mut, "z": z, "left": 0, "inc": econ.pet_income(cid, 1, mut, z), "keep": True})
 
     def discover(slot):
         nonlocal from_index
@@ -619,7 +646,7 @@ def simulate(econ, reward, kid, seed):
                 slot["fresh"] = False
                 today["hatch"] += 1
                 discover(slot)
-        st["money"] += income()
+        st["money"] += income() * (2 if boost_until["Money2"] > clock else 1)
         # atividade: em casa (esteira) ou numa viagem de roubo
         left -= 1
         on_belt = phase == "home" and left < run_part and st["pen"] >= unlock_pen
@@ -628,7 +655,7 @@ def simulate(econ, reward, kid, seed):
             off_belt = 0
             gain, _ = econ.treads[st["tread"] - 1]
             mult = econ.trails[st["trail"] - 1][0] if st["trail"] else 1
-            gain = math.floor(gain * mult * (1 + cfg["RebirthTread"] * st["reb"]))  # computeGain
+            gain = math.floor(gain * mult * (2 if boost_until["Tread2"] > clock else 1) * (1 + cfg["RebirthTread"] * st["reb"]))  # computeGain
             if streak_cfg:
                 gain = math.floor(gain * (1 + min((run_streak // streak_cfg["StreakEvery"]) * streak_cfg["StreakStep"], streak_cfg["StreakMax"])))
             st["speed"] += gain
@@ -644,7 +671,7 @@ def simulate(econ, reward, kid, seed):
                 if rng.random() < kid.success:
                     inc = econ.pet_income(cid, s, mut, z)
                     if len(slots) >= slot_cap():
-                        pets = [x for x in slots if x["left"] <= 0]
+                        pets = [x for x in slots if x["left"] <= 0 and not x.get("keep")]
                         worst = min(pets, key=lambda x: x["inc"]) if pets else None
                         if worst and worst["inc"] < inc:
                             slots.remove(worst)
@@ -718,8 +745,14 @@ def simulate(econ, reward, kid, seed):
             gz = best_zone()
             log.append((t, "rebirth %d at zone %d" % (st["reb"] + 1, gz)))
             st.update(money=0.0, speed=float(cfg["StartSpeed"]), tread=1, trail=0, reb=st["reb"] + 1)
-            slots.clear()
+            slots[:] = [x for x in slots if x.get("keep")]  # (v67: exclusivos do calendário ficam)
             add_ready_egg(gz, 1)
+        # v67: exclusivo do calendário rende pela zona que a velocidade de agora alcança (slotZone do Game.luau)
+        if daily_total >= first_keep_day:
+            bz = best_zone()
+            for x in slots:
+                if x.get("keep") and x["z"] != bz:
+                    x["z"], x["inc"] = bz, econ.pet_income(x["id"], x["s"], x["mut"], bz)
         for z in range(2, nz + 1):
             if z not in reached and st["speed"] >= zones[z - 1]["Speed"]:
                 reached[z] = t

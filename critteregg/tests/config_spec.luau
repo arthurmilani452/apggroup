@@ -233,6 +233,77 @@ check("WeeklyBoostFor boosts only this week's critter", Config.WeeklyRarityMult 
 	and Config.WeeklyBoostFor(otherDef, monday) == 1 and Config.WeeklyBoostFor(nil, monday) == 1)
 check("WeeklyBoostFor is deterministic", Config.WeeklyBoostFor(weeklyDef, monday) == Config.WeeklyBoostFor(weeklyDef, monday + 86400))
 
+---------------------------------------------------------------------
+-- v67: PRÊMIO DIÁRIO 2.0 (dia de Brasília, escudo, calendário de 28 dias)
+---------------------------------------------------------------------
+-- o dia vira à meia-noite de Brasília (03:00 UTC), não às 21h de Brasília (00:00 UTC)
+local brMidnight = at(2026, 10, 14, 3, 0) -- quarta 00:00 de Brasília
+check("day changes at 00:00 Brasilia", Config.Day(brMidnight) == Config.Day(brMidnight - 1) + 1)
+check("21:00 Brasilia (00:00 UTC) is still the same day", Config.Day(at(2026, 10, 14, 0, 0)) == Config.Day(brMidnight - 1)
+	and Config.Day(at(2026, 10, 14, 0, 0)) == Config.Day(at(2026, 10, 13, 12, 0)))
+check("NextDayAt = next Brasilia midnight", Config.NextDayAt(brMidnight - 1) == brMidnight and Config.NextDayAt(brMidnight) == brMidnight + 86400
+	and Config.NextDayAt(at(2026, 10, 14, 1, 30)) == brMidnight)
+
+-- sequência e escudo: gap = hoje - último dia pego
+local week = #Config.Daily
+local function step(gap, streak, savers)
+	return table.pack(Config.DailyNext(gap, streak, savers))
+end
+local r = step(1, 3, 0)
+check("next day continues the streak", r[1] == 4 and r[2] == 0 and r[3] == false)
+r = step(2, 3, 1)
+check("missing ONE day with a saver keeps the streak", r[1] == 4 and r[2] == 0 and r[3] == true)
+r = step(2, 3, 0)
+check("missing one day without a saver restarts", r[1] == 1 and r[2] == 0 and r[3] == false)
+r = step(3, 5, 2)
+check("missing two days restarts even with savers (and keeps them)", r[1] == 1 and r[2] == 2 and r[3] == false)
+r = step(1, week - 1, 0)
+check("day 7 earns a saver", r[1] == week and r[2] == 1)
+r = step(1, week - 1, Config.MaxSavers)
+check("savers never go above MaxSavers", r[1] == week and r[2] == Config.MaxSavers)
+r = step(1, week, 1)
+check("after day 7 the week loops to day 1", r[1] == 1 and r[2] == 1)
+r = step(2, week - 1, 1)
+check("saver used on the way to day 7 comes back", r[1] == week and r[2] == 1 and r[3] == true)
+r = step(19000, 0, 0)
+check("first claim ever is day 1", r[1] == 1 and r[2] == 0 and r[3] == false)
+
+-- calendário: dia 1..28 pelo total, nunca sorteado, bichinhos que existem e são exclusivos
+check("CalendarDay cycles 1..28", Config.CalendarDay(0) == 0 and Config.CalendarDay(1) == 1 and Config.CalendarDay(28) == 28
+	and Config.CalendarDay(29) == 1 and Config.CalendarDay(56) == 28)
+check("calendar critters are Gold from the 2nd lap on", Config.CalendarMutation(7) == nil and Config.CalendarMutation(28) == nil
+	and Config.CalendarMutation(29) == "Gold" and Config.CalendarMutation(35) == "Gold" and Config.MutationByName.Gold ~= nil)
+local calendarOk, calendarCritters = true, 0
+for day, info in Config.Calendar do
+	if type(day) ~= "number" or day < 1 or day > Config.CalendarDays then
+		calendarOk = false
+		print("  bad calendar day", day)
+	end
+	for id in info.Boost or {} do
+		local known = false
+		for _, boost in Config.Boosts do
+			known = known or boost.Id == id
+		end
+		if not known then
+			calendarOk = false
+			print("  unknown boost", id)
+		end
+	end
+	if info.Critter then
+		calendarCritters += 1
+		local line = string.match(critterSrc, '[^\n]*Id = "' .. info.Critter .. '"[^\n]*')
+		if not line or not string.find(line, 'World = "calendar"', 1, true) or not string.find(line, "Keep = true", 1, true) then
+			calendarOk = false
+			print("  calendar critter missing or not exclusive", info.Critter)
+		elseif naturalZone(info.Critter) then
+			calendarOk = false
+			print("  calendar critter drops from a zone", info.Critter)
+		end
+	end
+end
+check("calendar milestones point to real boosts and exclusive critters", calendarOk and calendarCritters == 3)
+check("day 28 gives the mark and a Mythic", Config.Calendar[28] ~= nil and Config.Calendar[28].Mark == true and critters[Config.Calendar[28].Critter].Rarity == "Mythic")
+
 if failed > 0 then
 	error(("%d test(s) failed"):format(failed))
 end

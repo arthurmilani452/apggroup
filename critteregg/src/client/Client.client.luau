@@ -99,6 +99,26 @@ do
 		FirstHit = { "\u{2694}\u{FE0F} Ouch! Hit thieves with YOUR BAT so they drop the egg!", "\u{2694}\u{FE0F} Ai! Use o seu TACO no ladrão para ele soltar o ovo!" },
 		NightKeep = { "\u{1F319} The night guard let you keep it!", "\u{1F319} O guarda da noite deixou você ficar com ele!" },
 		FirstRare = { "\u{1F389} SURPRISE! Your first egg is RARE!", "\u{1F389} SURPRESA! Seu primeiro ovo é RARO!" },
+		-- v67: PRÊMIO DIÁRIO 2.0 (dia de Brasília, escudo, calendário de 28 dias)
+		DailyTitle = { "\u{1F381} Daily Rewards", "\u{1F381} Prêmios Diários" },
+		DayN = { "Day %d", "Dia %d" },
+		Tomorrow = { "TOMORROW", "AMANHÃ" },
+		ClaimDay = { "CLAIM DAY %d!", "PEGAR DIA %d!" },
+		ComeBack = { "Come back tomorrow!", "Volte amanhã!" },
+		RareEgg = { "+ Rare Egg!", "+ Ovo Raro!" },
+		NewRewardIn = { "\u{23F0} New reward in %s", "\u{23F0} Prêmio novo em %s" },
+		SaverInfo = { "Streak Saver: saves 1 missed day", "Escudo: salva 1 dia perdido" },
+		SaverReady = { "\u{1F6E1} Your Streak Saver will keep your streak!", "\u{1F6E1} Seu Escudo vai salvar a sequência!" },
+		SaverUsed = { "\u{1F6E1} Your Streak Saver kept your streak!", "\u{1F6E1} Seu Escudo salvou a sua sequência!" },
+		SaverEarned = { "\u{1F6E1} 7 days in a row! +1 Streak Saver", "\u{1F6E1} 7 dias seguidos! +1 Escudo" },
+		CalendarDay = { "\u{1F4C5} Calendar: Day %d/%d", "\u{1F4C5} Calendário: Dia %d/%d" },
+		CalendarShort = { "Day %d/%d", "Dia %d/%d" },
+		CalNext = { "\u{1F381} %s in %d days", "\u{1F381} %s em %d dias" },
+		CalNextOne = { "\u{1F381} %s on the next claim!", "\u{1F381} %s no próximo prêmio!" },
+		CalChamp = { "Calendar Champ title", "título Calendar Champ" },
+		Gold = { "GOLD", "OURO" },
+		DailyTomorrow = { "Tomorrow: DAY %d \u{2192} %s", "Amanhã: DIA %d \u{2192} %s" },
+		CalExclusive = { "\u{1F4C5} Exclusive!", "\u{1F4C5} Exclusivo!" },
 	}
 	L = function(key: string): string
 		local entry = TEXTS[key]
@@ -1148,6 +1168,11 @@ do
 			if slot.k == "Pet" and def then
 				order += 1
 				petCard(petsGrid, slot, def, order, function(card)
+					if def.Keep then
+						-- v67: exclusivo do calendário não vende (e fica até no Rebirth)
+						text({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.new(1, -14, 0, 44), Text = L("CalExclusive"), TextColor3 = Color3.fromRGB(255, 225, 120), ZIndex = 15, Parent = card })
+						return
+					end
 					local value = math.floor((slot.inc or 0) * 100)
 					-- v65: bichinho Raro+ ou com mutação: toca 2 vezes para vender (criança vendia sem querer)
 					local precious = slot.m ~= nil or (Config.RarityIndex[def.Rarity] or 1) >= Config.RarityIndex.Rare
@@ -1235,7 +1260,8 @@ do
 	refreshFuse = function()
 		local pets, keys = {}, {}
 		for _, slot in decode("Slots", {}) do
-			if type(slot) == "table" and slot.k == "Pet" and Critters.ById[slot.id] then
+			-- (v67: exclusivo do calendário não funde: nem aparece aqui)
+			if type(slot) == "table" and slot.k == "Pet" and Critters.ById[slot.id] and not Critters.ById[slot.id].Keep then
 				table.insert(pets, slot)
 				table.insert(keys, ("%s:%s:%s:%s:%s"):format(tostring(slot.i), tostring(slot.id), tostring(slot.m), tostring(slot.s), tostring(slot.inc)))
 			end
@@ -1307,39 +1333,165 @@ do
 end
 
 ---------------------------------------------------------------------
--- PRÊMIO DIÁRIO (7 dias seguidos)
+-- PRÊMIO DIÁRIO 2.0 (v67): 7 cartões da sequência (o próximo diz AMANHÃ), CALENDÁRIO de 28 dias embaixo
+-- (marcos com bichinhos exclusivos, barra "Dia 9/28"), escudo da sequência (🛡) e contagem até o próximo
+-- prêmio (meia-noite de Brasília). Os números vêm do servidor (atributos Daily*, Savers).
+-- (do...end: as variáveis do Diário ficam só aqui dentro - limite de 200 locais do Luau)
 ---------------------------------------------------------------------
-local dailyWindow, dailyBody = Theme.window(gui, "Daily", "\u{1F381} Daily Rewards", Theme.Purple, Vector2.new(900, 430))
-windows.Daily = dailyWindow
-local dailyRow = create("Frame", { Size = UDim2.new(1, -16, 0, 230), Position = UDim2.fromOffset(8, 10), BackgroundTransparency = 1, ZIndex = 12, Parent = dailyBody }, {
-	create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
-})
-local dailyClaim, dailyClaimLabel = button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -14), Size = UDim2.fromOffset(420, 74), BackgroundColor3 = Theme.Green, ZIndex = 13, Parent = dailyBody }, "CLAIM!", function()
-	net:FireServer("Daily")
-end)
-local function refreshDaily()
-	clear(dailyRow)
-	local streak = player:GetAttribute("DailyStreak") or 0
-	local ready = player:GetAttribute("DailyReady") == true
-	local nextDay = if ready then streak % #Config.Daily + 1 else streak
-	for day, reward in Config.Daily do
-		local done = day < nextDay or (not ready and day == nextDay)
-		local current = ready and day == nextDay
-		local card = create("Frame", { LayoutOrder = day, Size = UDim2.fromOffset(112, 220), BackgroundColor3 = if current then Theme.Gold elseif done then Theme.Green else Color3.fromRGB(70, 70, 86), ZIndex = 13, Parent = dailyRow }, { corner(12), stroke(if current then 5 else 3, if current then Color3.new(1, 1, 1) else Theme.Dark) })
-		Theme.gloss(card, 0.35)
-		text({ Size = UDim2.new(1, -8, 0, 34), Position = UDim2.fromOffset(4, 6), Text = "Day " .. day, ZIndex = 14, Parent = card })
-		text({ Size = UDim2.new(1, -8, 0, 64), Position = UDim2.fromOffset(4, 44), Text = if reward.Egg then "\u{1F95A}" elseif done then "\u{2705}" else "\u{1F381}", Stroke = 0, ZIndex = 14, Parent = card })
-		text({ Size = UDim2.new(1, -8, 0, 26), Position = UDim2.fromOffset(4, 116), Text = reward.Minutes .. " min $", TextColor3 = GREEN_TEXT, ZIndex = 14, Parent = card })
-		text({ Size = UDim2.new(1, -8, 0, 26), Position = UDim2.fromOffset(4, 146), Text = "+" .. Format.Short(reward.Speed) .. " \u{1F45F}", TextColor3 = PINK_TEXT, ZIndex = 14, Parent = card })
-		if reward.Egg then
-			text({ Size = UDim2.new(1, -8, 0, 24), Position = UDim2.fromOffset(4, 180), Text = "+ Rare Egg!", TextColor3 = Color3.fromRGB(255, 230, 90), ZIndex = 14, Parent = card })
+do
+	local dailyWindow, dailyBody = Theme.window(gui, "Daily", L("DailyTitle"), Theme.Purple, Vector2.new(900, 520))
+	windows.Daily = dailyWindow
+	local dailyRow = create("Frame", { Size = UDim2.new(1, -16, 0, 184), Position = UDim2.fromOffset(8, 8), BackgroundTransparency = 1, ZIndex = 12, Parent = dailyBody }, {
+		create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	local dailyClaim, dailyClaimLabel = button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(400, 74), BackgroundColor3 = Theme.Green, ZIndex = 13, Parent = dailyBody }, "CLAIM!", function()
+		net:FireServer("Daily")
+	end)
+	-- escudo à esquerda do botão, contagem à direita
+	local saverText = text({ AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -50), Size = UDim2.fromOffset(210, 38), Text = "", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 13, Parent = dailyBody })
+	text({ AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -12), Size = UDim2.fromOffset(210, 36), Text = L("SaverInfo"), TextWrapped = true, TextColor3 = Color3.fromRGB(170, 215, 255), Stroke = 2, ZIndex = 13, Parent = dailyBody })
+	local countdown = text({ AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -12, 1, -12), Size = UDim2.fromOffset(210, 74), Text = "", TextWrapped = true, TextColor3 = Color3.fromRGB(255, 230, 120), Stroke = 2, ZIndex = 13, Parent = dailyBody })
+
+	-- CALENDÁRIO: faixa com a barra dos 28 dias e um quadrinho em cada marco (bichinho 3D ou ícone do boost)
+	local strip = create("Frame", { Size = UDim2.new(1, -16, 0, 130), Position = UDim2.fromOffset(8, 198), BackgroundColor3 = Color3.fromRGB(30, 30, 42), ZIndex = 12, Parent = dailyBody }, { corner(12), stroke(3) })
+	local calTitle = text({ Size = UDim2.new(0.5, -12, 0, 28), Position = UDim2.fromOffset(12, 4), Text = "", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 13, Parent = strip })
+	local calNext = text({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 6), Size = UDim2.new(0.5, -12, 0, 26), Text = "", TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = Color3.fromRGB(255, 225, 120), Stroke = 2, ZIndex = 13, Parent = strip })
+	local bar = create("Frame", { Position = UDim2.new(0, 46, 1, -20), Size = UDim2.new(1, -92, 0, 12), BackgroundColor3 = Color3.fromRGB(14, 14, 22), BorderSizePixel = 0, ZIndex = 13, Parent = strip }, { corner(6) })
+	local barFill = create("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Theme.Gold, BorderSizePixel = 0, ZIndex = 14, Parent = bar }, { corner(6) })
+	local milestones = {}
+	for day in Config.Calendar do
+		table.insert(milestones, day)
+	end
+	table.sort(milestones)
+	local chips: { [number]: any } = {}
+	for _, day in milestones do
+		local info = Config.Calendar[day]
+		local def = info.Critter and Critters.ById[info.Critter]
+		local chip = create("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(day / Config.CalendarDays, 0, 0, -4), Size = UDim2.fromOffset(68, 68),
+			BackgroundColor3 = if def then Theme.cardColor(def.Rarity) else Color3.fromRGB(70, 160, 80), ZIndex = 14, Parent = bar }, { corner(10), stroke(3) })
+		Theme.gloss(chip, 0.3)
+		local holder = create("Frame", { Size = UDim2.new(1, 0, 1, -18), BackgroundTransparency = 1, ZIndex = 14, Parent = chip })
+		if not def then
+			text({ Size = UDim2.fromScale(1, 1), Text = if info.Title then "\u{1F3C6}" else "\u{1F4B5}", Stroke = 0, ZIndex = 15, Parent = holder })
+		end
+		text({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -1), Size = UDim2.new(1, -6, 0, 18), Text = L("DayN"):format(day), ZIndex = 17, Parent = chip })
+		chips[day] = {
+			Def = def,
+			Holder = holder,
+			Check = text({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 6, 0, -8), Size = UDim2.fromOffset(26, 26), Text = "\u{2705}", Stroke = 0, Visible = false, ZIndex = 18, Parent = chip }),
+			Gold = text({ Position = UDim2.fromOffset(2, 1), Size = UDim2.new(1, -4, 0, 16), Text = L("Gold"), TextColor3 = Theme.Gold, Visible = false, ZIndex = 18, Parent = chip }),
+		}
+	end
+	-- nome do prêmio de um marco (para "Próximo: ...")
+	local function prizeName(day: number): string
+		local info = Config.Calendar[day]
+		local def = info and info.Critter and Critters.ById[info.Critter]
+		if def then
+			return def.Name
+		elseif info and info.Title then
+			return L("CalChamp")
+		end
+		local names = {}
+		for _, boost in Config.Boosts do
+			if info and info.Boost and info.Boost[boost.Id] then
+				table.insert(names, boost.Name)
+			end
+		end
+		return table.concat(names, " + ")
+	end
+
+	local previewsMade = false
+	local function updateCountdown()
+		local ready = player:GetAttribute("DailyReady") == true
+		if ready then
+			countdown.Text = if player:GetAttribute("DailySave") == true then L("SaverReady") else ""
+			return
+		end
+		local left = math.max(0, math.floor((player:GetAttribute("DailyNextAt") or 0) - workspace:GetServerTimeNow()))
+		local clockText = if left >= 3600 then ("%dh %02dm"):format(left // 3600, (left % 3600) // 60) else ("%dm %02ds"):format(left // 60, left % 60)
+		countdown.Text = L("NewRewardIn"):format(clockText)
+	end
+
+	local function refreshDaily()
+		clear(dailyRow)
+		local streak = player:GetAttribute("DailyStreak") or 0
+		local ready = player:GetAttribute("DailyReady") == true
+		-- pronto: o dia que o botão dá AGORA (1 se a sequência zerou); senão: o dia de AMANHÃ
+		local nextDay = player:GetAttribute("DailyNext") or (streak % #Config.Daily + 1)
+		for day, reward in Config.Daily do
+			local current = ready and day == nextDay
+			local tomorrow = not ready and day == nextDay
+			local done = if ready then day < nextDay else day <= streak and not tomorrow
+			local card = create("Frame", { LayoutOrder = day, Size = UDim2.fromOffset(112, 178), BackgroundColor3 = if current then Theme.Gold elseif done then Theme.Green elseif tomorrow then Color3.fromRGB(70, 110, 200) else Color3.fromRGB(70, 70, 86), ZIndex = 13, Parent = dailyRow },
+				{ corner(12), stroke(if current or tomorrow then 5 else 3, if current or tomorrow then Color3.new(1, 1, 1) else Theme.Dark) })
+			Theme.gloss(card, 0.35)
+			text({ Size = UDim2.new(1, -8, 0, 30), Position = UDim2.fromOffset(4, 4), Text = if tomorrow then L("Tomorrow") else L("DayN"):format(day), ZIndex = 14, Parent = card })
+			text({ Size = UDim2.new(1, -8, 0, 52), Position = UDim2.fromOffset(4, 36), Text = if reward.Egg then "\u{1F95A}" elseif done then "\u{2705}" else "\u{1F381}", Stroke = 0, ZIndex = 14, Parent = card })
+			text({ Size = UDim2.new(1, -8, 0, 24), Position = UDim2.fromOffset(4, 92), Text = reward.Minutes .. " min $", TextColor3 = GREEN_TEXT, ZIndex = 14, Parent = card })
+			text({ Size = UDim2.new(1, -8, 0, 24), Position = UDim2.fromOffset(4, 118), Text = "+" .. Format.Short(reward.Speed) .. " \u{1F45F}", TextColor3 = PINK_TEXT, ZIndex = 14, Parent = card })
+			if reward.Egg then
+				text({ Size = UDim2.new(1, -8, 0, 22), Position = UDim2.fromOffset(4, 146), Text = L("RareEgg"), TextColor3 = Color3.fromRGB(255, 230, 90), ZIndex = 14, Parent = card })
+			end
+		end
+		dailyClaimLabel.Text = if ready then L("ClaimDay"):format(nextDay) else L("ComeBack")
+		dailyClaim.BackgroundColor3 = if ready then Theme.Green else Theme.Gray
+		saverText.Text = ("\u{1F6E1} x%d"):format(player:GetAttribute("Savers") or 0)
+		updateCountdown()
+		-- calendário
+		local total = player:GetAttribute("DailyTotal") or 0
+		local shown = Config.CalendarDay(total) -- último dia pego nesta volta (0 = nenhum)
+		calTitle.Text = L("CalendarDay"):format(shown, Config.CalendarDays)
+		barFill.Size = UDim2.fromScale(shown / Config.CalendarDays, 1)
+		local nextPrize, daysLeft = nil, 0
+		for _, day in milestones do
+			local entry = chips[day]
+			local done = total > 0 and shown >= day
+			-- número do prêmio (dia total) em que este marco saiu ou vai sair: 2ª volta em diante = Gold
+			local claimNumber = if done then total - shown + day else total + day - shown
+			entry.Check.Visible = done
+			entry.Gold.Visible = entry.Def ~= nil and Config.CalendarMutation(claimNumber) ~= nil
+			if not done and not nextPrize then
+				nextPrize, daysLeft = day, day - shown
+			end
+		end
+		if not nextPrize then -- volta completa: o 1º marco da próxima volta
+			nextPrize = milestones[1]
+			daysLeft = Config.CalendarDays - shown + nextPrize
+		end
+		calNext.Text = if not nextPrize then "" elseif daysLeft <= 1 then L("CalNextOne"):format(prizeName(nextPrize)) else L("CalNext"):format(prizeName(nextPrize), daysLeft)
+		-- as prévias 3D (só 3) nascem na 1ª vez que a janela abre (não no começo do jogo)
+		if not previewsMade then
+			previewsMade = true
+			for _, entry in chips do
+				if entry.Def then
+					pcall(Theme.preview, entry.Holder, entry.Def, false, false)
+				end
+			end
 		end
 	end
-	dailyClaimLabel.Text = if ready then ("CLAIM DAY %d!"):format(nextDay) else "Come back tomorrow!"
-	dailyClaim.BackgroundColor3 = if ready then Theme.Green else Theme.Gray
+	-- a contagem anda 1x por segundo SÓ com a janela aberta
+	local ticking = false
+	onOpen.Daily = function()
+		refreshDaily()
+		if not ticking then
+			ticking = true
+			task.spawn(function()
+				while dailyWindow.Visible do
+					pcall(updateCountdown)
+					task.wait(1)
+				end
+				ticking = false
+			end)
+		end
+	end
+	refreshers.Daily = refreshDaily
+	-- virou o dia (meia-noite de Brasília) com a janela aberta: o botão acende sozinho
+	player:GetAttributeChangedSignal("DailyReady"):Connect(function()
+		if dailyWindow.Visible then
+			refreshDaily()
+		end
+	end)
 end
-onOpen.Daily = refreshDaily
-refreshers.Daily = refreshDaily
 
 ---------------------------------------------------------------------
 -- MISSÕES DO DIA
@@ -1773,7 +1925,9 @@ do
 		end
 		local admin = player:GetAttribute("IsAdmin") == true
 		menuTiles.Daily.Badge.Visible = dailyReady
-		menuTiles.Daily.Sub.Text = if dailyReady then L("Ready") else ""
+		-- (v67) não pronto: em que dia do calendário de 28 dias você está
+		local calendarDay = Config.CalendarDay(player:GetAttribute("DailyTotal") or 0)
+		menuTiles.Daily.Sub.Text = if dailyReady then L("Ready") elseif calendarDay > 0 then L("CalendarShort"):format(calendarDay, Config.CalendarDays) else ""
 		menuTiles.Quests.Badge.Visible = questReady
 		menuTiles.Quests.Sub.Text = if questReady then L("Ready") else ""
 		menuTiles.Rebirth.Badge.Visible = progress >= 1
@@ -2352,6 +2506,19 @@ net.OnClientEvent:Connect(function(kind, a, b)
 				end)
 			end
 			task.delay(4, firstMin.TryFavorite) -- (v67: momento feliz para pedir o favorito)
+		end
+	elseif kind == "DailyClaimed" and type(a) == "number" then
+		-- v67: depois da faixa do prêmio de hoje, o gancho para voltar: "Amanhã: DIA 3 -> $12K + 800 👟"
+		local nextDay = math.floor(a) % #Config.Daily + 1
+		local reward = Config.Daily[nextDay]
+		if reward then
+			local income = player:GetAttribute("BaseIncome") or 0
+			local vip = table.find(string.split(player:GetAttribute("Passes") or "", ","), "VIP") ~= nil
+			local cash = math.max(reward.MinCash, math.floor(income * 60 * reward.Minutes)) * (if vip then 2 else 1)
+			local prize = ("%s + %s \u{1F45F}%s"):format(Format.Money(cash), Format.Short(reward.Speed), if reward.Egg then " + \u{1F95A}" else "")
+			task.delay(3.4, function()
+				showBanner(L("DailyTomorrow"):format(nextDay, prize), Color3.fromRGB(200, 175, 255))
+			end)
 		end
 	elseif kind == "Say" and type(a) == "string" then
 		-- v67: aviso do servidor com o texto da TELA (PT/EN pelo L()): "banner" = faixa grande, senão aviso

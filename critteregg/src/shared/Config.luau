@@ -467,7 +467,7 @@ end
 ---------------------------------------------------------------------
 -- VOLTAR TODO DIA
 ---------------------------------------------------------------------
--- prêmio diário (sequência de 7 dias; perdeu um dia = volta para o dia 1). Cash = minutos da sua renda.
+-- prêmio diário (sequência de 7 dias; perdeu um dia = volta para o dia 1, menos com escudo). Cash = minutos da sua renda.
 Config.Daily = {
 	{ Minutes = 5, MinCash = 2_000, Speed = 200 },
 	{ Minutes = 8, MinCash = 4_000, Speed = 400 },
@@ -477,6 +477,61 @@ Config.Daily = {
 	{ Minutes = 25, MinCash = 25_000, Speed = 6_000 },
 	{ Minutes = 60, MinCash = 50_000, Speed = 15_000, Egg = true }, -- dia 7: ovo da sorte
 }
+-- v67 DIA DO BRASIL: o "dia" do jogo (diário, missões, ovo da amizade, convites, fim de semana) vira à
+--   meia-noite de Brasília. Antes era o dia UTC: tudo zerava às 21h, com a criança jogando de noite.
+--   (o Brasil não tem mais horário de verão, então -3 o ano todo)
+Config.DayOffsetHours = -3
+function Config.Day(t: number): number
+	return (t + Config.DayOffsetHours * 3600) // 86400
+end
+-- quando começa o próximo dia do jogo (segundos UTC)
+function Config.NextDayAt(t: number): number
+	return (Config.Day(t) + 1) * 86400 - Config.DayOffsetHours * 3600
+end
+-- v67 ESCUDO DA SEQUÊNCIA (Streak Saver): cada semana completa (dia 7) dá 1 escudo (no máximo MaxSavers).
+--   Perdeu SÓ 1 dia = o escudo segura a sequência. Perdeu mais = volta para o dia 1 (o calendário não volta).
+Config.MaxSavers = 2
+-- próximo dia da sequência. gap = hoje - último dia pego (1 = ontem). Devolve (dia 1..7, escudos depois, usou escudo?)
+function Config.DailyNext(gap: number, streak: number, savers: number): (number, number, boolean)
+	local week = #Config.Daily
+	local used = false
+	local nextStreak = 1
+	if gap == 1 then
+		nextStreak = (streak or 0) % week + 1
+	elseif gap == 2 and (savers or 0) > 0 then
+		nextStreak = (streak or 0) % week + 1
+		savers -= 1
+		used = true
+	end
+	savers = savers or 0
+	if nextStreak == week then
+		savers = math.min(Config.MaxSavers, savers + 1)
+	end
+	return nextStreak, savers, used
+end
+-- v67 CALENDÁRIO DE 28 DIAS: conta TODOS os dias pegos (não zera). Tudo garantido, nada sorteado.
+--   Boost = minutos de cada boost | Critter = ovo PRONTO de um bichinho exclusivo (Critters.luau, World "calendar")
+--   Title = título "Calendar Champ" | Mark = 📅 na etiqueta. Da 2ª volta em diante os bichinhos vêm Gold.
+Config.CalendarDays = 28
+Config.CalendarGoldAfter = 1 -- voltas completas para os bichinhos virem com a mutação Gold
+Config.Calendar = {
+	[3] = { Boost = { Money2 = 15 } },
+	[7] = { Critter = "calendarcat" },
+	[14] = { Critter = "sunnypup" },
+	[21] = { Boost = { Money2 = 30, Tread2 = 30 }, Title = true },
+	[28] = { Critter = "crowncritter", Mark = true },
+}
+-- dia do calendário (1..28) do total de dias pegos (0 = ainda nenhum)
+function Config.CalendarDay(total: number): number
+	if (total or 0) <= 0 then
+		return 0
+	end
+	return (total - 1) % Config.CalendarDays + 1
+end
+-- mutação do bichinho do calendário no dia "total" (2ª volta em diante = Gold)
+function Config.CalendarMutation(total: number): string?
+	return if (total - 1) // Config.CalendarDays >= Config.CalendarGoldAfter then "Gold" else nil
+end
 -- REBIRTH: zera dinheiro, velocidade, esteira, trilhas E OS BICHINHOS/OVOS; mantém cercado e Index.
 -- Cada rebirth = +100% dinheiro e +50% velocidade na esteira para sempre.
 -- v66: RebirthTread 0.25 -> 0.5. Com +25% quem fazia rebirth assim que podia chegava na última zona DEPOIS de
@@ -500,7 +555,7 @@ Config.FriendEggSeconds = 120 -- jogar 2 min com amigo = ovo da amizade (1 por d
 -- O prêmio de quem convidou sai depois que o amigo jogou 5 min e roubou 1 ovo (no máximo PerDay por dia).
 Config.Invite = { NewCash = 2_000, NewSpeed = 500, InviterMinutes = 15, InviterMinCash = 5_000, InviterSpeed = 1_000, PerDay = 5 }
 -- EVENTO DA SORTE: a cada LuckyEvery segundos (relógio UTC), durante LuckyLength, raros aparecem x3 nos ninhos.
--- Fim de semana (sáb/dom UTC): dinheiro x2 para todo mundo.
+-- Fim de semana (sáb/dom de Brasília, v67; antes UTC): dinheiro x2 para todo mundo.
 -- BICHO DA SEMANA: muda toda segunda (UTC). Na zona onde ele vive, a raridade dele pesa WeeklyRarityMult vezes mais
 -- (Config.WeeklyBoostFor) e, dentro da raridade, ele sai WeeklyMult vezes mais que os outros.
 -- v66: rodízio de 24 semanas com Lendários/Míticos de TODAS as 12 zonas (alternando começo/meio/fim do mapa).
@@ -599,7 +654,7 @@ Config.Halloween = {
 	},
 }
 
--- MISSÕES DO DIA (zeram todo dia UTC). Cash = minutos da sua renda (mínimo MinCash)
+-- MISSÕES DO DIA (zeram à meia-noite de Brasília, Config.Day). Cash = minutos da sua renda (mínimo MinCash)
 Config.Quests = {
 	{ Key = "Steal", Name = "Steal 5 eggs", Icon = "\u{1F95A}", Goal = 5, Minutes = 5, MinCash = 3_000, Speed = 300 },
 	{ Key = "Hatch", Name = "Hatch 3 eggs", Icon = "\u{1F423}", Goal = 3, Minutes = 5, MinCash = 3_000, Speed = 300 },

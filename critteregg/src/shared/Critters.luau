@@ -20,6 +20,7 @@
 	  RebirthRequired -> (opcional) só sai dos ovos para quem já tem esse rebirth
 	  Hint     -> (opcional) dica misteriosa no álbum enquanto o jogador não descobriu
 	  World    -> (opcional) mundo de onde sai: "candy", "frost", "lava", "reef", "galaxy", "dino", "pirate", "robot" (sem World = Meadow)
+	  Keep     -> (opcional, v67) exclusivo do calendário: fica no Rebirth, não vende e não funde
 
 	Pra adicionar um bichinho novo é só copiar uma linha, mudar o Id e os valores.
 ]]
@@ -259,6 +260,12 @@ Critters.List = {
 	{ Id = "bananabandana", World = "hero", Name = "Banana Bandana", Rarity = "Epic", Price = 130_000, Income = 2_200, Body = "bird", Color = rgb(255, 230, 70), Accent = rgb(120, 80, 40), HeadBand = rgb(230, 50, 50), Cape = rgb(230, 50, 50) },
 	{ Id = "supergelatogato", World = "hero", Name = "Super Gelato Gato", Rarity = "Legendary", Price = 1_000_000, Income = 13_000, Body = "cat", Color = rgb(255, 170, 210), Accent = rgb(140, 235, 255), Cape = rgb(60, 200, 230), Emblem = rgb(255, 255, 255), Glow = true, Sparkles = true, SparkleColors = "rainbow" },
 	{ Id = "megamozzarella", World = "hero", Name = "Mega Mozzarella", Rarity = "Mythic", Price = 7_000_000, Income = 70_000, Body = "blob", Color = rgb(255, 250, 235), Accent = rgb(255, 205, 60), Material = "Foil", Cape = rgb(255, 200, 40), HeadBand = rgb(230, 50, 50), Emblem = rgb(255, 90, 60), Float = true, Glow = true, Sparkles = true, Hint = "The mightiest hero of the HERO EGG..." },
+	-- v67 CALENDÁRIO (World = "calendar", Keep = true): só vêm do Prêmio Diário (dias 7, 14 e 28 do Config.Calendar).
+	--   Não saem de ovo nenhum e não contam no Índice; ficam no Rebirth; não vendem e não fundem;
+	--   rendem pela zona mais funda que a sua velocidade de AGORA alcança (Game.luau, slotZone).
+	{ Id = "calendarcat", World = "calendar", Keep = true, Name = "Calendar Cat", Rarity = "Epic", Price = 150_000, Income = 2_500, Body = "cat", Color = rgb(255, 245, 235), Accent = rgb(235, 70, 80), EyeColor = rgb(90, 170, 255), Glow = true },
+	{ Id = "sunnypup", World = "calendar", Keep = true, Name = "Sunny Pup", Rarity = "Legendary", Price = 2_000_000, Income = 30_000, Body = "bunny", Color = rgb(255, 210, 70), Accent = rgb(255, 140, 40), Glow = true, Sparkles = true },
+	{ Id = "crowncritter", World = "calendar", Keep = true, Name = "Crown Critter", Rarity = "Mythic", Price = 12_000_000, Income = 120_000, Body = "blob", Color = rgb(150, 90, 255), Accent = rgb(255, 215, 70), Material = "Foil", Crown = true, Glow = true, Sparkles = true, SparkleColors = "rainbow" },
 }
 
 -- CRITTER DA SEMANA (v26): um exclusivo por semana (segunda a domingo, UTC). Só sai do "Weekly Egg" da esteira
@@ -315,7 +322,7 @@ end
 --   ganha um prêmio para sempre (Config.WorldSetBonus). SetOf[mundo] = lista dos Ids que contam.
 Critters.SetOf = {}
 for _, def in Critters.List do
-	if def.Rarity ~= "Divine" and not def.Week and not def.Hidden then
+	if def.Rarity ~= "Divine" and not def.Week and not def.Hidden and not def.Keep then
 		Critters.SetOf[def.World] = Critters.SetOf[def.World] or {}
 		table.insert(Critters.SetOf[def.World], def.Id)
 	end

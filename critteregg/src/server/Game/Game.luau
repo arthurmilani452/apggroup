@@ -179,6 +179,23 @@ for index, zone in Config.Zones do
 	end
 end
 
+-- zona mais funda que a velocidade de AGORA alcança
+local function reachZone(state): number
+	local best = 1
+	for index, zone in Config.Zones do
+		if state.Data.Speed >= zone.Speed then
+			best = index
+		end
+	end
+	return best
+end
+
+-- v67: zona que vale para a renda do bichinho. Exclusivo do calendário (Keep) = a zona de agora (depois do
+-- Rebirth ele rende como a zona 1 e sobe junto com você); os outros = a zona de onde vieram
+local function slotZone(state, slot, def): number
+	return if def and def.Keep then reachZone(state) else slot.Zone or 1
+end
+
 ---------------------------------------------------------------------
 -- Estado mandado para a tela
 ---------------------------------------------------------------------
@@ -195,7 +212,7 @@ local function slotsJson(state): string
 				m = slot.Mut,
 				z = slot.Zone or 1,
 				l = if slot.Kind == "Egg" then math.ceil(slot.Left or 0) else nil,
-				inc = Config.PetIncome(def, slot.Scale or 1, slot.Mut, slot.Zone),
+				inc = Config.PetIncome(def, slot.Scale or 1, slot.Mut, slotZone(state, slot, def)),
 			})
 		end
 	end
@@ -274,7 +291,7 @@ local function computeIncome(state)
 		if slot.Kind == "Pet" then
 			local def = Critters.ById[slot.Id]
 			if def then
-				total += Config.PetIncome(def, slot.Scale or 1, slot.Mut, slot.Zone)
+				total += Config.PetIncome(def, slot.Scale or 1, slot.Mut, slotZone(state, slot, def))
 			end
 		end
 	end
@@ -365,7 +382,18 @@ local function publish(player: Player, full: boolean?)
 	player:SetAttribute("TrapsOut", state.TrapCount or 0)
 	player:SetAttribute("FriendBoost", state.FriendBoost or 0)
 	player:SetAttribute("DailyStreak", data.DailyStreak or 0)
-	player:SetAttribute("DailyReady", (data.DailyDay or 0) < os.time() // 86400)
+	do
+		-- v67 DIÁRIO 2.0: dia de Brasília, escudo e calendário (a tela mostra o próximo cartão e a contagem)
+		local t = os.time()
+		local gap = Config.Day(t) - (data.DailyDay or 0)
+		local nextDay, _, willSave = Config.DailyNext(math.max(gap, 1), data.DailyStreak or 0, data.Savers or 0)
+		player:SetAttribute("DailyReady", gap > 0)
+		player:SetAttribute("DailyNext", nextDay) -- dia da sequência do próximo prêmio (hoje se pronto; senão amanhã)
+		player:SetAttribute("DailySave", gap > 0 and willSave) -- pegar agora gasta um escudo
+		player:SetAttribute("DailyNextAt", Config.NextDayAt(t))
+		player:SetAttribute("DailyTotal", data.DailyTotal or 0)
+		player:SetAttribute("Savers", data.Savers or 0)
+	end
 	player:SetAttribute("Candy", data.Candy or 0)
 	player:SetAttribute("BestStolenZone", data.BestStolenZone or 0) -- (v67) zona mais funda de onde já trouxe ovo
 	if full then
@@ -511,7 +539,7 @@ end
 ---------------------------------------------------------------------
 local function questData(state)
 	local data = state.Data
-	local today = os.time() // 86400
+	local today = Config.Day(os.time()) -- (v67: zera à meia-noite de Brasília; antes às 21h)
 	if type(data.Quests) ~= "table" or data.Quests.Day ~= today then
 		data.Quests = { Day = today, Progress = {}, Claimed = {} }
 	end
@@ -589,7 +617,9 @@ local function hatch(player: Player, index: number, silent: boolean?): boolean
 	end
 	slot.Kind = "Pet"
 	slot.Left = nil
-	discover(player, def, slot.Zone)
+	if not def.Keep then -- (v67: os exclusivos do calendário não entram no Índice; eles aparecem no Diário)
+		discover(player, def, slot.Zone)
+	end
 	questAdd(player, "Hatch")
 	computeIncome(state)
 	-- ANIMAÇÃO NO MUNDO (todo mundo vê): o ovo treme, racha, brilha e explode; o bichinho "pula" para fora
@@ -744,6 +774,9 @@ local function sellAt(player: Player, index: number): number
 		return 0
 	end
 	local def = Critters.ById[slot.Id]
+	if def and def.Keep then
+		return 0 -- (v67) exclusivo do calendário não vende
+	end
 	local value = if def then Config.SellValue(def, slot.Scale or 1, slot.Mut, slot.Zone) else 0
 	table.remove(state.Data.Slots, index)
 	state.Data.Money += value
@@ -765,6 +798,7 @@ renderSlot = function(player: Player, index: number, popIn: boolean?)
 	local zoneDef = Config.Zones[slot.Zone or 1] or Config.Zones[1]
 	local base = World.SlotPosition(state.Plot, index)
 	local s = slot.Scale or 1
+	local incomeZone = slotZone(state, slot, def)
 	local model, root
 	if slot.Kind == "Egg" then
 		model, root = Builder.BuildEgg(eggVisual(zoneDef, def, s))
@@ -875,12 +909,12 @@ renderSlot = function(player: Player, index: number, popIn: boolean?)
 			glitter.Parent = root
 		end
 		model:SetAttribute("Height", height)
-		model:SetAttribute("Income", Config.PetIncome(def, s, slot.Mut, slot.Zone))
+		model:SetAttribute("Income", Config.PetIncome(def, s, slot.Mut, incomeZone))
 		local label = Config.SizeLabel(s)
 		local info = billboard(root, 3 + s * 2, 10, 4)
-		info.Text = ('<font color="%s">%s</font>\n%s%s%s\n<font color="#78FF78">%s/s</font>'):format(
-			hex(rarityColor(def)), def.Rarity, if slot.Mut then slot.Mut .. " " else "", if label then label .. " " else "", def.Name,
-			Format.Money(Config.PetIncome(def, s, slot.Mut, slot.Zone)))
+		info.Text = ('<font color="%s">%s%s</font>\n%s%s%s\n<font color="#78FF78">%s/s</font>'):format(
+			hex(rarityColor(def)), if def.Keep then "\u{1F4C5} " else "", def.Rarity, if slot.Mut then slot.Mut .. " " else "", if label then label .. " " else "", def.Name,
+			Format.Money(Config.PetIncome(def, s, slot.Mut, incomeZone)))
 	end
 	model.Name = ("Slot%d"):format(index)
 	model:SetAttribute("Owner", player.UserId)
@@ -2038,6 +2072,9 @@ local function fuse(player: Player, indices: any)
 		if not slot or slot.Kind ~= "Pet" or not def then
 			return toast(player, "Pick 3 hatched pets!", "error")
 		end
+		if def.Keep then
+			return toast(player, "\u{1F4C5} Calendar critters can't be fused!", "warning")
+		end
 		if rarity and def.Rarity ~= rarity then
 			return toast(player, "All 3 pets must have the SAME rarity!", "error")
 		end
@@ -2619,13 +2656,7 @@ end
 -- ROBUX: passes e produtos
 ---------------------------------------------------------------------
 local function bestZoneFor(state): number
-	local best = 1
-	for index, zone in Config.Zones do
-		if state.Data.Speed >= zone.Speed then
-			best = index
-		end
-	end
-	return best
+	return reachZone(state) -- (v67: a conta mora lá em cima, perto do slotsJson; a renda dos exclusivos usa também)
 end
 
 local function addEggSlot(player: Player, def, zoneIndex: number, scale: number, mutation: string?, ready: boolean): boolean
@@ -2640,6 +2671,34 @@ local function addEggSlot(player: Player, def, zoneIndex: number, scale: number,
 	table.insert(data.Slots, { Kind = "Egg", Id = def.Id, Scale = scale, Mut = mutation, Zone = zoneIndex, Left = if ready then 0 else Config.GrowSeconds(def, scale) })
 	renderSlot(player, #data.Slots)
 	return true
+end
+
+-- v67: bichinho do calendário que chegou com o cercado cheio fica guardado (data.PendingGifts) e entra sozinho na
+-- 1ª vaga livre (o loop de 1 s chama). Nunca vira dinheiro. Espera enquanto você carrega um ovo (a vaga é dele).
+local function givePending(player: Player)
+	local state = states[player]
+	local data = state and state.Data
+	local list = data and data.PendingGifts
+	if type(list) ~= "table" or state.Carry then
+		return
+	end
+	local gave = false
+	while #list > 0 and #data.Slots < Config.SlotCount(data.PenLevel) do
+		local item = table.remove(list, 1)
+		local def = type(item) == "table" and Critters.ById[item.Id]
+		if def then
+			addEggSlot(player, def, reachZone(state), 1, item.Mut, true)
+			banner(player, ("\u{1F4C5} Your %s%s egg is ready in your pen!"):format(if item.Mut then item.Mut .. " " else "", def.Name), Color3.fromRGB(255, 215, 90))
+			gave = true
+		end
+	end
+	if #list == 0 then
+		data.PendingGifts = nil
+	end
+	if gave then
+		net:FireClient(player, "Purchased")
+		publish(player, true)
+	end
 end
 
 -- PRESENTES POR TEMPO JOGADO
@@ -2922,17 +2981,55 @@ end
 ---------------------------------------------------------------------
 -- Prêmio diário, rebirth, amigos, offline
 ---------------------------------------------------------------------
+-- etiqueta em cima da cabeça: VIP, rebirths e (v67) o 📅 de quem completou os 28 dias do calendário
+local function applyTag(player: Player)
+	local state = states[player]
+	local head = player.Character and player.Character:FindFirstChild("Head")
+	if not state or not head then
+		return
+	end
+	local old = head:FindFirstChild("PlayerTag")
+	if old then
+		old:Destroy()
+	end
+	local parts = {}
+	if state.Passes and state.Passes.VIP then
+		table.insert(parts, '<font color="#FFD23C">[VIP]</font>')
+	end
+	if (state.Data.Rebirths or 0) > 0 then
+		table.insert(parts, ('<font color="#FF78FF">\u{1F504} %d</font>'):format(state.Data.Rebirths))
+	end
+	if state.Data.CalMark then
+		table.insert(parts, "\u{1F4C5}")
+	end
+	if #parts == 0 then
+		return
+	end
+	local label = billboard(head, 2.4, 6, 1.2)
+	label.Parent.Name = "PlayerTag"
+	label.Parent.MaxDistance = 80
+	label.Text = table.concat(parts, "  ")
+end
+
+-- PRÊMIO DIÁRIO 2.0 (v67): o dia vira à meia-noite de Brasília (Config.Day); perdeu SÓ 1 dia = o escudo segura a
+-- sequência (Config.DailyNext); e o CALENDÁRIO conta todos os dias pegos (Config.Calendar: boosts, título, marca e
+-- bichinhos exclusivos, tudo garantido). Bichinho do calendário com o cercado cheio espera vaga (givePending).
 local function claimDaily(player: Player)
 	local state = states[player]
 	local data = state.Data
-	local today = os.time() // 86400
-	if (data.DailyDay or 0) >= today then
+	local today = Config.Day(os.time())
+	local gap = today - (data.DailyDay or 0)
+	if gap <= 0 then
 		return toast(player, "You already claimed today's reward. Come back tomorrow!", "info")
 	end
-	local streak = if (data.DailyDay or 0) == today - 1 then (data.DailyStreak or 0) % #Config.Daily + 1 else 1
+	local saversBefore = data.Savers or 0
+	local streak, savers, usedSaver = Config.DailyNext(gap, data.DailyStreak or 0, saversBefore)
 	local reward = Config.Daily[streak]
 	data.DailyDay = today
 	data.DailyStreak = streak
+	data.Savers = savers
+	data.DailyTotal = (data.DailyTotal or 0) + 1
+	local total = data.DailyTotal
 	local cash = math.max(reward.MinCash, math.floor((state.BaseIncome or 0) * 60 * reward.Minutes))
 	if state.Passes and state.Passes.VIP then
 		cash *= 2 -- VIP: prêmio diário em dobro
@@ -2942,6 +3039,14 @@ local function claimDaily(player: Player)
 	applySpeed(player)
 	econ(player, true, cash, "TimedReward", "Daily" .. streak)
 	banner(player, ("DAY %d REWARD! +%s  +%s Speed"):format(streak, Format.Money(cash), Format.Short(reward.Speed)), Color3.fromRGB(120, 255, 120))
+	-- escudo: avisos com o texto da TELA (PT/EN)
+	if usedSaver then
+		net:FireClient(player, "Say", "SaverUsed", "success")
+		custom(player, "StreakSaverUsed", streak)
+	end
+	if savers > saversBefore - (if usedSaver then 1 else 0) then
+		net:FireClient(player, "Say", "SaverEarned", "rare")
+	end
 	if reward.Egg then
 		local zoneIndex = bestZoneFor(state)
 		local def, mutation = rollEgg(Config.Zones[zoneIndex], Random.new(), Config.RarityIndex.Rare)
@@ -2949,6 +3054,49 @@ local function claimDaily(player: Player)
 			addEggSlot(player, def, zoneIndex, 1, mutation, true)
 		end
 	end
+	-- CALENDÁRIO DE 28 DIAS
+	local calDay = Config.CalendarDay(total)
+	local cal = Config.Calendar[calDay]
+	if cal then
+		local parts = {}
+		if cal.Boost then
+			for _, boost in Config.Boosts do
+				local minutes = cal.Boost[boost.Id]
+				if minutes then
+					data.Boosts[boost.Id] = math.max(now(), data.Boosts[boost.Id] or 0) + minutes * 60
+					table.insert(parts, ("%s %d min"):format(boost.Name, minutes))
+				end
+			end
+			computeIncome(state)
+		end
+		local def = cal.Critter and Critters.ById[cal.Critter]
+		if def then
+			local mutation = Config.CalendarMutation(total)
+			local name = (if mutation then mutation .. " " else "") .. def.Name
+			if #data.Slots < Config.SlotCount(data.PenLevel) then
+				addEggSlot(player, def, bestZoneFor(state), 1, mutation, true)
+				table.insert(parts, name .. " egg in your pen")
+			else
+				-- cercado cheio: espera a 1ª vaga livre (nunca vira dinheiro)
+				data.PendingGifts = if type(data.PendingGifts) == "table" then data.PendingGifts else {}
+				table.insert(data.PendingGifts, { Id = def.Id, Mut = mutation })
+				table.insert(parts, name .. " egg (free a pen slot to get it)")
+			end
+		end
+		if cal.Title then
+			data.CalTitle = true -- título "Calendar Champ" (para sempre)
+			table.insert(parts, "title CALENDAR CHAMP")
+		end
+		if cal.Mark then
+			data.CalMark = true
+			table.insert(parts, "\u{1F4C5} on your name tag")
+			applyTag(player)
+		end
+		toast(player, ("\u{1F4C5} CALENDAR DAY %d: %s!"):format(calDay, table.concat(parts, " + ")), "rare")
+		custom(player, "CalendarDay", calDay)
+	end
+	custom(player, "DailyTotal", total)
+	net:FireClient(player, "DailyClaimed", streak) -- (a tela mostra "Amanhã: DIA x" depois da faixa)
 	net:FireClient(player, "Purchased")
 	publish(player, true)
 end
@@ -2972,8 +3120,17 @@ local function rebirth(player: Player)
 	data.TreadLevel = 1
 	data.Trails = {}
 	data.Trail = nil
-	-- REBIRTH agora também leva os bichinhos e os ovos do cercado (fica o cercado, o Index e os passes)
-	data.Slots = {}
+	-- REBIRTH agora também leva os bichinhos e os ovos do cercado (fica o cercado, o Index, os passes e, v67,
+	-- os exclusivos do calendário, que voltam a render como a zona 1 e sobem junto com a velocidade)
+	local kept = {}
+	for _, slot in data.Slots do
+		local def = Critters.ById[slot.Id]
+		if def and def.Keep then
+			table.insert(kept, slot)
+		end
+	end
+	data.Slots = kept
+	state.KeepZone = nil -- (o redrawPen abaixo já desenha com a zona nova)
 	redrawPen(player)
 	-- presente para recomeçar: 1 ovo pronto Raro ou melhor
 	pcall(function()
@@ -3022,33 +3179,6 @@ local function refreshFriendBoosts()
 		end
 		computeIncome(state)
 	end
-end
-
--- etiqueta em cima da cabeça: VIP e rebirths
-local function applyTag(player: Player)
-	local state = states[player]
-	local head = player.Character and player.Character:FindFirstChild("Head")
-	if not state or not head then
-		return
-	end
-	local old = head:FindFirstChild("PlayerTag")
-	if old then
-		old:Destroy()
-	end
-	local parts = {}
-	if state.Passes and state.Passes.VIP then
-		table.insert(parts, '<font color="#FFD23C">[VIP]</font>')
-	end
-	if (state.Data.Rebirths or 0) > 0 then
-		table.insert(parts, ('<font color="#FF78FF">\u{1F504} %d</font>'):format(state.Data.Rebirths))
-	end
-	if #parts == 0 then
-		return
-	end
-	local label = billboard(head, 2.4, 6, 1.2)
-	label.Parent.Name = "PlayerTag"
-	label.Parent.MaxDistance = 80
-	label.Text = table.concat(parts, "  ")
 end
 
 local function claimQuest(player: Player, key: any)
@@ -3438,6 +3568,10 @@ local function onRequest(player: Player, action: any, arg: any)
 			net:FireClient(player, "Refresh") -- a tela refaz a lista
 			return
 		end
+		local slotDef = Critters.ById[slot.Id]
+		if slotDef and slotDef.Keep then
+			return toast(player, "\u{1F4C5} Calendar critters can't be sold - they're yours forever!", "info")
+		end
 		local value = sellAt(player, index)
 		if value > 0 then
 			toast(player, "Sold for " .. Format.Money(value), "success")
@@ -3452,7 +3586,7 @@ local function onRequest(player: Player, action: any, arg: any)
 		for index = #state.Data.Slots, 1, -1 do
 			local slot = state.Data.Slots[index]
 			local def = Critters.ById[slot.Id]
-			if slot.Kind == "Pet" and def and not slot.Mut and (Config.RarityIndex[def.Rarity] or 1) < Config.RarityIndex.Legendary then
+			if slot.Kind == "Pet" and def and not def.Keep and not slot.Mut and (Config.RarityIndex[def.Rarity] or 1) < Config.RarityIndex.Legendary then
 				total += sellAt(player, index)
 			end
 		end
@@ -3642,6 +3776,27 @@ local function onPlayerAdded(player: Player)
 	data.DailyDay = data.DailyDay or 0
 	data.DailyStreak = data.DailyStreak or 0
 	data.Receipts = data.Receipts or {}
+	-- v67: o dia do jogo agora vira à meia-noite de Brasília (Config.Day). Os dias salvos antes eram do relógio UTC
+	-- (das 21h à meia-noite estão 1 na frente): ajusta 1 vez para não pular nem perder um dia, nem zerar as missões
+	if data.DayV ~= 2 then
+		local t = os.time()
+		local utcToday, today = t // 86400, Config.Day(t)
+		if data.DailyDay > today then
+			data.DailyDay = today
+		end
+		if (data.FriendEggDay or 0) > today then
+			data.FriendEggDay = today
+		end
+		if type(data.Quests) == "table" and data.Quests.Day == utcToday then
+			data.Quests.Day = today
+		end
+		if data.InviteDay == utcToday then
+			data.InviteDay = today
+		end
+		data.DayV = 2
+	end
+	data.Savers = data.Savers or 0 -- escudos da sequência (Streak Saver)
+	data.DailyTotal = data.DailyTotal or 0 -- dias pegos no total (calendário de 28 dias; nunca diminui)
 	local away = data.__Away or 0
 	data.__Away = nil
 	for id, value in data.Index do
@@ -3761,7 +3916,7 @@ local function onPlayerAdded(player: Player)
 				idata.Referred = list
 			end
 			local key = tostring(player.UserId)
-			local today = os.time() // 86400
+			local today = Config.Day(os.time())
 			if idata.InviteDay ~= today then
 				idata.InviteDay = today
 				idata.InviteCount = 0
@@ -3901,6 +4056,16 @@ function Game.Init()
 			Money = function(player, amount)
 				states[player].Data.Money += amount
 				publish(player)
+			end,
+			-- v67: testar o Diário 2.0. Finge que o último prêmio foi há N dias (1 = ontem: continua; 2 = perdeu
+			-- 1 dia: gasta escudo; 3+ = volta ao dia 1) e, se quiser, muda o total do calendário e os escudos
+			Daily = function(player, daysAgo, total, savers)
+				local data = states[player].Data
+				data.DailyDay = Config.Day(os.time()) - (daysAgo or 1)
+				data.DailyTotal = total or data.DailyTotal
+				data.Savers = savers or data.Savers
+				publish(player, true)
+				return data.DailyStreak, data.DailyTotal, data.Savers
 			end,
 		}
 		local bindable = Instance.new("BindableFunction")
@@ -4058,8 +4223,8 @@ function Game.Init()
 			local phase = t % Config.Cycle
 			local isNight = phase >= Config.Cycle - Config.Night
 			workspace:SetAttribute("CycleEnd", if isNight then (id + 1) * Config.Cycle else (id + 1) * Config.Cycle - Config.Night)
-			-- fim de semana (sáb/dom UTC) = dinheiro x2; evento da sorte a cada 30 min
-			local weekday = (t // 86400 + 4) % 7 -- 0 = domingo
+			-- fim de semana (sáb/dom de Brasília, v67; antes UTC: começava sexta 21h) = dinheiro x2; evento da sorte a cada 30 min
+			local weekday = (Config.Day(t) + 4) % 7 -- 0 = domingo
 			workspace:SetAttribute("Weekend", weekday == 0 or weekday == 6)
 			local luckyStart = t - t % Config.LuckyEvery
 			local luckyEnd = luckyStart + Config.LuckyLength
@@ -4163,6 +4328,25 @@ function Game.Init()
 					end
 				end
 				updateEggLabels(state)
+				-- v67: o exclusivo do calendário rende pela zona de agora: a zona mudou = refaz só ele (placa com a
+				-- renda nova); e o bichinho do calendário que esperava vaga entra quando abre uma
+				do
+					local zone = reachZone(state)
+					if state.KeepZone ~= zone then
+						if state.KeepZone then
+							for index, slot in data.Slots do
+								local def = Critters.ById[slot.Id]
+								if def and def.Keep and slot.Kind == "Pet" then
+									renderSlot(player, index)
+								end
+							end
+						end
+						state.KeepZone = zone
+					end
+					if data.PendingGifts then
+						givePending(player)
+					end
+				end
 				-- esteira: em cima dela e andando = ganha velocidade
 				local root = rootOf(player)
 				local humanoid = humanoidOf(player)
@@ -4201,7 +4385,7 @@ function Game.Init()
 				player:SetAttribute("RunStreak", state.RunStreak or 0)
 				-- OVO DA AMIZADE: 2 minutos jogando com um amigo = ovo Raro+ pronto (1 por dia)
 				if state.FriendSince and os.clock() - state.FriendSince >= Config.FriendEggSeconds then
-					local today = os.time() // 86400
+					local today = Config.Day(os.time())
 					if (data.FriendEggDay or 0) < today and #data.Slots < Config.SlotCount(data.PenLevel) then
 						data.FriendEggDay = today
 						local zoneIndex = bestZoneFor(state)
