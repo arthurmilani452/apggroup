@@ -784,6 +784,75 @@ Config.Tag = { Width = 8, Height = 2.4, Offset = 3, MaxDistance = 80, CritterMin
 --   fim de semana e admin: senão um boost de 10 min trocava o rei). Para tomar a coroa precisa passar o rei em
 --   Margin (10%) ou o rei sair. Aviso para o servidor no máximo 1 a cada ToastGap s.
 Config.King = { Every = 30, MinPlayers = 2, Margin = 0.1, ToastGap = 120 }
+-- v67 BICHINHO PARCEIRO 🐾 (só na tela, enfeite: não muda renda nem nada): o pet escolhido no 🐾 da janela Pets
+--   (ou, sem escolha, o de maior renda) segue o dono. Heights = altura em studs (até Épico / Lendário e Mítico /
+--   Secreto+). Side/Behind = onde fica (direita/atrás do dono); Snap = mais longe que isso pula direto para o dono.
+--   Celular: Full = animação completa até essa distância da câmera; de Full a Build anima a 15 fps; o dos OUTROS
+--   só é montado até Build e é apagado depois de Drop; MaxParts = o dos outros com mais peças não é montado (os
+--   bichinhos de peças vão até 72: Divino/Celestial; o limite é para modelo 3D pesado); LowQuality = gráfico no
+--   manual de 1 até este nível esconde o dos outros.
+Config.Buddy = { Heights = { 2.2, 3, 3.6 }, Side = 2.5, Behind = 3.5, Snap = 40, Full = 60, Build = 150, Drop = 200, MaxParts = 75, LowQuality = 3 }
+
+-- altura do parceiro pela raridade (raridade desconhecida = a menor)
+function Config.BuddyHeight(rarity: string?): number
+	local index = Config.RarityIndex[rarity or ""] or 1
+	local heights = Config.Buddy.Heights
+	if index >= Config.RarityIndex.Secret then
+		return heights[3]
+	elseif index >= Config.RarityIndex.Legendary then
+		return heights[2]
+	end
+	return heights[1]
+end
+-- texto do atributo "Buddy": "id|mutação" ("" = sem parceiro). BuddyParse devolve o id e a mutação (nil = sem)
+function Config.BuddyKey(id: string?, mutation: string?): string
+	if type(id) ~= "string" or id == "" then
+		return ""
+	end
+	return id .. "|" .. (if type(mutation) == "string" then mutation else "")
+end
+function Config.BuddyParse(key: any): (string?, string?)
+	if type(key) ~= "string" then
+		return nil, nil
+	end
+	local id, mutation = string.match(key, "^([^|]+)|(.*)$")
+	if not id then
+		return nil, nil
+	end
+	return id, if mutation ~= "" then mutation else nil
+end
+-- qual pet é o parceiro: o escolhido (wantId + wantMut, Kind "Pet") ou, sem ele, o de maior incomeOf(slot)
+-- (incomeOf devolve nil = bichinho que não existe mais: pula). Devolve o slot (nil = sem pets) e se achou o escolhido.
+function Config.BuddyPick(slots, wantId: string?, wantMut: string?, incomeOf: (any) -> number?): (any, boolean)
+	local best, bestIncome = nil, -math.huge
+	for _, slot in slots or {} do
+		if type(slot) == "table" and slot.Kind == "Pet" then
+			local income = incomeOf(slot)
+			if income ~= nil then
+				if wantId ~= nil and slot.Id == wantId and slot.Mut == wantMut then
+					return slot, true
+				end
+				if income > bestIncome then
+					best, bestIncome = slot, income
+				end
+			end
+		end
+	end
+	return best, false
+end
+-- LOD do parceiro pela distância até a câmera: "full" (60 fps, estica), "slow" (15 fps), "keep" (o já montado
+-- continua a 15 fps, mas não monta novo) ou "drop" (apaga). O SEU (mine) nunca é apagado.
+function Config.BuddyLod(distance: number, mine: boolean): string
+	local b = Config.Buddy
+	if distance < b.Full then
+		return "full"
+	elseif distance < b.Build or mine then
+		return "slow"
+	elseif distance < b.Drop then
+		return "keep"
+	end
+	return "drop"
+end
 
 -- o save "data" já tem esse título? (só lê; save antigo sem os campos = não tem)
 function Config.TitleMet(title, data): boolean

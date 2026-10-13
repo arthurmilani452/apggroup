@@ -884,6 +884,7 @@ function Builder.Build(def: any)
 	local groundOffset = -minY
 	if opt("Float") then
 		groundOffset += 0.3 * s
+		model:SetAttribute("Float", true) -- (v67) o parceiro 🐾 da tela flutua em vez de pular
 	end
 	return model, root, groundOffset, maxY
 end

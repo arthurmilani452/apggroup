@@ -7,6 +7,7 @@
 	  Slots = { [1..n] = { Kind = "Egg"|"Pet", Id = critterId, Scale = s, Mut = mutation?, Left = segundos para chocar } }
 	  Index = { [critterId] = true }
 	  SavedAt = os.time()
+	  BuddyId, BuddyMut = (v67, opcionais) parceiro 🐾 escolhido na janela Pets; nil = automático (o de maior renda)
 
 	v65:
 	  • Sair e voltar RÁPIDO para o MESMO servidor: o Load espera o save da saída terminar

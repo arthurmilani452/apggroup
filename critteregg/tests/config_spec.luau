@@ -494,6 +494,43 @@ check("CritterBeats", Config.CritterBeats(fakeById.a, nil) and not Config.Critte
 check("tag and Server King numbers are sane", Config.Tag.MaxDistance <= 100 and Config.RarityIndex[Config.Tag.CritterMin] ~= nil
 	and Config.King.Every >= 10 and Config.King.MinPlayers >= 2 and Config.King.Margin > 0 and Config.King.ToastGap >= 60)
 
+-- v67 BICHINHO PARCEIRO
+check("buddy heights by rarity", Config.BuddyHeight("Common") == Config.Buddy.Heights[1] and Config.BuddyHeight("Epic") == Config.Buddy.Heights[1]
+	and Config.BuddyHeight("Legendary") == Config.Buddy.Heights[2] and Config.BuddyHeight("Mythic") == Config.Buddy.Heights[2]
+	and Config.BuddyHeight("Secret") == Config.Buddy.Heights[3] and Config.BuddyHeight("Celestial") == Config.Buddy.Heights[3]
+	and Config.BuddyHeight(nil) == Config.Buddy.Heights[1] and Config.BuddyHeight("Nope") == Config.Buddy.Heights[1])
+do
+	local id, mut = Config.BuddyParse(Config.BuddyKey("pup", "Gold"))
+	local id2, mut2 = Config.BuddyParse(Config.BuddyKey("pup", nil))
+	check("buddy key round trip", Config.BuddyKey("pup", "Gold") == "pup|Gold" and id == "pup" and mut == "Gold" and id2 == "pup" and mut2 == nil
+		and Config.BuddyKey(nil, "Gold") == "" and Config.BuddyKey("", nil) == "" and Config.BuddyParse("") == nil
+		and Config.BuddyParse(42) == nil and Config.BuddyParse("|Gold") == nil)
+	local slots = {
+		{ Kind = "Pet", Id = "a", Inc = 5 },
+		{ Kind = "Egg", Id = "z", Inc = 999 },
+		{ Kind = "Pet", Id = "b", Mut = "Gold", Inc = 50 },
+		{ Kind = "Pet", Id = "gone", Inc = 1000 },
+		{ Kind = "Pet", Id = "c", Inc = 50 },
+		{ Kind = "Pet", Id = "b", Inc = 10 },
+	}
+	local function inc(slot)
+		return if slot.Id == "gone" then nil else slot.Inc
+	end
+	local best, found = Config.BuddyPick(slots, nil, nil, inc)
+	local chosen, chosenFound = Config.BuddyPick(slots, "b", nil, inc)
+	local lost, lostFound = Config.BuddyPick(slots, "b", "Diamond", inc)
+	local egg, eggFound = Config.BuddyPick(slots, "z", nil, inc)
+	local dead = Config.BuddyPick(slots, "gone", nil, inc)
+	check("buddy pick: chosen (id+mutation), else best income (first on ties); eggs and unknown critters skipped",
+		best == slots[3] and not found and chosen == slots[6] and chosenFound and lost == slots[3] and not lostFound
+		and egg == slots[3] and not eggFound and dead == slots[3] and Config.BuddyPick({}, nil, nil, inc) == nil
+		and Config.BuddyPick(nil, "a", nil, inc) == nil)
+end
+check("buddy LOD", Config.BuddyLod(10, false) == "full" and Config.BuddyLod(Config.Buddy.Full + 1, false) == "slow"
+	and Config.BuddyLod(Config.Buddy.Build + 1, false) == "keep" and Config.BuddyLod(Config.Buddy.Drop + 1, false) == "drop"
+	and Config.BuddyLod(Config.Buddy.Drop + 1, true) == "slow" and Config.Buddy.Full < Config.Buddy.Build and Config.Buddy.Build < Config.Buddy.Drop
+	and Config.Buddy.MaxParts >= 20 and Config.Buddy.Snap > Config.Buddy.Behind)
+
 if failed > 0 then
 	error(("%d test(s) failed"):format(failed))
 end

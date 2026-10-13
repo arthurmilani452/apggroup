@@ -141,6 +141,11 @@ do
 		BatEquip = { "EQUIP BAT!", "USAR TACO!" },
 		BatEquipped = { "EQUIPPED", "EQUIPADO" },
 		FindHint = { "\u{1F50E} Steal %s eggs to find it!", "\u{1F50E} Roube ovos de %s para achar!" },
+		-- v67: BICHINHO PARCEIRO (botão 🐾 no cartão da janela Pets)
+		Follow = { "Follow", "Seguir" },
+		Following = { "Following", "Seguindo" },
+		BuddyNow = { "\u{1F43E} %s is following you!", "\u{1F43E} %s está seguindo você!" },
+		BuddyFirst = { "\u{1F43E} Your best pet follows you now! Tap \u{1F43E} in Pets to change it.", "\u{1F43E} Seu melhor pet agora segue você! Toque na \u{1F43E} em Pets para trocar." },
 	}
 	L = function(key: string): string
 		local entry = TEXTS[key]
@@ -284,6 +289,7 @@ local firstMin = {
 	TryFavorite = function() end, -- (a de verdade fica perto do net.OnClientEvent)
 	ShareAt = -1e9, -- (v67) último "Mostrar pros amigos" (os.clock)
 	CanInvite = nil :: boolean?, -- (v67) a Roblox deixa esta conta mandar convite? (nil = ainda não sabe)
+	BuddyTap = function(_key: string) end, -- (v67) tocou no 🐾 de um pet (a de verdade fica no bloco do PARCEIRO)
 }
 
 -- JSON dos atributos (Slots, Index, Quests, Boosts) com CACHE (v66 perf): só decodifica de novo quando o texto
@@ -1257,9 +1263,23 @@ do
 		return card
 	end
 
+	-- v67 🐾 PARCEIRO: botão em cada cartão escolhe quem segue você; verde = o de agora ("id|mutação" do atributo
+	-- Buddy: cópias iguais do mesmo bichinho ficam todas verdes). Trocar só repinta os botões (não refaz a lista)
+	local pawEntries: { { Button: TextButton, Caption: TextLabel, Key: string } } = {}
+	local function paintPaws()
+		local current = player:GetAttribute("Buddy")
+		for _, entry in pawEntries do
+			local on = entry.Key == current
+			entry.Button.BackgroundColor3 = if on then Theme.Green else Color3.fromRGB(70, 70, 88)
+			entry.Caption.Text = L(if on then "Following" else "Follow")
+		end
+	end
+	player:GetAttributeChangedSignal("Buddy"):Connect(paintPaws)
+
 	local function refreshPets()
 		petsLazy.Clear()
 		clear(petsGrid)
+		table.clear(pawEntries)
 		-- (cópia: a tabela do decode é compartilhada e o sort mudaria a ordem para as outras janelas)
 		local slots = table.clone(decode("Slots", {}))
 		local order = 0
@@ -1271,6 +1291,15 @@ do
 			if slot.k == "Pet" and def then
 				order += 1
 				petCard(petsGrid, slot, def, order, function(card)
+					local key = Config.BuddyKey(slot.id, slot.m)
+					local paw, pawIcon = button({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 28), Size = UDim2.fromOffset(56, 48), BackgroundColor3 = Color3.fromRGB(70, 70, 88), ZIndex = 16, Parent = card }, "\u{1F43E}", function()
+						firstMin.BuddyTap(key)
+						net:FireServer("Buddy", { slot.i, slot.id })
+					end)
+					pawIcon.Size = UDim2.new(1, -8, 0, 27)
+					pawIcon.Position = UDim2.fromOffset(4, 2)
+					local caption = text({ Size = UDim2.new(1, -6, 0, 16), Position = UDim2.new(0, 3, 1, -19), Text = "", ZIndex = 16, Parent = paw })
+					table.insert(pawEntries, { Button = paw, Caption = caption, Key = key })
 					if def.Keep then
 						-- v67: exclusivo (do calendário ou dos convites) não vende (e fica até no Rebirth)
 						text({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.new(1, -14, 0, 44), Text = if def.World == "friend" then L("FriendExclusive") else L("CalExclusive"), TextColor3 = Color3.fromRGB(255, 225, 120), ZIndex = 15, Parent = card })
@@ -1302,6 +1331,7 @@ do
 		if order == 0 then
 			text({ Size = UDim2.fromOffset(500, 60), Text = "No pets yet. Hatch your eggs!", TextColor3 = Color3.fromRGB(200, 210, 230), ZIndex = 13, Parent = petsGrid })
 		end
+		paintPaws()
 	end
 	onOpen.Pets = function()
 		petsTitle.Text = "My Pets"
@@ -3577,6 +3607,364 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 	end
 end)
+
+---------------------------------------------------------------------
+-- v67 BICHINHO PARCEIRO 🐾 (só na tela, enfeite: não muda nada no jogo). O servidor só diz QUAL é (atributo "Buddy" =
+-- "id|mutação": o do 🐾 na janela Pets ou o de maior renda) e quando comemorar ("Cheer": entrega e Lendário+ chocado).
+-- Cada tela monta e anima: segue o dono atrás e à direita, pula quando ele anda (igual aos pets do cercado), flutua se
+-- o bicho flutua, comemora com pulo e giro e, longe demais (renasceu, teleporte da noite), pula direto para o dono.
+-- Celular (Config.Buddy): o dos OUTROS só é montado até 150 studs da câmera e apagado depois de 200, com no máximo
+-- 75 peças, e some no gráfico manual 1-3; animação completa até 60 studs, 15 fps depois; no máximo 1 montagem por frame.
+---------------------------------------------------------------------
+do
+	local B = Config.Buddy
+	local Builder = require(ReplicatedStorage.Shared:WaitForChild("CritterBuilder"))
+	local folder = Instance.new("Folder")
+	folder.Name = "Buddies"
+	folder.Parent = workspace
+	local buddies: { [Player]: any } = {}
+	local shapes: { [string]: any } = {} -- por bichinho: modelo pronto, nº de peças e altura do que aparece (ou false)
+	-- Busy = montando agora (o 1º modelo 3D pode esperar a pasta Models3D: não monta 2 ao mesmo tempo)
+	local flags = { Low = false, Busy = false, Frame = 0, Tap = nil :: string?, TapAt = -1e9, FirstTold = false }
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	rayParams.RespectCanCollide = true
+
+	-- o raio do chão pula os personagens (e os parceiros): refeito quando alguém nasce ou sai
+	local function refreshRay()
+		local list: { Instance } = { folder }
+		for _, other in Players:GetPlayers() do
+			if other.Character then
+				table.insert(list, other.Character)
+			end
+		end
+		rayParams.FilterDescendantsInstances = list
+	end
+
+	-- peças do modelo pronto, altura e largura do que aparece (sem a Root invisível e sem aura), medidas 1 vez por bichinho
+	local function shapeOf(def)
+		local shape = shapes[def.Id]
+		if shape == nil then
+			shape = false
+			local ok, template = pcall(Theme.critterTemplate, def)
+			if ok and template then
+				local count, minY, maxY, wide = 0, math.huge, -math.huge, 0
+				local pivot = template:GetPivot().Position
+				for _, part in template:GetDescendants() do
+					if part:IsA("BasePart") then
+						count += 1
+						if part ~= template.PrimaryPart and part.Transparency < 1 and part.Name ~= "Aura" then
+							local cf, half = part.CFrame, part.Size / 2
+							local ex = math.abs(cf.RightVector.X) * half.X + math.abs(cf.UpVector.X) * half.Y + math.abs(cf.LookVector.X) * half.Z
+							local ey = math.abs(cf.RightVector.Y) * half.X + math.abs(cf.UpVector.Y) * half.Y + math.abs(cf.LookVector.Y) * half.Z
+							local ez = math.abs(cf.RightVector.Z) * half.X + math.abs(cf.UpVector.Z) * half.Y + math.abs(cf.LookVector.Z) * half.Z
+							minY = math.min(minY, cf.Position.Y - ey)
+							maxY = math.max(maxY, cf.Position.Y + ey)
+							wide = math.max(wide, math.abs(cf.Position.X - pivot.X) + ex, math.abs(cf.Position.Z - pivot.Z) + ez)
+						end
+					end
+				end
+				if maxY > minY then
+					shape = { Template = template, Parts = count, Bottom = minY - pivot.Y, Height = maxY - minY, Wide = wide, Float = template:GetAttribute("Float") == true }
+				end
+			end
+			shapes[def.Id] = shape
+		end
+		return shape or nil
+	end
+
+	local function destroy(info)
+		if info.Model then
+			info.Model:Destroy()
+		end
+		info.Model, info.Rig, info.Built = nil, nil, nil
+	end
+
+	-- monta o parceiro (false = este não dá: não tenta de novo até trocar de parceiro)
+	local function build(who: Player, info, root: BasePart): boolean
+		local key = info.Key
+		local id, mutation = Config.BuddyParse(key)
+		local def = id and Critters.ById[id]
+		local shape = def and shapeOf(def)
+		if not def or not shape or (who ~= player and shape.Parts > B.MaxParts) then
+			return false
+		end
+		local height = Config.BuddyHeight(def.Rarity)
+		local scale = height / shape.Height
+		local ok, model = pcall(function()
+			local m = shape.Template:Clone()
+			m:ScaleTo(m:GetScale() * scale)
+			if mutation then
+				Builder.ApplyMutation(m, mutation)
+			end
+			for _, item in m:GetDescendants() do
+				if item:IsA("BasePart") then
+					item.Anchored = true
+					item.CanCollide = false
+					item.CanQuery = false
+					item.CanTouch = false
+					item.CastShadow = false
+				end
+			end
+			m.Name = "Buddy" .. who.UserId
+			m:PivotTo(CFrame.new(root.Position))
+			m.Parent = folder
+			return m
+		end)
+		if not ok or not model then
+			return false
+		end
+		local rigOk, rig = pcall(Rig.new, model)
+		if not rigOk or not rig then
+			model:Destroy()
+			return false
+		end
+		info.Model, info.Rig, info.Built = model, rig, key
+		info.Height = height
+		info.Spread = math.max(height * 0.25, shape.Wide * scale - 1) -- (asa grande de dragão não bate no dono)
+		info.Sink = shape.Bottom * scale + rig.Lift -- do fundo da caixa (com a Root) até o pé que aparece
+		info.Float = shape.Float
+		return true
+	end
+
+	local function animate(info, root: BasePart, character: Model, dt: number, t: number, serverNow: number, full: boolean)
+		local h = info.Height
+		-- ponto atrás e à direita do dono (só o giro dele, sem inclinar); bicho maior/mais largo fica mais longe
+		local look = root.CFrame.LookVector * Vector3.new(1, 0, 1)
+		look = if look.Magnitude > 0.01 then look.Unit else info.Look
+		local right = Vector3.new(-look.Z, 0, look.X)
+		local goal = root.Position + right * (B.Side + info.Spread) - look * (B.Behind + info.Spread)
+		-- chão embaixo do ponto (sem chão = altura dos pés do dono)
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local hip = (if humanoid and humanoid.HipHeight > 0 then humanoid.HipHeight else 2) + root.Size.Y / 2
+		local hit = workspace:Raycast(Vector3.new(goal.X, root.Position.Y + 1, goal.Z), Vector3.new(0, -(hip + 14), 0), rayParams)
+		local groundY = if hit then hit.Position.Y else root.Position.Y - hip
+		local target = Vector3.new(goal.X, groundY, goal.Z)
+		if not info.Pos or (target - info.Pos).Magnitude > B.Snap then
+			info.Pos = target -- nasceu agora ou ficou longe demais: pula direto para perto do dono
+			info.Look = look
+			info.Speed = 0
+		end
+		local before = info.Pos
+		local ownerSpeed = (root.AssemblyLinearVelocity * Vector3.new(1, 0, 1)).Magnitude
+		local xz = before:Lerp(Vector3.new(goal.X, before.Y, goal.Z), damp(math.max(6, ownerSpeed / 4), dt))
+		info.Pos = Vector3.new(xz.X, before.Y + (groundY - before.Y) * damp(12, dt), xz.Z)
+		local moved = (info.Pos - before) * Vector3.new(1, 0, 1)
+		info.Speed += (moved.Magnitude / math.max(dt, 1e-3) - info.Speed) * damp(10, dt)
+		local walking = info.Speed > 1.2
+		local newLook = if walking and moved.Magnitude > 1e-4 then info.Look:Lerp(moved.Unit, damp(10, dt)) else info.Look:Lerp(look, damp(3, dt))
+		info.Look = if newLook.Magnitude > 0.01 then newLook.Unit else look
+		if info.CheerAt and serverNow >= info.CheerAt then
+			info.CheerAt = nil
+			info.Jump, info.Spin = 1, 1 -- comemora: pulo com giro
+		end
+		local lift, sx, sy, roll, pitch = 0, 1, 1, 0, 0
+		if info.Float then
+			-- flutua: sobe e desce devagar, balança e inclina para a frente quando anda
+			lift = h * 0.35 + math.sin(t * 2.2 + info.Seed) * h * 0.06
+			roll = math.sin(t * 1.6 + info.Seed) * 4
+			pitch = if walking then -math.min(info.Speed, 40) * 0.3 else 0
+		elseif walking then
+			-- anda pulando (hop hop) com amassadinha, igual aos pets do cercado
+			info.Phase += dt * (11 + math.min(info.Speed, 60) * 0.08)
+			local bounce = math.abs(math.sin(info.Phase))
+			lift = bounce * math.clamp(h * 0.18, 0.25, 1.2)
+			local squash = 1 - bounce
+			sy = 1 - squash * 0.16 + bounce * 0.06
+			sx = 1 + squash * 0.1
+			roll = math.sin(info.Phase) * 8
+			pitch = -6
+		else
+			-- parado: respira
+			local breath = math.sin(t * 2.4 + info.Seed)
+			sy = 1 + breath * 0.04
+			sx = 1 - breath * 0.02
+		end
+		local spin = 0
+		if info.Jump > 0 then
+			info.Jump = math.max(0, info.Jump - dt * 1.6)
+			local p = 1 - info.Jump
+			lift += math.sin(p * math.pi) * math.clamp(h * 0.6, 1, 3.5)
+			sy *= 1 + math.sin(p * math.pi) * 0.15
+			if info.Spin > 0 then
+				spin = p * 360
+			end
+			if p < 0.12 then
+				sy *= 0.85 -- agacha antes de pular
+				sx *= 1.08
+			end
+			if info.Jump <= 0 then
+				info.Spin = 0
+			end
+		end
+		local feet = Vector3.new(info.Pos.X, info.Pos.Y - info.Sink, info.Pos.Z)
+		local ground = CFrame.lookAt(feet, feet + info.Look)
+			* CFrame.Angles(0, math.rad(spin), 0)
+			* CFrame.new(0, lift, 0)
+			* CFrame.Angles(math.rad(pitch), 0, math.rad(roll))
+		info.Rig:Pose(ground, sx, sy, sx, full)
+	end
+
+	local function infoOf(who: Player)
+		local info = buddies[who]
+		if info then
+			return info
+		end
+		info = { Key = "", Look = Vector3.new(0, 0, -1), Speed = 0, Phase = 0, Jump = 0, Spin = 0, Acc = 0, Seed = math.random() * 10 }
+		buddies[who] = info
+		local function readKey()
+			local key = who:GetAttribute("Buddy")
+			info.Key = if type(key) == "string" then key else ""
+		end
+		readKey()
+		who:GetAttributeChangedSignal("Buddy"):Connect(readKey)
+		who:GetAttributeChangedSignal("Cheer"):Connect(function()
+			local at = who:GetAttribute("Cheer")
+			if type(at) == "number" and at > workspace:GetServerTimeNow() - 2 then
+				info.CheerAt = at -- (pode ser no futuro: o Lendário ainda está saindo do ovo)
+			end
+		end)
+		who.CharacterAdded:Connect(function()
+			task.defer(refreshRay)
+		end)
+		return info
+	end
+	for _, who in Players:GetPlayers() do
+		infoOf(who)
+	end
+	Players.PlayerAdded:Connect(infoOf)
+	Players.PlayerRemoving:Connect(function(who)
+		local info = buddies[who]
+		if info then
+			destroy(info)
+		end
+		buddies[who] = nil
+		task.defer(refreshRay)
+	end)
+	refreshRay()
+
+	-- gráfico no manual de 1 até LowQuality: só o seu parceiro aparece
+	pcall(function()
+		local gameSettings = UserSettings():GetService("UserGameSettings")
+		local function readQuality()
+			local level = gameSettings.SavedQualityLevel.Value
+			flags.Low = level >= 1 and level <= B.LowQuality
+		end
+		readQuality()
+		gameSettings:GetPropertyChangedSignal("SavedQualityLevel"):Connect(readQuality)
+	end)
+
+	-- avisos (só os seus): tocou no 🐾 = "X está seguindo você!"; 1º parceiro da sessão = dica do 🐾 na janela Pets
+	local function sayBuddy(key: string)
+		local id = Config.BuddyParse(key)
+		local def = id and Critters.ById[id]
+		if def then
+			showToast(L("BuddyNow"):format(def.Name), "success")
+			sfx("Pop")
+		end
+	end
+	firstMin.BuddyTap = function(key: string)
+		flags.Tap, flags.TapAt = key, os.clock()
+		if player:GetAttribute("Buddy") == key then
+			-- já era ele (o automático): agora fica escolhido; avisa na hora e ele dá um pulinho
+			flags.Tap = nil
+			sayBuddy(key)
+			local mine = buddies[player]
+			if mine then
+				mine.Jump = 1
+			end
+		end
+	end
+	local lastKey = player:GetAttribute("Buddy")
+	player:GetAttributeChangedSignal("Buddy"):Connect(function()
+		local key = player:GetAttribute("Buddy")
+		if type(key) == "string" and key ~= "" then
+			if flags.Tap == key and os.clock() - flags.TapAt < 5 then
+				flags.Tap = nil
+				sayBuddy(key)
+			elseif lastKey == "" and not flags.FirstTold then
+				-- o 1º pet (o atributo já existia vazio: não é o carregar do save): dica depois do cartão do ovo
+				flags.FirstTold = true
+				task.delay(Config.HatchTime + 1.5, function()
+					local waited = 0
+					while (hatchBusy or hatchLayer.Visible) and waited < 15 do
+						waited += task.wait(0.5)
+					end
+					showToast(L("BuddyFirst"), "info")
+				end)
+			end
+		end
+		lastKey = key
+	end)
+
+	RunService.RenderStepped:Connect(function(dt)
+		local t = os.clock()
+		local camera = workspace.CurrentCamera
+		local camPos = camera and camera.CFrame.Position or Vector3.zero
+		local serverNow = workspace:GetServerTimeNow()
+		local builtOne = false -- no máximo 1 montagem por frame
+		flags.Frame += 1
+		local frame = flags.Frame
+		for who, info in buddies do
+			local mine = who == player
+			if info.Key == "" or (flags.Low and not mine) then
+				if info.Model then
+					destroy(info)
+				end
+				continue
+			end
+			if info.Model and info.Built ~= info.Key then
+				-- trocou de parceiro: o novo nasce no lugar do antigo, com pulinho
+				destroy(info)
+				info.Jump = 1
+			end
+			local character = who.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			if not character or not root or not root:IsA("BasePart") then
+				continue
+			end
+			local here = if info.Model and info.Pos then info.Pos else root.Position
+			local lod = Config.BuddyLod((here - camPos).Magnitude, mine)
+			if lod == "drop" then
+				if info.Model then
+					destroy(info)
+					info.Pos = nil
+				end
+				continue
+			end
+			if not info.Model then
+				if builtOne or flags.Busy or lod == "keep" or info.Failed == info.Key then
+					continue
+				end
+				builtOne = true
+				flags.Busy = true
+				local key = info.Key
+				local ok, done = pcall(build, who, info, root)
+				flags.Busy = false
+				if flags.Frame ~= frame then
+					if buddies[who] ~= info then
+						destroy(info)
+					end
+					break -- (esperou a pasta Models3D: os frames novos já cuidam de tudo; não continua a lista velha)
+				end
+				if not ok or not done then
+					info.Failed = key
+					continue
+				end
+			end
+			if lod == "full" then
+				info.Acc = 0
+				animate(info, root, character, dt, t, serverNow, true)
+			else
+				info.Acc += dt
+				if info.Acc >= 1 / 15 then
+					animate(info, root, character, info.Acc, t, serverNow, false)
+					info.Acc = 0
+				end
+			end
+		end
+	end)
+end
 
 ---------------------------------------------------------------------
 -- v67 OVO CHOCANDO NA BASE (só na tela de quem está a menos de 150 studs): o servidor só marca o ovo

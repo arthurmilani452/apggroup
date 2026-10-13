@@ -262,8 +262,19 @@ function Theme.cardColor(rarity: string): Color3
 	return CARD[rarity] or Theme.Gray
 end
 
--- prévia 3D do bichinho. silhouette = sombra preta (ainda não descoberto)
+-- modelo pronto de cada bichinho (1 Builder.Build por bichinho na sessão; v67: as prévias e o parceiro 🐾 clonam
+-- daqui). NÃO mexa nele: use :Clone()
 local modelCache = {}
+function Theme.critterTemplate(def): Model
+	local template = modelCache[def.Id]
+	if not template then
+		template = Builder.Build(def)
+		modelCache[def.Id] = template
+	end
+	return template
+end
+
+-- prévia 3D do bichinho. silhouette = sombra preta (ainda não descoberto)
 function Theme.preview(parent: GuiObject, def, silhouette: boolean?, spin: boolean?): ViewportFrame
 	local viewport = create("ViewportFrame", {
 		Name = "Preview",
@@ -276,12 +287,7 @@ function Theme.preview(parent: GuiObject, def, silhouette: boolean?, spin: boole
 		Parent = parent,
 	})
 	local ok, model = pcall(function()
-		local template = modelCache[def.Id]
-		if not template then
-			template = Builder.Build(def)
-			modelCache[def.Id] = template
-		end
-		return template:Clone()
+		return Theme.critterTemplate(def):Clone()
 	end)
 	if not ok or not model then
 		return viewport

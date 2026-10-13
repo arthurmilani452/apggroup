@@ -418,6 +418,22 @@ local function publish(player: Player, full: boolean?)
 	player:SetAttribute("Candy", data.Candy or 0)
 	player:SetAttribute("BestStolenZone", data.BestStolenZone or 0) -- (v67) zona mais funda de onde já trouxe ovo
 	player:SetAttribute("Referred", Config.InviteCount(data.Referred)) -- (v67) amigos que contam na escada de convites
+	do
+		-- v67 BICHINHO PARCEIRO 🐾: o escolhido (BuddyId/BuddyMut) ou o de maior renda. Só diz QUAL ("id|mutação");
+		-- cada tela monta e anima o dela (enfeite: não muda nada). Vendeu/fundiu/rebirth o escolhido = volta ao automático
+		local slot, found = Config.BuddyPick(data.Slots, data.BuddyId, data.BuddyMut, function(s)
+			local def = Critters.ById[s.Id]
+			return if def then Config.PetIncome(def, s.Scale or 1, s.Mut, slotZone(state, s, def)) else nil
+		end)
+		if data.BuddyId ~= nil and not found then
+			data.BuddyId, data.BuddyMut = nil, nil
+		end
+		local key = if slot then Config.BuddyKey(slot.Id, slot.Mut) else ""
+		if key ~= state.BuddyKey then
+			state.BuddyKey = key
+			player:SetAttribute("Buddy", key)
+		end
+	end
 	if full then
 		player:SetAttribute("FavAsked", data.FavAsked == true) -- (v67) já pediu para favoritar (1 vez por conta)
 		local passes = {}
@@ -812,6 +828,10 @@ local function hatch(player: Player, index: number, silent: boolean?, stagger: n
 		end)
 	else
 		renderSlot(player, index, true)
+	end
+	-- v67 🐾 o parceiro comemora (pulo com giro, todas as telas veem) quando o Lendário+ sai do ovo
+	if (Config.RarityIndex[def.Rarity] or 1) >= Config.RarityIndex.Legendary then
+		player:SetAttribute("Cheer", workspace:GetServerTimeNow() + (if eggModel then math.clamp(stagger or 0, 0, 2) + Config.HatchTime else 0))
 	end
 	if not silent then
 		local label = Config.SizeLabel(slot.Scale or 1)
@@ -1626,6 +1646,7 @@ local function deliver(player: Player)
 		banner(player, "You stole an EGG!", Color3.fromRGB(255, 225, 80))
 	end
 	net:FireClient(player, "Stole") -- (a tela mostra o carimbo SAFE!/SALVO!)
+	player:SetAttribute("Cheer", workspace:GetServerTimeNow()) -- (v67) o parceiro 🐾 comemora a entrega
 	publish(player)
 	applyTag(player) -- (v67) 🔥 da sequência e títulos de ovos roubados (só troca o texto se mudou)
 end
@@ -3822,13 +3843,13 @@ end
 -- limite de pedidos POR AÇÃO (v65): antes era um limite só para todos os botões, e abrir/clicar rápido
 -- em coisas diferentes fazia pedidos sumirem. Agora cada ação tem o seu.
 local lastRequest: { [Player]: { [string]: number } } = {}
-local REQUEST_GAP = { Redeem = 1.5, Buy = 0.5, SlowMode = 0.3, Admin = 1, FavAsked = 5 }
+local REQUEST_GAP = { Redeem = 1.5, Buy = 0.5, SlowMode = 0.3, Admin = 1, FavAsked = 5, Buddy = 0.5 }
 -- (v65.1) só ações que existem (antes qualquer texto que a tela mandasse ficava guardado na memória)
 local KNOWN_ACTIONS = {
 	Swing = true, Upgrade = true, SlowMode = true, Hatch = true, HatchAll = true, Sell = true, SellAll = true,
 	Fuse = true, Trail = true, Boost = true, Chest = true, Gift = true, ClaimIndex = true, PlaceTrap = true,
 	EquipBat = true, Buy = true, Daily = true, Rebirth = true, ClaimQuest = true, Redeem = true, CandyBuy = true,
-	Admin = true, FavAsked = true,
+	Admin = true, FavAsked = true, Buddy = true,
 }
 
 local function onRequest(player: Player, action: any, arg: any)
@@ -3944,6 +3965,19 @@ local function onRequest(player: Player, action: any, arg: any)
 		candyBuy(player, arg)
 	elseif action == "Admin" then
 		adminCommand(player, arg)
+	elseif action == "Buddy" then
+		-- v67 BICHINHO PARCEIRO 🐾: a tela manda {posição, bichinho} (igual ao Sell: lista velha = não muda nada).
+		-- Só guarda QUEM segue você (enfeite); o publish manda o atributo "Buddy" para todas as telas
+		local index = type(arg) == "table" and arg[1]
+		local expected = type(arg) == "table" and arg[2]
+		local slot = type(index) == "number" and state.Data.Slots[index]
+		if not slot or slot.Kind ~= "Pet" or type(expected) ~= "string" or slot.Id ~= expected or not Critters.ById[slot.Id] then
+			net:FireClient(player, "Refresh") -- a tela refaz a lista
+			return
+		end
+		state.Data.BuddyId = slot.Id
+		state.Data.BuddyMut = slot.Mut
+		publish(player)
 	elseif action == "FavAsked" then
 		-- v67: a tela pediu para favoritar (1 vez por conta, SEM prêmio). Só marca; não usa o arg.
 		if not state.Data.FavAsked then
@@ -4579,6 +4613,28 @@ function Game.Init()
 				publish(player, true)
 				applyTag(player)
 				return player:GetAttribute("TitleName")
+			end,
+			-- v67: testar o PARCEIRO 🐾. id = dá esse bichinho (com a mutação mut) e escolhe ele como parceiro;
+			-- sem id = volta ao automático (o de maior renda); cheer = ele comemora agora. Devolve o atributo Buddy.
+			Buddy = function(player, id, mut, cheer)
+				local state = states[player]
+				local data = state.Data
+				if id and Critters.ById[id] then
+					if #data.Slots >= Config.SlotCount(data.PenLevel) then
+						return "pen full: sell a pet first"
+					end
+					table.insert(data.Slots, { Kind = "Pet", Id = id, Scale = 1, Mut = mut, Zone = 1 })
+					data.BuddyId, data.BuddyMut = id, mut
+					redrawPen(player)
+					computeIncome(state)
+				else
+					data.BuddyId, data.BuddyMut = nil, nil
+				end
+				publish(player, true)
+				if cheer then
+					player:SetAttribute("Cheer", workspace:GetServerTimeNow())
+				end
+				return player:GetAttribute("Buddy")
 			end,
 		}
 		local bindable = Instance.new("BindableFunction")
