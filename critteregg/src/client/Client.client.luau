@@ -528,9 +528,12 @@ do
 			add(true, bestBoost.Icon, ("%s %s"):format(bestBoost.Name, clockText(bestLeft)), bestBoost.Color)
 		end
 		-- (não ativos)
-		-- HALLOWEEN (v66.1): o evento aparece no relógio, com os doces (a loja fica em Menu > Doces)
+		-- HALLOWEEN: o evento aparece no relógio com quanto falta e os doces (a loja fica em Menu > Doces)
 		if workspace:GetAttribute("Halloween") == true then
-			add(false, "\u{1F383}", ("HALLOWEEN \u{1F36C} %d"):format(player:GetAttribute("Candy") or 0), Color3.fromRGB(255, 140, 40))
+			local left = (Config.Halloween.To or 0) - t
+			add(false, "\u{1F383}", L("HalloweenTicker"):format(if left >= 86400 then ("%dd"):format(math.floor(left / 86400))
+				elseif left >= 3600 then ("%dh"):format(math.floor(left / 3600)) elseif left > 0 then clockText(left) else "")
+				.. ("  \u{1F36C} %d"):format(player:GetAttribute("Candy") or 0), Color3.fromRGB(255, 140, 40))
 		end
 		if workspace:GetAttribute("Weekend") == true then
 			add(false, "\u{1F4B5}", "WEEKEND 2x MONEY!", GREEN_TEXT)
@@ -547,12 +550,6 @@ do
 		if luckyLeft <= 0 then
 			local left = luckyStart + Config.LuckyEvery - t
 			add(false, "\u{1F340}", ("Lucky in %d:%02d"):format(math.floor(left / 60), math.floor(left % 60)), Color3.new(1, 1, 1))
-		end
-		-- v67: quanto falta para o Halloween acabar
-		if workspace:GetAttribute("Halloween") == true then
-			local left = (Config.Halloween.To or 0) - t
-			add(false, "\u{1F383}", L("HalloweenTicker"):format(if left >= 86400 then ("%dd"):format(math.floor(left / 86400))
-				elseif left >= 3600 then ("%dh"):format(math.floor(left / 3600)) elseif left > 0 then clockText(left) else ""), Color3.fromRGB(255, 150, 50))
 		end
 		-- BICHO DA SEMANA (v67: nos dias de semana entra em 2º na fila, para aparecer sempre; antes a fila só
 		-- girava os 2 primeiros e ele nunca aparecia)
