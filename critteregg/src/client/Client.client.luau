@@ -1310,7 +1310,7 @@ do
 					local key = Config.BuddyKey(slot.id, slot.m)
 					local paw, pawIcon = button({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 28), Size = UDim2.fromOffset(56, 48), BackgroundColor3 = Color3.fromRGB(70, 70, 88), ZIndex = 16, Parent = card }, "\u{1F43E}", function()
 						firstMin.BuddyTap(key)
-						net:FireServer("Buddy", { slot.i, slot.id })
+						net:FireServer("Buddy", { slot.i, slot.id, slot.m or false })
 					end)
 					pawIcon.Size = UDim2.new(1, -8, 0, 27)
 					pawIcon.Position = UDim2.fromOffset(4, 2)
@@ -2559,13 +2559,17 @@ local function playHatch(entry)
 	-- no seu cercado. Compartilhar não dá prêmio; só conta o amigo que entra e joga (escada de convites).
 	local share: GuiObject? = nil
 	local stopPulse: (() -> ())? = nil
-	if (revealIndex >= Config.RarityIndex.Legendary or mutation ~= nil) and firstMin.CanInvite ~= false then
+	if (revealIndex >= Config.RarityIndex.Legendary or mutation ~= nil) and firstMin.CanInvite ~= false
+		and os.clock() - firstMin.ShareAt >= Config.ShareGap then -- (v67: na espera do convite não mostra o botão: o aviso ficaria atrás do cartão)
 		share = button({ AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0.5, 170, 0.45, 0), Size = UDim2.fromOffset(260, 84), BackgroundColor3 = Theme.Blue, ZIndex = 45, Parent = hatchLayer }, L("ShareBtn"), function()
 			if os.clock() - firstMin.ShareAt < Config.ShareGap then
 				showToast(L("ShareWait"), "info")
 				return
 			end
 			firstMin.ShareAt = os.clock()
+			if share then
+				share.Visible = false -- (v67: 1 toque por cartão; um 2º cairia no aviso escondido atrás do cartão)
+			end
 			pcall(function()
 				local options = Instance.new("ExperienceInviteOptions")
 				options.PromptMessage = L("ShareMsg"):format((if mutation then mutation .. " " else "") .. def.Name)

@@ -4081,12 +4081,13 @@ local function onRequest(player: Player, action: any, arg: any)
 	elseif action == "Admin" then
 		adminCommand(player, arg)
 	elseif action == "Buddy" then
-		-- v67 BICHINHO PARCEIRO 🐾: a tela manda {posição, bichinho} (igual ao Sell: lista velha = não muda nada).
+		-- v67 BICHINHO PARCEIRO 🐾: a tela manda {posição, bichinho, mutação} (igual ao Sell: lista velha = não muda nada).
 		-- Só guarda QUEM segue você (enfeite); o publish manda o atributo "Buddy" para todas as telas
 		local index = type(arg) == "table" and arg[1]
 		local expected = type(arg) == "table" and arg[2]
 		local slot = type(index) == "number" and state.Data.Slots[index]
-		if not slot or slot.Kind ~= "Pet" or type(expected) ~= "string" or slot.Id ~= expected or not Critters.ById[slot.Id] then
+		if not slot or slot.Kind ~= "Pet" or type(expected) ~= "string" or slot.Id ~= expected or not Critters.ById[slot.Id]
+			or (arg[3] ~= nil and (slot.Mut or false) ~= arg[3]) then -- (mutação diferente = lista velha; pedido sem arg[3] ainda vale)
 			net:FireClient(player, "Refresh") -- a tela refaz a lista
 			return
 		end
