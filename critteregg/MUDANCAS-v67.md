@@ -56,7 +56,7 @@ Nenhuma das melhorias deixa roubar do cercado dos outros, e nada pago tem prêmi
 
 ## 3. Mais emoção
 - **Chocar animado no celular:** o ovo treme, cresce, brilha, racha e explode em cascas. Antes isso era feito no servidor e dava um "engasgo" no jogo de todo mundo. Agora quem anima é o celular de cada um.
-- **POR UM TRIZ!:** escapou com o guardião quase pegando (a 8 studs ou mais da linha segura)? Ganha 1 min de renda e +1 na sequência de roubos.
+- **POR UM TRIZ!:** escapou com o guardião quase pegando (a 8 studs ou mais da linha segura)? Ganha 1 min de renda e +1 na sequência de roubos. Só conta onde o guardião ainda é perigoso para você, então não dá para ganhar sem risco numa zona fácil.
 - **SALVO!:** um carimbo verde aparece quando você entrega o ovo.
 - **Câmera:** abre um pouco enquanto você carrega um ovo e dá um "soco" de zoom ao revelar um bicho Raro ou melhor.
 - **Perseguição:** com o guardião perto, toca um "tum-tum" de coração e a borda da tela fica vermelha.
