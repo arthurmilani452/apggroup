@@ -116,6 +116,7 @@ do
 		CalNext = { "\u{1F381} %s in %d days", "\u{1F381} %s em %d dias" },
 		CalNextOne = { "\u{1F381} %s on the next claim!", "\u{1F381} %s no próximo prêmio!" },
 		CalChamp = { "Calendar Champ title", "título Calendar Champ" },
+		CalBonus = { "\u{1F4B5} Cash bonus", "\u{1F4B5} Bônus em dinheiro" },
 		Gold = { "GOLD", "OURO" },
 		DailyTomorrow = { "Tomorrow: DAY %d \u{2192} %s", "Amanhã: DIA %d \u{2192} %s" },
 		CalExclusive = { "\u{1F4C5} Exclusive!", "\u{1F4C5} Exclusivo!" },
@@ -143,6 +144,7 @@ do
 		BatEquip = { "EQUIP BAT!", "USAR TACO!" },
 		BatEquipped = { "EQUIPPED", "EQUIPADO" },
 		FindHint = { "\u{1F50E} Steal %s eggs to find it!", "\u{1F50E} Roube ovos de %s para achar!" },
+		HintTap = { "\u{1F50E} HINT", "\u{1F50E} DICA" }, -- no celular a frase não cabe no cartão: toque para ver
 		-- v67: BICHINHO PARCEIRO (botão 🐾 no cartão da janela Pets)
 		Follow = { "Follow", "Seguir" },
 		Following = { "Following", "Seguindo" },
@@ -1086,7 +1088,8 @@ do
 				local tier = Config.StarTier[def.Rarity]
 				entry.Near = not found and tier ~= nil and not done[tier] and missing[tier] <= Config.StarNudge
 				entry.Hint.Visible = entry.Near
-				entry.Hint.Text = if entry.Near then hintFor(def) else ""
+				-- celular: só "🔎 DICA" (a frase inteira ficava ilegível); a dica completa aparece ao tocar no cartão
+				entry.Hint.Text = if entry.Near then (if TOUCH then L("HintTap") else hintFor(def)) else ""
 				-- acabou de descobrir: troca a sombra pela prévia colorida
 				if entry.View and entry.ViewFound ~= (found ~= nil) then
 					queueIndexPreview(entry)
@@ -1517,12 +1520,13 @@ do
 			Gold = text({ Position = UDim2.fromOffset(2, 1), Size = UDim2.new(1, -4, 0, 16), Text = L("Gold"), TextColor3 = Theme.Gold, Visible = false, ZIndex = 18, Parent = chip }),
 		}
 	end
-	-- nome do prêmio de um marco (para "Próximo: ...")
-	local function prizeName(day: number): string
+	-- nome do prêmio de um marco (para "Próximo: ..."); claimNumber = em que dia total ele sai
+	local function prizeName(day: number, claimNumber: number): string
 		local info = Config.Calendar[day]
 		local def = info and info.Critter and Critters.ById[info.Critter]
 		if def then
-			return def.Name
+			-- 3ª volta em diante: o exclusivo já é seu e Gold, o servidor paga dinheiro (claimDaily)
+			return if (claimNumber - 1) // Config.CalendarDays > Config.CalendarGoldAfter then L("CalBonus") else def.Name
 		elseif info and info.Title then
 			return L("CalChamp")
 		end
@@ -1584,7 +1588,11 @@ do
 			-- número do prêmio (dia total) em que este marco saiu ou vai sair: 2ª volta em diante = Gold
 			local claimNumber = if done then total - shown + day else total + day - shown
 			entry.Check.Visible = done
-			entry.Gold.Visible = entry.Def ~= nil and Config.CalendarMutation(claimNumber) ~= nil
+			-- 3ª volta em diante = dinheiro ("$" verde) em vez de bichinho Gold (igual ao claimDaily do servidor)
+			local cash = entry.Def ~= nil and (claimNumber - 1) // Config.CalendarDays > Config.CalendarGoldAfter
+			entry.Gold.Text = if cash then "$" else L("Gold")
+			entry.Gold.TextColor3 = if cash then GREEN_TEXT else Theme.Gold
+			entry.Gold.Visible = entry.Def ~= nil and (cash or Config.CalendarMutation(claimNumber) ~= nil)
 			if not done and not nextPrize then
 				nextPrize, daysLeft = day, day - shown
 			end
@@ -1593,7 +1601,7 @@ do
 			nextPrize = milestones[1]
 			daysLeft = Config.CalendarDays - shown + nextPrize
 		end
-		calNext.Text = if not nextPrize then "" elseif daysLeft <= 1 then L("CalNextOne"):format(prizeName(nextPrize)) else L("CalNext"):format(prizeName(nextPrize), daysLeft)
+		calNext.Text = if not nextPrize then "" elseif daysLeft <= 1 then L("CalNextOne"):format(prizeName(nextPrize, total + daysLeft)) else L("CalNext"):format(prizeName(nextPrize, total + daysLeft), daysLeft)
 		-- as prévias 3D (só 3) nascem na 1ª vez que a janela abre (não no começo do jogo)
 		if not previewsMade then
 			previewsMade = true
