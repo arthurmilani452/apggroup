@@ -116,6 +116,7 @@ do
 		CalendarShort = { "Day %d/%d", "Dia %d/%d" },
 		CalNext = { "\u{1F381} %s in %d days", "\u{1F381} %s em %d dias" },
 		CalNextOne = { "\u{1F381} %s on the next claim!", "\u{1F381} %s no próximo prêmio!" },
+		CalTomorrow = { "\u{1F381} %s tomorrow!", "\u{1F381} %s amanhã!" },
 		CalChamp = { "Calendar Champ title", "título Calendar Champ" },
 		CalBonus = { "\u{1F4B5} Cash bonus", "\u{1F4B5} Bônus em dinheiro" },
 		Gold = { "GOLD", "OURO" },
@@ -1285,7 +1286,8 @@ do
 		for _, entry in pawEntries do
 			local on = entry.Key == current
 			entry.Button.BackgroundColor3 = if on then Theme.Green else Color3.fromRGB(70, 70, 88)
-			entry.Caption.Text = L(if on then "Following" else "Follow")
+			-- (no celular "Seguindo" ficava com ~5 px: lá vai só o ✅; o fundo verde já mostra quem segue)
+			entry.Caption.Text = if TOUCH then (if on then "\u{2705}" else "") else L(if on then "Following" else "Follow")
 		end
 	end
 	player:GetAttributeChangedSignal("Buddy"):Connect(paintPaws)
@@ -1612,7 +1614,8 @@ do
 			nextPrize = milestones[1]
 			daysLeft = Config.CalendarDays - shown + nextPrize
 		end
-		calNext.Text = if not nextPrize then "" elseif daysLeft <= 1 then L("CalNextOne"):format(prizeName(nextPrize, total + daysLeft)) else L("CalNext"):format(prizeName(nextPrize, total + daysLeft), daysLeft)
+		-- (com o prêmio de hoje para pegar, o dia daysLeft sai daqui a daysLeft - 1 dias: o de hoje já é o 1º)
+		calNext.Text = if not nextPrize then "" elseif daysLeft <= 1 then L("CalNextOne"):format(prizeName(nextPrize, total + daysLeft)) elseif ready and daysLeft == 2 then L("CalTomorrow"):format(prizeName(nextPrize, total + daysLeft)) else L("CalNext"):format(prizeName(nextPrize, total + daysLeft), if ready then daysLeft - 1 else daysLeft)
 		-- as prévias 3D (só 3) nascem na 1ª vez que a janela abre (não no começo do jogo)
 		if not previewsMade then
 			previewsMade = true
@@ -2557,7 +2560,7 @@ local function playHatch(entry)
 	local share: GuiObject? = nil
 	local stopPulse: (() -> ())? = nil
 	if (revealIndex >= Config.RarityIndex.Legendary or mutation ~= nil) and firstMin.CanInvite ~= false then
-		share = button({ AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0.5, 170, 0.45, 0), Size = UDim2.fromOffset(280, 84), BackgroundColor3 = Theme.Blue, ZIndex = 45, Parent = hatchLayer }, L("ShareBtn"), function()
+		share = button({ AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0.5, 170, 0.45, 0), Size = UDim2.fromOffset(260, 84), BackgroundColor3 = Theme.Blue, ZIndex = 45, Parent = hatchLayer }, L("ShareBtn"), function()
 			if os.clock() - firstMin.ShareAt < Config.ShareGap then
 				showToast(L("ShareWait"), "info")
 				return
@@ -4591,9 +4594,11 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 	-- v67: depois do tutorial a linha da meta fica mais fina (46 -> 34 px)
 	local small = (player:GetAttribute("Stolen") or 0) >= 6 and (player:GetAttribute("PenLevel") or 0) >= 1
-	if small ~= firstMin.Small then
+	-- celular estreito (640x360): a linha não pode passar da coluna da esquerda (x 190), senão o 🎯 fica em cima do Presentes
+	local lineW = if TOUCH then math.clamp(math.floor(gui.AbsoluteSize.X / math.max(uiScale.Scale, 0.1)) - 400, 560, 820) else 700
+	if small ~= firstMin.Small or lineW ~= tutorialText.Size.X.Offset then
 		firstMin.Small = small
-		tutorialText.Size = UDim2.fromOffset(tutorialText.Size.X.Offset, if small then 34 else 46)
+		tutorialText.Size = UDim2.fromOffset(lineW, if small then 34 else 46)
 	end
 	-- v67: botão da esquerda balançando (Índice com prêmio para pegar)
 	if pulse ~= firstMin.Pulse then

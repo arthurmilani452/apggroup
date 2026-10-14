@@ -299,7 +299,9 @@ end
 -- de cruzar a SAFE = Minutes da renda base (mín. MinCash) e +1 na sequência de roubos.
 -- Só conta com você a MinZ studs ou mais da SAFE: o guardião não passa de Z = 6, então parado na frente da linha
 -- ele "chegava perto" sem nunca poder pegar (dava para ganhar sempre sem risco)
-Config.CloseCall = { Margin = 6, Window = 3, Minutes = 1, MinCash = 500, MinZ = 8 }
+-- MinFactor: guardião com menos de 3/4 da sua velocidade não é perigo e não conta (na zona que você já superou ele
+-- fica em 0.6x e dava para farmar o POR UM TRIZ sem risco nenhum)
+Config.CloseCall = { Margin = 6, Window = 3, Minutes = 1, MinCash = 500, MinZ = 8, MinFactor = 0.75 }
 function Config.CloseCallBonus(baseIncome: number?): number
 	local C = Config.CloseCall
 	return math.max(C.MinCash, math.floor((baseIncome or 0) * 60 * C.Minutes))

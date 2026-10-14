@@ -356,6 +356,7 @@ check("share and visit timings are sane", Config.ShareGap >= 60 and Config.Visit
 check("close call pays at least MinCash", Config.CloseCallBonus(nil) == Config.CloseCall.MinCash and Config.CloseCallBonus(0) == Config.CloseCall.MinCash)
 check("close call pays Minutes of base income", Config.CloseCallBonus(1000) == math.max(Config.CloseCall.MinCash, 1000 * 60 * Config.CloseCall.Minutes))
 check("close call needs you past the guardian's Z clamp (6)", Config.CloseCall.MinZ > 6 and Config.CloseCall.Window > 0 and Config.CloseCall.Margin > 0)
+check("close call needs a guardian faster than the GuardianFactor floor (0.6)", Config.CloseCall.MinFactor > 0.6 and Config.CloseCall.MinFactor < 1 and Config.GuardianFactor(Config.Zones[1], 1e9, 1) < Config.CloseCall.MinFactor)
 check("close call is smaller than a streak prize", Config.CloseCall.Minutes < Config.StealStreak.Minutes and Config.CloseCall.MinCash < Config.StealStreak.MinCash)
 local every = Config.StealStreak.Every
 check("streak prize on each multiple of Every", Config.StreakBonusDue(every - 1, every) and Config.StreakBonusDue(2 * every - 1, 2 * every)

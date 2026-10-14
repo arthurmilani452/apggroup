@@ -1593,7 +1593,7 @@ local function deliver(player: Player)
 	if data.Stolen == 1 and halloweenNow() then
 		task.delay(6, function()
 			if player.Parent then
-				banner(player, "\u{1F383} HALLOWEEN EVENT! Steal eggs for CANDY \u{1F36C} and visit the Candy Shop!", Color3.fromRGB(255, 140, 40))
+				banner(player, "\u{1F383} HALLOWEEN EVENT! Steal eggs for CANDY \u{1F36C} and visit the Candy Shop (Menu)!", Color3.fromRGB(255, 140, 40))
 			end
 		end)
 	end
@@ -1737,7 +1737,7 @@ local function tickZone(zone, dt: number, clock: number)
 			-- (v65: o guardião não chega até a parede; sem isso quem andava colado na parede nunca era pego)
 			local half = Config.Map.LaneWidth / 2 - 6
 			local flat = (Vector3.new(math.clamp(targetRoot.Position.X, -half, half), 0, targetRoot.Position.Z) - Vector3.new(zone.Pos.X, 0, zone.Pos.Z)).Magnitude
-			if flat - zone.CatchRange < Config.CloseCall.Margin and targetRoot.Position.Z >= Config.CloseCall.MinZ then
+			if factor >= Config.CloseCall.MinFactor and flat - zone.CatchRange < Config.CloseCall.Margin and targetRoot.Position.Z >= Config.CloseCall.MinZ then
 				state.Carry.NearAt = clock -- (v67) quase pegou: cruzar a SAFE logo depois = POR UM TRIZ
 			end
 			if flat <= zone.CatchRange and targetRoot.Position.Z > 0.5 then -- (v65: em cima da faixa SAFE não pega)
