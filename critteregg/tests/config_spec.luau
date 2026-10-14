@@ -265,6 +265,8 @@ r = step(1, week, 1)
 check("after day 7 the week loops to day 1", r[1] == 1 and r[2] == 1)
 r = step(2, week - 1, 1)
 check("saver used on the way to day 7 comes back", r[1] == week and r[2] == 1 and r[3] == true)
+r = step(2, week, 1)
+check("missing the day after day 7 does not spend the saver", r[1] == 1 and r[2] == 1 and r[3] == false)
 r = step(19000, 0, 0)
 check("first claim ever is day 1", r[1] == 1 and r[2] == 0 and r[3] == false)
 
@@ -273,6 +275,8 @@ check("CalendarDay cycles 1..28", Config.CalendarDay(0) == 0 and Config.Calendar
 	and Config.CalendarDay(29) == 1 and Config.CalendarDay(56) == 28)
 check("calendar critters are Gold from the 2nd lap on", Config.CalendarMutation(7) == nil and Config.CalendarMutation(28) == nil
 	and Config.CalendarMutation(29) == "Gold" and Config.CalendarMutation(35) == "Gold" and Config.MutationByName.Gold ~= nil)
+check("repeat calendar critter pays cash", type(Config.CalendarRepeat) == "table" and (Config.CalendarRepeat.Minutes or 0) > 0
+	and (Config.CalendarRepeat.MinCash or 0) > 0)
 local calendarOk, calendarCritters = true, 0
 for day, info in Config.Calendar do
 	if type(day) ~= "number" or day < 1 or day > Config.CalendarDays then

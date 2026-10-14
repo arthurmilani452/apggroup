@@ -626,8 +626,15 @@ def simulate(econ, reward, kid, seed):
                 if bid in boost_until:
                     boost_until[bid] = max(clock, boost_until[bid]) + minutes * 60
             cid = cal.get("Critter")
-            if cid in econ.by_id:
-                mut = "Gold" if (daily_total - 1) // cal_days >= gold_after else None
+            mine = next((x for x in slots if x.get("keep") and x["id"] == cid), None)
+            mut = "Gold" if (daily_total - 1) // cal_days >= gold_after else None
+            if cid in econ.by_id and mine:  # já tem: o seu vira Gold, ou dinheiro (Config.CalendarRepeat)
+                if mut and mine["mut"] != mut:
+                    mine["mut"], mine["inc"] = mut, econ.pet_income(cid, mine["s"], mut, mine["z"])
+                else:
+                    rep = cfg.get("CalendarRepeat") or {}
+                    st["money"] += minutes_cash(rep.get("Minutes", 30), rep.get("MinCash", 50_000))
+            elif cid in econ.by_id:
                 if len(slots) >= slot_cap():  # cercado cheio: no jogo ele espera vaga; aqui a criança vende o pior
                     pets = [x for x in slots if x["left"] <= 0 and not x.get("keep")]
                     if pets:

@@ -119,6 +119,8 @@ do
 		Gold = { "GOLD", "OURO" },
 		DailyTomorrow = { "Tomorrow: DAY %d \u{2192} %s", "Amanhã: DIA %d \u{2192} %s" },
 		CalExclusive = { "\u{1F4C5} Exclusive!", "\u{1F4C5} Exclusivo!" },
+		RebirthInfo = { "You KEEP your pen, Index and \u{1F4C5}/\u{1F91D} exclusives (+ a free Rare egg!).\nYou LOSE money, speed, treadmill, trails and other pets.",
+			"Você FICA com o cercado, o Índice e os exclusivos \u{1F4C5}/\u{1F91D} (+ ovo Raro grátis!).\nVocê PERDE dinheiro, velocidade, esteira, trilhas e os outros pets." },
 		-- v67: CONVITES (escada de prêmios, "Mostrar pros amigos" no cartão do bichinho, visita ao cercado do amigo)
 		InviteNext = { "%d/%d friends \u{2192} %s", "%d/%d amigos \u{2192} %s" },
 		InviteMsg = { "Invite friends who PLAY: %s", "Convide amigos que JOGAM: %s" },
@@ -829,7 +831,7 @@ refreshShop = function()
 		text({ Size = UDim2.new(1, -20, 0, 60), Position = UDim2.fromOffset(10, 10), Text = ("\u{1F504} REBIRTH %d \u{2192} %d"):format(rebirths, rebirths + 1), TextColor3 = Color3.fromRGB(255, 130, 255), ZIndex = 13, Parent = row })
 		text({ Size = UDim2.new(1, -20, 0, 40), Position = UDim2.fromOffset(10, 80), Text = ("Money: +%d%%  \u{2192}  +%d%%"):format(math.floor(Config.RebirthMoney * rebirths * 100), math.floor(Config.RebirthMoney * (rebirths + 1) * 100)), TextColor3 = GREEN_TEXT, ZIndex = 13, Parent = row })
 		text({ Size = UDim2.new(1, -20, 0, 40), Position = UDim2.fromOffset(10, 124), Text = ("Treadmill speed: +%d%%  \u{2192}  +%d%%"):format(math.floor(Config.RebirthTread * rebirths * 100), math.floor(Config.RebirthTread * (rebirths + 1) * 100)), TextColor3 = PINK_TEXT, ZIndex = 13, Parent = row })
-		text({ Size = UDim2.new(1, -20, 0, 54), Position = UDim2.fromOffset(10, 172), Text = "You KEEP your pen and Index (+ a free Rare egg!).\nYou LOSE money, speed, treadmill, trails AND ALL YOUR PETS.", TextColor3 = Color3.fromRGB(200, 210, 230), Stroke = 2, ZIndex = 13, Parent = row })
+		text({ Size = UDim2.new(1, -20, 0, 54), Position = UDim2.fromOffset(10, 172), Text = L("RebirthInfo"), TextColor3 = Color3.fromRGB(200, 210, 230), Stroke = 2, ZIndex = 13, Parent = row })
 		-- rebirth leva os bichinhos: precisa tocar 2 vezes para confirmar
 		local confirmUntil = 0
 		local rebirthLabel
@@ -4522,7 +4524,7 @@ RunService.Heartbeat:Connect(function(dt)
 		target, hint, pulse = tutorial(root)
 	end
 	-- (na esteira o painel já explica; v67: some também com janela aberta e no cartão do bichinho novo)
-	tutorialText.Visible = hint ~= nil and not carrying and not treadHud.Visible and not hatchLayer.Visible and not anyWindowOpen()
+	tutorialText.Visible = hint ~= nil and not carrying and not treadHud.Visible and not hatchLayer.Visible and not anyWindowOpen() and not stunText.Visible -- (no celular ficava embaixo do ATORDOADO)
 	if hint and hint ~= tutorialStep then
 		-- pulinho só quando muda a META (v67: o relógio da noite e o % mudam o texto toda hora)
 		local newGoal = string.sub(hint, 1, 12) ~= string.sub(tutorialStep, 1, 12)

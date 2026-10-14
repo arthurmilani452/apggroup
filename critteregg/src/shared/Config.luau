@@ -646,7 +646,8 @@ function Config.DailyNext(gap: number, streak: number, savers: number): (number,
 	local nextStreak = 1
 	if gap == 1 then
 		nextStreak = (streak or 0) % week + 1
-	elseif gap == 2 and (savers or 0) > 0 then
+	elseif gap == 2 and (savers or 0) > 0 and (streak or 0) % week ~= 0 then
+		-- (depois do dia 7 a semana volta ao dia 1 de qualquer jeito: o escudo fica guardado)
 		nextStreak = (streak or 0) % week + 1
 		savers -= 1
 		used = true
@@ -680,6 +681,9 @@ end
 function Config.CalendarMutation(total: number): string?
 	return if (total - 1) // Config.CalendarDays >= Config.CalendarGoldAfter then "Gold" else nil
 end
+-- exclusivo do calendário que você JÁ TEM não pega outra vaga (não vende: enchia o cercado): o seu vira Gold e,
+--   se já é Gold, vira dinheiro (minutos da renda base, no mínimo MinCash)
+Config.CalendarRepeat = { Minutes = 30, MinCash = 50_000 }
 -- REBIRTH: zera dinheiro, velocidade, esteira, trilhas E OS BICHINHOS/OVOS; mantém cercado e Index.
 -- Cada rebirth = +100% dinheiro e +50% velocidade na esteira para sempre.
 -- v66: RebirthTread 0.25 -> 0.5. Com +25% quem fazia rebirth assim que podia chegava na última zona DEPOIS de

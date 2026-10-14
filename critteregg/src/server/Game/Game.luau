@@ -2792,7 +2792,7 @@ local function addEggSlot(player: Player, def, zoneIndex: number, scale: number,
 	return true
 end
 
--- v67: bichinho do calendário (ou da escada de convites) que chegou com o cercado cheio fica guardado (data.PendingGifts) e entra sozinho na
+-- v67: bichinho do calendário (ou da escada de convites, ou o ovo do dia 7 pego carregando ovo) que chegou com o cercado cheio fica guardado (data.PendingGifts) e entra sozinho na
 -- 1ª vaga livre (o loop de 1 s chama). Nunca vira dinheiro. Espera enquanto você carrega um ovo (a vaga é dele).
 local function givePending(player: Player)
 	local state = states[player]
@@ -2807,7 +2807,7 @@ local function givePending(player: Player)
 		local def = type(item) == "table" and Critters.ById[item.Id]
 		if def then
 			addEggSlot(player, def, reachZone(state), 1, item.Mut, true)
-			banner(player, ("%s Your %s%s egg is ready in your pen!"):format(keepIcon(def), if item.Mut then item.Mut .. " " else "", def.Name), Color3.fromRGB(255, 215, 90))
+			banner(player, ("%s Your %s%s egg is ready in your pen!"):format(if def.Keep then keepIcon(def) else "\u{1F95A}", if item.Mut then item.Mut .. " " else "", def.Name), Color3.fromRGB(255, 215, 90))
 			gave = true
 		end
 	end
@@ -3378,7 +3378,13 @@ local function claimDaily(player: Player)
 		local zoneIndex = bestZoneFor(state)
 		local def, mutation = rollEgg(Config.Zones[zoneIndex], Random.new(), Config.RarityIndex.Rare)
 		if def then
-			addEggSlot(player, def, zoneIndex, 1, mutation, true)
+			if state.Carry and #data.Slots + 1 == Config.SlotCount(data.PenLevel) then
+				-- carregando ovo e só sobra 1 vaga (ela é do ovo carregado): este espera e entra depois (givePending)
+				data.PendingGifts = if type(data.PendingGifts) == "table" then data.PendingGifts else {}
+				table.insert(data.PendingGifts, { Id = def.Id, Mut = mutation })
+			else
+				addEggSlot(player, def, zoneIndex, 1, mutation, true)
+			end
 		end
 	end
 	-- CALENDÁRIO DE 28 DIAS
@@ -3400,14 +3406,46 @@ local function claimDaily(player: Player)
 		if def then
 			local mutation = Config.CalendarMutation(total)
 			local name = (if mutation then mutation .. " " else "") .. def.Name
-			if #data.Slots < Config.SlotCount(data.PenLevel) then
+			-- já tem este exclusivo (no cercado ou esperando vaga)? Não pega outra vaga (exclusivo não vende: enchia o
+			-- cercado para sempre). 2ª volta = o seu vira Gold; depois disso = dinheiro (Config.CalendarRepeat)
+			local owned, ownedIndex = nil, nil
+			for i, slot in data.Slots do
+				if slot.Id == def.Id then
+					owned, ownedIndex = slot, i
+					break
+				end
+			end
+			if not owned and type(data.PendingGifts) == "table" then
+				for _, item in data.PendingGifts do
+					if type(item) == "table" and item.Id == def.Id then
+						owned = item
+						break
+					end
+				end
+			end
+			if owned then
+				if mutation and owned.Mut ~= mutation then
+					owned.Mut = mutation
+					if ownedIndex then
+						renderSlot(player, ownedIndex, true)
+						computeIncome(state)
+					end
+					table.insert(parts, ("your %s turned %s"):format(def.Name, mutation))
+				else
+					local repeatCash = Config.CalendarRepeat
+					local bonus = math.max(repeatCash.MinCash, math.floor((state.BaseIncome or 0) * 60 * repeatCash.Minutes))
+					data.Money += bonus
+					econ(player, true, bonus, "TimedReward", "CalendarRepeat")
+					table.insert(parts, ("%s bonus (you have %s)"):format(Format.Money(bonus), def.Name))
+				end
+			elseif not state.Carry and #data.Slots < Config.SlotCount(data.PenLevel) then
 				addEggSlot(player, def, bestZoneFor(state), 1, mutation, true)
 				table.insert(parts, name .. " egg in your pen")
 			else
-				-- cercado cheio: espera a 1ª vaga livre (nunca vira dinheiro)
+				-- cercado cheio (ou carregando ovo: a vaga é dele): espera a 1ª vaga livre (nunca vira dinheiro)
 				data.PendingGifts = if type(data.PendingGifts) == "table" then data.PendingGifts else {}
 				table.insert(data.PendingGifts, { Id = def.Id, Mut = mutation })
-				table.insert(parts, name .. " egg (free a pen slot to get it)")
+				table.insert(parts, name .. if state.Carry then " egg (arrives after you drop off your egg)" else " egg (free a pen slot to get it)")
 			end
 		end
 		if cal.Title then
@@ -4180,6 +4218,9 @@ end
 -- entrou: pega os créditos guardados enquanto estava fora (lê e apaga numa vez só), soma e entrega a escada
 -- (também a de quem já tinha amigos salvos antes da v67)
 local function pullInviteCredits(player: Player)
+	if not player.Parent or not states[player] then
+		return -- já saiu: não mexe na fila (ela é lida na próxima entrada)
+	end
 	local got = nil
 	local store = stores.InviteCredit
 	if store then
@@ -4195,10 +4236,26 @@ local function pullInviteCredits(player: Player)
 		end)
 	end
 	if not player.Parent or not states[player] then
+		-- saiu durante a leitura: devolve os créditos para a fila (senão sumiam para sempre)
+		local back = got
+		if back and store then
+			pcall(function()
+				store:UpdateAsync(tostring(player.UserId), function(old)
+					local list = if type(old) == "table" then old else {}
+					for _, uid in back do
+						if not table.find(list, uid) then
+							table.insert(list, uid)
+						end
+					end
+					return list
+				end)
+			end)
+		end
 		return
 	end
 	if got then
 		creditInvite(player, got, nil)
+		task.spawn(Data.Save, player) -- a fila já foi apagada: salva logo (servidor caindo antes do autosave perdia os amigos)
 	end
 	grantLadder(player, 3.5)
 end
@@ -4256,8 +4313,10 @@ local function onPlayerAdded(player: Player)
 	if data.DayV ~= 2 then
 		local t = os.time()
 		local utcToday, today = t // 86400, Config.Day(t)
-		if data.DailyDay > today then
-			data.DailyDay = today
+		-- o DailyDay velho era dia UTC; o SavedAt (da sessão anterior, sempre depois do prêmio) diz se o prêmio foi
+		-- na verdade na noite anterior em Brasília (21h-24h): aí volta 1 (antes só arrumava quem voltava antes da meia-noite)
+		if data.DailyDay > 0 and Config.Day(data.SavedAt or t) < data.DailyDay then
+			data.DailyDay -= 1
 		end
 		if (data.FriendEggDay or 0) > today then
 			data.FriendEggDay = today
