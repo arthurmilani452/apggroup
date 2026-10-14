@@ -242,6 +242,18 @@ local function indexJson(state): string
 	return HttpService:JSONEncode(list)
 end
 
+-- v66.1: zona de cada prêmio ainda não pego (o prêmio vale pela zona onde o bicho foi achado,
+-- não pela aba do Índice que a criança está olhando)
+local function indexZoneJson(state): string
+	local list = {}
+	for id, zoneIndex in state.Data.Index do
+		if not state.Data.Claimed[id] then
+			list[id] = if typeof(zoneIndex) == "number" then zoneIndex else zoneOfDef[id]
+		end
+	end
+	return HttpService:JSONEncode(list)
+end
+
 local function refreshBoards(state)
 	local data, plot = state.Data, state.Plot
 	if not plot then
@@ -441,6 +453,7 @@ local function publish(player: Player, full: boolean?)
 			table.insert(passes, key)
 		end
 		player:SetAttribute("Passes", table.concat(passes, ","))
+		player:SetAttribute("IndexZone", indexZoneJson(state))
 		player:SetAttribute("Index", indexJson(state))
 		player:SetAttribute("Trails", table.concat(data.Trails, ","))
 		player:SetAttribute("Boosts", HttpService:JSONEncode(data.Boosts))
@@ -1105,8 +1118,8 @@ local function rollEgg(zoneDef, rng: Random, minRarity: number?)
 	local options, total = {}, 0
 	local lucky = luckyNow()
 	-- bicho da semana (v66): a raridade dele pesa mais na zona onde ele vive
-	local now = os.time()
-	local weekly = Config.WeeklyCritter(now)
+	local weekTime = os.time()
+	local weekly = Config.WeeklyCritter(weekTime)
 	local weeklyDef = Critters.ById[weekly]
 	for _, rarity in zoneDef.Rarities do
 		if #poolFor(zoneDef, rarity) > 0 and (Config.RarityIndex[rarity] or 1) >= (minRarity or 1) then
@@ -1115,7 +1128,7 @@ local function rollEgg(zoneDef, rng: Random, minRarity: number?)
 				weight *= math.max(adminLuck(), if partyNow() then Config.Update.PartyLuck else Config.LuckyMult)
 			end
 			if weeklyDef and weeklyDef.Rarity == rarity and table.find(poolFor(zoneDef, rarity), weeklyDef) then
-				weight *= Config.WeeklyBoostFor(weeklyDef, now)
+				weight *= Config.WeeklyBoostFor(weeklyDef, weekTime)
 			end
 			table.insert(options, { rarity, weight })
 			total += weight
@@ -2036,10 +2049,17 @@ local function buyTrail(player: Player, id: string)
 		econ(player, false, trail.Cost, "Shop", "Trail_" .. id)
 		toast(player, ("You bought the %s! (x%s treadmill speed)"):format(trail.Name, tostring(trail.Mult)), "success")
 		net:FireClient(player, "Purchased")
+		data.Trail = id
+		applyTrail(player)
+		publish(player, true)
+		return
 	end
 	data.Trail = id
 	applyTrail(player)
 	publish(player, true)
+	-- v66.1: equipar uma trilha que já é sua também avisa e redesenha a aba (antes parecia que não funcionou)
+	toast(player, trail.Name .. " equipped!", "success")
+	net:FireClient(player, "Refresh")
 end
 
 local function boostPrice(state, boost): number
@@ -3778,6 +3798,10 @@ end
 ---------------------------------------------------------------------
 local MessagingService = game:GetService("MessagingService")
 local ADMIN_TOPIC = "CritterAdminAbuse_v1"
+-- v66.1: os eventos com tempo (sorte, festa, 2x dinheiro) ficam guardados no MemoryStore, assim um servidor
+-- que abre DURANTE o evento (gente entrando para o Admin Abuse) também entra nele
+local AdminLive = game:GetService("MemoryStoreService"):GetHashMap("CritterAdminLive_v1")
+local ADMIN_TIMED = { Luck = true, Party = true, Money = true }
 local ADMIN_CMDS = { Luck = true, Golden = true, Party = true, Money = true, Pumpkin = true }
 local adminCache: { [Player]: boolean } = {}
 local lastAdmin: { [string]: number } = {}
@@ -3808,8 +3832,9 @@ local function isAdmin(player: Player): boolean
 	return ok
 end
 
-local function applyAdmin(cmd: string, by: string)
-	local t = os.time()
+local function applyAdmin(cmd: string, by: string, at: number?)
+	-- "at" = quando o admin apertou (todos os servidores terminam juntos)
+	local t = if type(at) == "number" and math.abs(at - os.time()) < 120 then at else os.time()
 	local A = Config.AdminAbuse
 	local color = Color3.fromRGB(255, 90, 200)
 	if cmd == "Luck" then
@@ -3852,7 +3877,32 @@ local function onAdminMessage(data: any)
 		return
 	end
 	adminSeen[id] = true
-	applyAdmin(data.Cmd, string.sub(tostring(data.By or "Admin"), 1, 20))
+	applyAdmin(data.Cmd, string.sub(tostring(data.By or "Admin"), 1, 20), tonumber(data.At))
+end
+
+-- servidor novo: entra nos eventos de admin que ainda estão rolando (sem repetir o anúncio)
+local function restoreAdminLive()
+	if RunService:IsStudio() then
+		return
+	end
+	local ok, live = pcall(function()
+		return AdminLive:GetAsync("live")
+	end)
+	if not ok or type(live) ~= "table" then
+		return
+	end
+	local t = os.time()
+	if (tonumber(live.LuckEnd) or 0) > t then
+		workspace:SetAttribute("AdminLuckMult", Config.AdminAbuse.LuckMult)
+		workspace:SetAttribute("AdminLuckEnd", tonumber(live.LuckEnd))
+	end
+	if (tonumber(live.MoneyEnd) or 0) > t then
+		workspace:SetAttribute("AdminMoneyEnd", tonumber(live.MoneyEnd))
+	end
+	if (tonumber(live.PartyEnd) or 0) > t then
+		workspace:SetAttribute("AdminPartyStart", tonumber(live.PartyStart) or t)
+		workspace:SetAttribute("AdminPartyEnd", tonumber(live.PartyEnd))
+	end
 end
 
 local function adminCommand(player: Player, arg: any)
@@ -3860,16 +3910,37 @@ local function adminCommand(player: Player, arg: any)
 	if type(cmd) ~= "string" or not ADMIN_CMDS[cmd] or not isAdmin(player) then
 		return
 	end
+	if cmd == "Pumpkin" and not halloweenNow() then
+		-- (fora do Halloween o ovo de abóbora prometia doces que não vinham)
+		return toast(player, "Pumpkin Rain only works during the Halloween event.", "info")
+	end
 	if os.clock() - (lastAdmin[cmd] or -1e9) < 10 then
 		return toast(player, "Wait a few seconds before using this again.", "info")
 	end
 	lastAdmin[cmd] = os.clock()
-	local payload = { Cmd = cmd, By = player.DisplayName, Id = HttpService:GenerateGUID(false) }
-	local ok = pcall(function()
-		MessagingService:PublishAsync(ADMIN_TOPIC, payload)
-	end)
+	local t = os.time()
+	local payload = { Cmd = cmd, By = player.DisplayName, Id = HttpService:GenerateGUID(false), At = t }
+	-- no Studio vale só no teste (nunca nos servidores de verdade)
+	local ok = false
+	if not RunService:IsStudio() then
+		if ADMIN_TIMED[cmd] then
+			local A = Config.AdminAbuse
+			local length = if cmd == "Party" then Config.Update.PartyMinutes * 60 else A.Minutes * 60
+			pcall(function()
+				AdminLive:UpdateAsync("live", function(old)
+					old = if type(old) == "table" then old else {}
+					old[cmd .. "Start"] = t
+					old[cmd .. "End"] = t + length
+					return old
+				end, math.max(A.Minutes, Config.Update.PartyMinutes) * 60 + 300)
+			end)
+		end
+		ok = pcall(function()
+			MessagingService:PublishAsync(ADMIN_TOPIC, payload)
+		end)
+	end
 	if not ok then
-		onAdminMessage(payload) -- sem MessagingService (Studio): vale só neste servidor
+		onAdminMessage(payload) -- Studio ou sem MessagingService: vale só neste servidor
 	end
 	custom(player, "AdminAbuse_" .. cmd)
 	toast(player, if ok then "Sent to ALL servers!" else "Started on this server (publish the game to reach all servers).", "success")
@@ -3938,7 +4009,13 @@ local function onRequest(player: Player, action: any, arg: any)
 		local index = if type(arg) == "table" then arg[1] else arg
 		local expected = if type(arg) == "table" then arg[2] else nil
 		local slot = type(index) == "number" and state.Data.Slots[index]
-		if not slot or (expected ~= nil and slot.Id ~= expected) then
+		-- v66.1: confere também mutação, tamanho e zona (dois cachorros iguais na lista: tocando rápido, a
+		-- posição velha apontava para o cachorro DOURADO e vendia sem pedir confirmação)
+		local mismatch = slot and type(arg) == "table" and arg[3] ~= nil and (
+			(slot.Mut or false) ~= arg[3]
+			or type(arg[4]) ~= "number" or math.abs(math.floor((slot.Scale or 1) * 100) / 100 - arg[4]) > 0.005
+			or (slot.Zone or 1) ~= arg[5])
+		if not slot or (expected ~= nil and slot.Id ~= expected) or mismatch then
 			net:FireClient(player, "Refresh") -- a tela refaz a lista
 			return
 		end
@@ -4480,7 +4557,7 @@ local function onPlayerAdded(player: Player)
 	if halloweenNow() and (data.Stolen or 0) > 0 then -- (v67: novato vê depois do 1º ovo, ver deliver)
 		task.delay(8, function()
 			if player.Parent then
-				banner(player, "\u{1F383} HALLOWEEN EVENT! Steal eggs for CANDY \u{1F36C} and visit the Candy Shop!", Color3.fromRGB(255, 140, 40))
+				banner(player, "\u{1F383} HALLOWEEN EVENT! Steal eggs for CANDY \u{1F36C} and visit the Candy Shop (Menu)!", Color3.fromRGB(255, 140, 40))
 			end
 		end)
 	end
@@ -4744,7 +4821,8 @@ function Game.Init()
 			end)
 		end)
 	end)
-	-- ADMIN ABUSE: ouve os comandos vindos de qualquer servidor
+	-- ADMIN ABUSE: entra nos eventos que já estão rolando e ouve os comandos vindos de qualquer servidor
+	task.spawn(restoreAdminLive)
 	task.spawn(function()
 		local ok, err = pcall(function()
 			MessagingService:SubscribeAsync(ADMIN_TOPIC, function(message)
